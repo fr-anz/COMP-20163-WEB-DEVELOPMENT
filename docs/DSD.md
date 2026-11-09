@@ -5,7 +5,7 @@
 | Version | 1.1 |
 | Date | 2026-11-09 |
 | Direction | **Contemporary Filipino craft — approved by user, 2026-11-09** |
-| Status | M0 shell and M1 discovery/catalog implemented; local runtime scope/checks are recorded in BUILD/README, not a claim that later commerce/viewer components exist |
+| Status | M0 shell, M1 discovery/catalog and M2 exterior inspection implemented locally; runtime scope/checks are recorded in BUILD/README, not a claim that later commerce/interior components exist |
 | Serves | [PRD.md](PRD.md) R1–R28, N1–N8 · [BUILD.md](BUILD.md) · [USER-JOURNEY.md](USER-JOURNEY.md) |
 
 **Craft first, commerce second.** Habi should feel handmade, contemporary, and distinctly
@@ -89,7 +89,7 @@ symbols. No emoji in UI. Icon-only controls need accessible names; touch targets
 ## 6. Planned Components
 
 The table below remains the product-wide plan, not a blanket shipped API list.
-M0/M1 implemented APIs are documented in §§13–14; later component states belong to their milestones.
+M0–M2 implemented APIs are documented in §§13–15; later component states belong to their milestones.
 
 | Component | Planned behavior and presentation |
 |---|---|
@@ -176,8 +176,8 @@ serve as 3D-modeling references for this non-real shop. This is not permission t
 
 ## 10. Accessibility & Verification Targets (R24, R25)
 
-These remain product-wide acceptance targets. M0/M1 runtime results are recorded in BUILD;
-they do not certify unimplemented checkout or viewer surfaces.
+These remain product-wide acceptance targets. M0–M2 runtime results are recorded in BUILD;
+they do not certify unimplemented checkout or interior-viewer surfaces.
 
 - WCAG 2.2 AA where applicable: text contrast ≥4.5:1, qualifying large text ≥3:1;
   necessary control boundaries/focus indicators ≥3:1 against adjacent colors. Measure real pairs.
@@ -215,10 +215,10 @@ selections under issue #1, not retroactive user approval of exact fonts/colors.
 
 **Still open before affected milestones:** final wordmark treatment, overlay shadows/easing,
 additional original/authorized assets, and any verified attribution. No reference attachments
-may be published. M0 seed configs do not establish actual viewer/model behavior.
+may be published. M2 exterior models do not establish actual products/materials or R5 interiors.
 
 **Approval scope:** the original interview approved the direction/specification. Requests
-to implement issues #1 and #2 authorize M0/M1, not later viewer/commerce/admin milestones.
+to implement issues #1–#3 authorize M0–M2, not later interior/commerce/admin milestones.
 
 ## 13. M0 Foundations
 
@@ -282,7 +282,7 @@ SIL OFL 1.1; intended use is local shell/display and UI text respectively.
 | `.btn.btn--primary` | Discovery/collection anchors and native Apply filters submit. Default/hover/focus-visible. No fake loading/disabled/async states; no secondary/danger variants shipped. |
 | `.pagination__link` / `--disabled` | Previous/Next preserve filters. Unavailable direction is noninteractive `aria-disabled` text; page status stays visible. |
 | `.empty-state--filtered` / `--catalog` | No matches offers Clear filters; no active bags offers Explore the weave. Neither hides navigation or claims a successful purchase. |
-| `.product-detail` in `product.twig` | Read-only real seed data, image/price/stock/dimensions and fictional labels, with Back to collection. Full R3 controls/viewer and cart remain later milestones. |
+| `.product-detail` in `product.twig` | Originally read-only in M1; M2 extends inspection and exterior viewing (§15). Actual cart behavior remains M4. |
 
 `--color-stock-low` supplies the readable low-stock foreground on the page surface;
 stock always has a text cue. Controls and product-name links retain ≥44 px touch
@@ -307,4 +307,33 @@ are original procedural artwork created for issue #2 on 2026-11-09, intended for
 fictional craft introduction/exploration. No supplied references, external photographs,
 maker biographies or traditional-pattern attribution are published. Existing font
 licenses and original seeded bag illustration provenance remain unchanged.
+
+
+## 15. Implemented M2 Exterior Inspection
+
+`/product/{slug}` keeps inspection quiet and separate from the expressive craft
+introduction. Original seed illustrations remain publication/fallback assets; generated
+3D models are illustrative approximations, not verified physical goods.
+
+| API/source | Use and supported states |
+|---|---|
+| `BagViewer(container, config)` in `viewer3d.js` | Synchronous first render or a named WebGL-unavailable error. `rotate(horizontalRadians, verticalRadians)`, `reset()`, `setAutoRotate(boolean)`, `setActive(boolean)`, `dispose()`. Hidden/page-hidden viewers stop rendering; ResizeObserver handles layout changes. |
+| `buildBag(config)` in `bagFactory.js` | Tote/open top/paired handles, satchel/flap/top handle, sling/crossbody strap, clutch/envelope/no handle. Backend dimensions, colors, handle style and material determine the exterior. Original canvas-generated rattan weave, canvas crosshatch and leather grain; no external images/models. |
+| Viewer motion | OrbitControls pointer/touch inertia; automatic orbit at 1.5°/s after three idle seconds, with a pause/resume control. Reduced motion disables automatic orbit and inertia, including live preference changes. Discrete rotation remains immediate. |
+| Studio surface | Reads canonical `--color-page`; original contact-shadow texture, key/fill/rim lighting. No craft pattern overlays inside the canvas. |
+| `.view-toggle__button` / `.gallery__thumb` | Native pressed-state mode/image buttons, with visible focus and named gallery views. JS reveals enhancements; without it the original image/details remain readable. Thumbnails are shown only when the product has multiple images. |
+| `.viewer__control`, `__retry`, `__status` | Rotation/tilt/reset/pause buttons; loading, ready, failed/retry and static fallback states. Reduced motion disables the automatic-rotation control with an explanation, never manual rotation. Control boundaries use `--color-control-border`. |
+| `.viewer-dialog` / `data-viewer-dialog` | Below 900 px, native fullscreen modal, labeled by product title, Close/Esc and explicit Tab/Shift+Tab boundary wrapping. Closing returns focus to the 3D button. The inline renderer is moved, not duplicated. |
+| `.product-detail__accordion` | Native `details > summary` materials/origin and dimensions; Enter/Space toggle, visible focus. Demonstration provenance remains explicit. |
+| `.qty`, `.btn:disabled` | Quantity and Add to bag/Sold out are native disabled controls with muted treatment and a persistent M4 explanation. No cart request or stock mutation exists. |
+
+Use a native button to rotate or switch modes; links remain navigation. Do not label
+an unavailable action “Peek inside” or imply that disabled M4 purchase controls add
+anything to a cart. No additional reusable block was extracted for this one screen.
+
+Asset provenance: geometry and canvas textures are original procedural artwork created
+for issue #3 (2026-11-09), intended for fictional product inspection. Pinned Three.js
+0.160.1 and matching OrbitControls are MIT-licensed; distribution links and upgrade
+instructions are in README, with the upstream license retained alongside the files.
+Supplied reference attachments are not published. Runtime evidence belongs in BUILD M2.
 

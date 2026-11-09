@@ -13,7 +13,7 @@ use Twig\Environment as TwigEnvironment;
 
 /**
  * Public storefront pages: home, catalog listing, product detail, and the
- * read-only stock API. Rendering is read-only; no cart or mutation scope.
+ * read-only stock/config APIs. Rendering has no cart or mutation scope.
  */
 final class StorefrontController
 {
@@ -103,6 +103,22 @@ final class StorefrontController
 
         return $response
             ->withStatus($status)
+            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('Cache-Control', 'no-store');
+    }
+
+    public function config3d(
+        ServerRequestInterface $request,
+        ResponseInterface $response,
+        array $args
+    ): ResponseInterface {
+        $config = $this->products->get3dConfig((string) ($args['slug'] ?? ''));
+        $response->getBody()->write(
+            json_encode($config ?? ['error' => 'Product not found'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)
+        );
+
+        return $response
+            ->withStatus($config === null ? 404 : 200)
             ->withHeader('Content-Type', 'application/json')
             ->withHeader('Cache-Control', 'no-store');
     }

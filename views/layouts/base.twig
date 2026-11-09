@@ -12,6 +12,7 @@
   {% block meta %}
   <meta name="description" content="Habi is an educational demo shop for handwoven-style bags. Craft-first storefront: the collection, product pages, and honest demo labels — cart and checkout arrive in later milestones.">
   {% endblock %}
+  {% block head %}{% endblock %}
   <link rel="stylesheet" href="/assets/css/app.css">
   <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
 </head>
@@ -64,5 +65,7 @@
       <p><small>Environment: {{ app_env }}</small></p>
     </div>
   </footer>
+
+  {% block scripts %}{% endblock %}
 </body>
 </html>

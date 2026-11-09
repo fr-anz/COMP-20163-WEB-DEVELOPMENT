@@ -8,7 +8,7 @@ use PDO;
 
 /**
  * Read-only queries for the public storefront catalog. Only active products
- * are ever returned; the 3D viewer configuration is never selected.
+ * are returned; procedural configs are fetched separately from catalog data.
  *
  * Money is integer centavos. Listing pages hold 6 products. Sorting is a
  * fixed allowlist so no user input ever reaches the ORDER BY clause.
@@ -138,7 +138,35 @@ final class ProductService
         $statement->execute(['slug' => $slug]);
         $row = $statement->fetch();
 
-        return $row === false ? null : $this->hydrate($row);
+        if ($row === false) {
+            return null;
+        }
+
+        $product = $this->hydrate($row);
+        $images = $this->pdo->prepare(
+            'SELECT path FROM product_images WHERE product_id = :id
+             ORDER BY is_primary DESC, sort_order ASC, id ASC'
+        );
+        $images->execute(['id' => $product['id']]);
+        $product['images'] = $images->fetchAll();
+
+        return $product;
+    }
+
+    /**
+     * Per-product procedural parameters, including for sold-out products.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function get3dConfig(string $slug): ?array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT three_config FROM products WHERE slug = :slug AND is_active = 1 LIMIT 1'
+        );
+        $statement->execute(['slug' => $slug]);
+        $config = $statement->fetchColumn();
+
+        return $config === false ? null : json_decode((string) $config, true, 512, JSON_THROW_ON_ERROR);
     }
 
     /**

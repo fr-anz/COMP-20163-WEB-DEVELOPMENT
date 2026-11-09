@@ -90,4 +90,34 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
             self::assertSame(1, $result['pages']);
         }
     }
+
+    public function testInspectionConfigRemainsAvailableWhenSoldOutButNotInactive(): void
+    {
+        $config = $this->products->get3dConfig('maya-clutch');
+        self::assertIsArray($config);
+        $this->database()->prepare('UPDATE products SET stock = 0 WHERE slug = ?')->execute(['maya-clutch']);
+        self::assertSame($config, $this->products->get3dConfig('maya-clutch'));
+        $this->database()->prepare('UPDATE products SET is_active = 0 WHERE slug = ?')->execute(['maya-clutch']);
+        self::assertNull($this->products->get3dConfig('maya-clutch'));
+        self::assertNull($this->products->get3dConfig('missing-bag'));
+    }
+
+    public function testDetailGalleryUsesPrimaryThenSortOrderWithoutMixingProducts(): void
+    {
+        $product = $this->products->getBySlug('sinag-tote');
+        $insert = $this->database()->prepare(
+            'INSERT INTO product_images (product_id, path, sort_order, is_primary) VALUES (?, ?, ?, ?)'
+        );
+        $insert->execute([$product['id'], '/side.svg', 2, 0]);
+        $insert->execute([$product['id'], '/back.svg', 1, 0]);
+
+        self::assertSame(
+            [
+                ['path' => $product['image_path']],
+                ['path' => '/back.svg'],
+                ['path' => '/side.svg'],
+            ],
+            $this->products->getBySlug('sinag-tote')['images']
+        );
+    }
 }

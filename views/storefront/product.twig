@@ -1,5 +1,6 @@
 {% extends "layouts/base.twig" %}
 {% import "macros/icons.twig" as icons %}
+{% set primary_image = (product.images[0].path ?? product.image_path) %}
 
 {% block title %}{{ product.name }} — {{ app_name }}{% endblock %}
 
@@ -7,8 +8,19 @@
 <meta name="description" content="{{ product.description|striptags }}">
 {% endblock %}
 
+{% block head %}
+<script type="importmap">
+{
+  "imports": {
+    "three": "/assets/vendor/three/three.module.php?v=0.160.1"
+  }
+}
+</script>
+<link rel="modulepreload" href="/assets/js/viewer3d.js">
+{% endblock %}
+
 {% block content %}
-  <article class="product-detail">
+  <article class="product-detail" data-product-page data-product-slug="{{ product.slug }}" data-fallback-image="{{ primary_image }}">
     <div class="shell">
       <p class="product-detail__back">
         <a class="link-quiet" href="/products">
@@ -18,11 +30,59 @@
       </p>
 
       <div class="product-detail__grid">
-        <figure class="product-detail__media">
-          <img src="{{ product.image_path }}"
-               alt="{{ product.name }} — illustrative demo illustration"
-               width="480" height="600">
-        </figure>
+        <div class="product-detail__media">
+          <div class="view-toggle" role="group" aria-label="Product view" hidden>
+            <button type="button" class="view-toggle__button" data-mode="photos" aria-pressed="true">Photos</button>
+            <button type="button" class="view-toggle__button" data-mode="3d" aria-pressed="false">3D view</button>
+          </div>
+          <noscript><p>JavaScript is needed for 3D inspection. The original illustration and product details remain available.</p></noscript>
+
+          <div data-photos-panel>
+            <figure class="gallery__stage">
+              <img data-gallery-image
+                   src="{{ primary_image }}"
+                   alt="{{ product.name }} — illustrative demo illustration"
+                   width="480" height="600">
+            </figure>
+
+            {% if product.images|length > 1 %}
+            <ul class="gallery__thumbs" data-gallery-thumbs hidden>
+              {% for image in product.images %}
+              <li>
+                <button type="button"
+                        class="gallery__thumb"
+                        data-gallery-thumb
+                        data-src="{{ image.path }}"
+                        aria-label="View {{ loop.index }} of {{ product.images|length }}"
+                        data-alt="{{ product.name }} — illustrative demo illustration, view {{ loop.index }} of {{ product.images|length }}"
+                        aria-pressed="{{ loop.first ? 'true' : 'false' }}">
+                  <img src="{{ image.path }}" alt="" width="64" height="80" loading="lazy">
+                </button>
+              </li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+
+          <div data-viewer-inline-slot>
+            <div class="viewer" data-viewer hidden>
+              <div class="viewer__stage">
+                <div class="viewer__holder" data-viewer-container></div>
+              </div>
+              <p class="viewer__status" data-viewer-status role="status"></p>
+              <div class="viewer__controls" data-viewer-controls hidden>
+                <button type="button" class="viewer__control" data-viewer-rotate data-h="-0.261799" data-v="0">Rotate left</button>
+                <button type="button" class="viewer__control" data-viewer-rotate data-h="0.261799" data-v="0">Rotate right</button>
+                <button type="button" class="viewer__control" data-viewer-rotate data-h="0" data-v="0.261799">Tilt up</button>
+                <button type="button" class="viewer__control" data-viewer-rotate data-h="0" data-v="-0.261799">Tilt down</button>
+                <button type="button" class="viewer__control" data-viewer-reset>Reset view</button>
+                <button type="button" class="viewer__control" data-viewer-pause>Pause rotation</button>
+              </div>
+              <p class="viewer__note" data-viewer-note hidden></p>
+              <p class="viewer__hint" data-viewer-hint hidden>Drag the bag to rotate it. It keeps turning on its own when left alone.</p>
+            </div>
+          </div>
+        </div>
 
         <div class="product-detail__info">
           <p class="product-detail__category">{{ product.category }}</p>
@@ -39,20 +99,58 @@
           {% endif %}
 
           <p class="product-detail__description">{{ product.description }}</p>
-          <p class="product-detail__materials">{{ product.materials }}</p>
-          <p class="product-detail__origin">{{ product.place_of_make }}</p>
-          <p class="product-detail__dimensions">
-            Dimensions: {{ product.dimensions.width }} &times;
-            {{ product.dimensions.height }} &times;
-            {{ product.dimensions.depth }} cm
-          </p>
 
-          <p class="product-detail__note">
-            Browsing is fully open &mdash; cart and checkout arrive in a later
-            milestone, and nothing here is for sale yet.
+          <details class="product-detail__accordion">
+            <summary>Materials &amp; origin</summary>
+            <div class="product-detail__accordion-body">
+              <p class="product-detail__materials">{{ product.materials }}</p>
+              <p class="product-detail__origin">Place of make: {{ product.place_of_make }}</p>
+              <p class="product-detail__origin-note">Demo information — not a factual product description.</p>
+            </div>
+          </details>
+
+          <details class="product-detail__accordion">
+            <summary>Dimensions</summary>
+            <div class="product-detail__accordion-body">
+              <p class="product-detail__dimensions">
+                {{ product.dimensions.width }} &times;
+                {{ product.dimensions.height }} &times;
+                {{ product.dimensions.depth }} cm
+              </p>
+            </div>
+          </details>
+
+          <div class="product-detail__purchase">
+            <span class="qty">
+              <label class="qty__label" for="product-qty">Qty</label>
+              <button type="button" class="qty__button" aria-label="Decrease quantity" disabled>&minus;</button>
+              <input class="qty__input" id="product-qty" name="quantity" value="1" inputmode="numeric" disabled aria-describedby="purchase-note">
+              <button type="button" class="qty__button" aria-label="Increase quantity" disabled>&plus;</button>
+            </span>
+            {% if product.stock == 0 %}
+              <button type="button" class="btn btn--primary" disabled>Sold out</button>
+            {% else %}
+              <button type="button" class="btn btn--primary" disabled>Add to bag</button>
+            {% endif %}
+          </div>
+          <p class="product-detail__purchase-note" id="purchase-note">
+            Quantity and &ldquo;Add to bag&rdquo; are disabled until milestone 4.
+            Checkout arrives later &mdash; browsing is fully open.
           </p>
         </div>
       </div>
     </div>
   </article>
+
+  <dialog class="viewer-dialog" data-viewer-dialog aria-labelledby="viewer-dialog-title">
+    <header class="viewer-dialog__header">
+      <h2 class="viewer-dialog__title" id="viewer-dialog-title">{{ product.name }} — 3D view</h2>
+      <button type="button" class="viewer-dialog__close" data-viewer-close autofocus>Close</button>
+    </header>
+    <div class="viewer-dialog__slot" data-viewer-dialog-slot></div>
+  </dialog>
 {% endblock %}
+{% block scripts %}
+<script src="/assets/js/product.js" defer></script>
+{% endblock %}
+
