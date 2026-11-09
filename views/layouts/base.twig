@@ -1,6 +1,6 @@
 {#-
   Habi shell layout. Receives exactly: app_name (string), app_env (string).
-  No catalog queries. Light theme only. Anchors: #main-content, #foundation.
+  No catalog queries. Light theme only. Anchors: #main-content, #craft, #explore.
 -#}
 {% import "macros/icons.twig" as icons %}
 <!doctype html>
@@ -10,7 +10,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ app_name }} — woven bags, woven with care{% endblock %}</title>
   {% block meta %}
-  <meta name="description" content="Habi is an educational demo shop for handwoven-style bags. Craft-first design study: the foundation shell, not a real store.">
+  <meta name="description" content="Habi is an educational demo shop for handwoven-style bags. Craft-first storefront: the collection, product pages, and honest demo labels — cart and checkout arrive in later milestones.">
   {% endblock %}
   <link rel="stylesheet" href="/assets/css/app.css">
   <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
@@ -26,8 +26,9 @@
       </a>
       <nav class="site-nav" aria-label="Primary">
         <ul class="site-nav__list">
-          <li><a class="nav-link" href="/">Welcome</a></li>
-          <li><a class="nav-link" href="/#foundation">The weave</a></li>
+          <li><a class="nav-link" href="/#craft">Craft</a></li>
+          <li><a class="nav-link" href="/#explore">Explore</a></li>
+          <li><a class="nav-link" href="/products">Collection</a></li>
         </ul>
       </nav>
       <p class="demo-tag">Demo shop</p>
@@ -47,14 +48,15 @@
           fictional; no real sales or payments happen here.
         </p>
         <p class="site-footer__notice">
-          The full collection, product pages, cart, and checkout are still being
-          woven &mdash; they arrive in later milestones.
+          The cart and checkout are still being woven &mdash; they arrive in
+          later milestones.
         </p>
       </div>
       <nav aria-label="Footer">
         <ul class="site-footer__links">
-          <li><a href="/">Welcome</a></li>
-          <li><a href="/#foundation">The weave</a></li>
+          <li><a href="/#craft">Craft</a></li>
+          <li><a href="/#explore">Explore</a></li>
+          <li><a href="/products">Collection</a></li>
         </ul>
       </nav>
     </div>

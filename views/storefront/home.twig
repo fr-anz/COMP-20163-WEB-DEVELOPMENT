@@ -1,79 +1,100 @@
 {% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
 
 {% block title %}{{ app_name }} — the weave comes first{% endblock %}
 
+{% block meta %}
+<meta name="description" content="Habi is a craft-first demo shop: every bag is an original woven-style illustration, the cart and checkout are still on the loom, and nothing is for sale yet.">
+{% endblock %}
+
 {% block content %}
-  {% import "macros/icons.twig" as icons %}
   <section class="hero" aria-labelledby="hero-title">
     <div class="shell">
       <p class="hero__kicker">A craft-first study in woven bags</p>
       <h1 class="hero__title" id="hero-title">The weave comes first.</h1>
       <p class="hero__lede">
-        Habi means <em>weave</em> in Filipino. It is also the idea of this shop:
-        bags built from interlaced fiber, honest structure, and color used
-        sparingly. Look closely before you look to buy &mdash; the craft leads,
-        the shopping follows.
+        Habi means <em>weave</em> in Filipino. Follow the crossing of a strand,
+        the rhythm of a pattern, and the shape of a bag. Take a closer look;
+        shopping can wait.
       </p>
       <p class="hero__actions">
-        <a class="btn btn--primary" href="#foundation">
+        <a class="btn btn--primary" href="#craft">
           Discover the weave
           {{ icons.icon('arrow-down') }}
         </a>
+        <a class="link-quiet" href="#explore">
+          Skip introduction
+          {{ icons.icon('arrow-right') }}
+        </a>
       </p>
-      <p class="hero__note">
-        This is the foundation of the site. The full collection and checkout
-        arrive in later milestones &mdash; nothing is for sale yet.
+      <figure class="hero__composition">
+        <img src="/assets/img/craft-weave.svg"
+             alt="Woven-frame illustration: interlaced fiber strips frame three material studies and a quiet Habi demo tote — original procedural artwork for this fictional demo shop"
+             width="800" height="520">
+        <figcaption>
+          Original material-and-bag studies for this fictional demo. Illustrations,
+          not photographs or verified material samples.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="craft" id="craft" aria-labelledby="craft-title">
+    <div class="shell">
+      <h2 class="craft__title" id="craft-title">The weave, up close</h2>
+      <p class="craft__text">
+        A weave takes shape where two sets of strands cross. A close, even
+        rhythm makes a surface; a change in color makes that rhythm visible.
+        Look for the same idea in a bag’s panels, edges, and handles.
+      </p>
+      <p class="craft__text">
+        These are illustrative studies, not accounts of a particular maker or
+        community. Product material and origin labels are unverified demo descriptions.
       </p>
     </div>
   </section>
 
-  <section class="foundation" id="foundation" aria-labelledby="foundation-title">
+  <section class="explore" id="explore" aria-labelledby="explore-title">
     <div class="shell">
-      <h2 class="foundation__title" id="foundation-title">The foundation, honestly laid</h2>
-      <p class="foundation__lede">
-        What you are looking at right now is the whole of milestone zero:
-        the accessible page shell, the type and color system, and the licensed
-        fonts that will carry every page after this one.
+      <h2 class="explore__title" id="explore-title">Follow a thread. Find a form.</h2>
+      <p class="explore__lede">
+        Open either material study, in any order. Then explore the bag illustrations
+        below &mdash; no purchase, account, or next step required.
       </p>
-
-      <div class="foundation__grid">
-        <div class="foundation__panel">
-          <h3>Colors of the loom</h3>
-          <p>Warm cream and fiber tones carry the page; rust, mustard, moss,
-             and river blue appear only as accents.</p>
-          <ul class="swatches">
-            <li class="swatch"><span class="swatch__chip swatch__chip--cream" aria-hidden="true"></span> Cream</li>
-            <li class="swatch"><span class="swatch__chip swatch__chip--rust" aria-hidden="true"></span> Rust</li>
-            <li class="swatch"><span class="swatch__chip swatch__chip--mustard" aria-hidden="true"></span> Mustard</li>
-            <li class="swatch"><span class="swatch__chip swatch__chip--moss" aria-hidden="true"></span> Moss</li>
-            <li class="swatch"><span class="swatch__chip swatch__chip--river" aria-hidden="true"></span> River</li>
-          </ul>
-        </div>
-
-        <div class="foundation__panel">
-          <h3>Lettering</h3>
-          <p class="type-specimen" lang="en">Ag</p>
-          <p>Headings are set in Bricolage Grotesque; everything you read is
-             DM Sans. Both are open-licensed and served from this site.</p>
-        </div>
-
-        <div class="foundation__panel">
-          <h3>Still on the loom</h3>
-          <ul class="loom-list">
-            <li>Browsing the full collection of bags</li>
-            <li>Product pages with a close-up 3D view</li>
-            <li>A demo cart and simulated checkout</li>
-          </ul>
-          <p>Each of these is described, not linked &mdash; the pages do not
-             exist yet, and we do not pretend otherwise.</p>
-        </div>
+      <div class="material-studies">
+        <details class="material-study">
+          <summary>Natural fiber &mdash; follow the crossing</summary>
+          <div class="material-study__body">
+            <div class="material-study__weave" role="img" aria-label="Original diagram of light and dark strands crossing in a regular woven grid"></div>
+            <p>Trace a pale strand across the darker ones. Repeated crossings
+              suggest the structure of a woven panel; the warm tones here are
+              a drawing choice, not proof of a particular fiber.</p>
+          </div>
+        </details>
+        <details class="material-study">
+          <summary>Colorful textile &mdash; find the rhythm</summary>
+          <div class="material-study__body">
+            <div class="material-study__weave material-study__weave--textile" role="img" aria-label="Original interlaced color study with rust, yellow, green, and blue bands"></div>
+            <p>Follow a blue band across rust, yellow, and green. Changing the
+              color makes the crossing rhythm stand out. This is an original
+              pattern study, not a named traditional textile.</p>
+          </div>
+        </details>
       </div>
-
-      <p class="foundation__back">
-        <a class="link-quiet" href="#main-content">
-          Back to the top
+      <ul class="product-grid">
+        {% for product in featured_products %}
+          {% include 'storefront/_product-card.twig' with { product: product } only %}
+        {% endfor %}
+      </ul>
+      <p class="explore__actions">
+        <a class="btn btn--primary" href="/products">
+          Browse the full collection
           {{ icons.icon('arrow-right') }}
         </a>
+      </p>
+      <p class="explore__note">
+        You can stop here &mdash; the craft story, the material studies, and the
+        bag illustrations stand on their own. Shopping is optional.
       </p>
     </div>
   </section>

@@ -48,6 +48,40 @@ Human PR review/merge remains pending; Docker/hosted N6 checks remain M8.
 - C: craft home (R1), listing page w/ search/filter/sort/pagination (R2), product card component, empty state.
 - **Done when:** R1, R2 work end-to-end; 10 seeded products browsable/filterable; PRD acceptance green. **M1 acceptance:** short skippable intro + free exploration + optional commerce visible (DSD §7).
 
+M1 local implementation (issue #2, branch `a/m1-catalog-discovery`):
+- `ProductService`/`StorefrontController` implement active-only listing, literal search,
+  category, deterministic price/newest sorting, six-per-page pagination, slug lookup and stock JSON.
+- `/product/{slug}` offers read-only seed-data inspection for discovery navigation;
+  full R3 controls/viewer and cart behavior remain M2/M4.
+- Essential PHP checks, 2026-11-09: `vendor/bin/phpunit tests/Services/ProductServiceTest.php`
+  → **5 tests / 32 assertions**; `vendor/bin/phpunit tests/Bootstrap`
+  → **7 tests / 239 assertions**; `composer cs && composer lint` → pass.
+- Actual stock API smoke: Sinag → 200 JSON (stock 12, threshold 3, `no-store`);
+  missing slug → 404 JSON. Runtime uses an isolated temporary SQLite database, not local inventory.
+- Browser R1/R2 acceptance, 2026-11-09, Chromium at **1280×900 / 360×800**:
+  - Tab/Enter skip-to-main focuses main; Skip introduction lands at exploration before
+    any shopping. Enter/Space toggles material studies; touch opens the colorful study.
+  - All 10 bags browsed across two pages. Price asc/desc and newest verified across
+    both pages; `q=canvas&category=Tote&sort=price_desc` finds Alon and retains controls.
+    `q=demo&sort=price_asc` survives Next; `q=no-such-bag` shows correction/reset.
+  - Isolated fixture stock 0 remains visible as Sold out on listing/detail; existing
+    low-stock Gabi shows Only 3 left. No-active-product fixture shows an empty catalog
+    with a working return to material exploration; inactive stock lookup returns 404.
+    Fixture restored afterward. Missing detail gives a public 404; live stock tracks DB changes.
+  - No horizontal overflow on home, catalog or read-only detail at 360 px.
+    Relevant navigation/disclosure/form/product-name targets ≥44 px; visible keyboard focus.
+    Local fonts and seeded images load. No motion or JavaScript prerequisite introduced.
+  - Actual contrast: secondary text/control boundary **7.84:1**, action/low stock **5.68:1**,
+    focus on page **8.20:1**, footer notice **9.54:1**.
+- Local screenshot evidence: wide expanded exploration
+  `/tmp/omp-sshots-15c76039b694af21.webp`; narrow opening
+  `/tmp/omp-sshots-15c76039da4ac206.webp`. Consumer checks used the isolated dev server
+  `php -S 127.0.0.1:8012 -t public` with temporary DB/admin environment, never real inventory.
+- `npx --no-install contextspine check` → **0 failures, 31 warnings** for the existing
+  missing IDEA/RESEARCH/QAD pipeline documents and QAD requirement coverage. No new pipeline scope added.
+- Human cross-track PR review and merge remain pending; no commit/push/deploy performed.
+
+
 ### M2 — Product detail + 3D viewer MVP (A + B + C)
 - A: product detail route (R3), `GET /api/product/{slug}/3d` (R6).
 - B: `BagViewer` class, `bagFactory` for 4 shapes, OrbitControls w/ damping + idle auto-rotate (R4),

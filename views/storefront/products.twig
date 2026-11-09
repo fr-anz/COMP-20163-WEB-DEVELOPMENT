@@ -1,0 +1,97 @@
+{% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
+
+{% set has_filters = q != '' or category != '' or sort != 'newest' %}
+
+{% block title %}The collection — {{ app_name }}{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Browse the Habi collection: woven-style bags across {{ categories|length }} categories. Search, filter by category, and sort by price or date — no purchase required.">
+{% endblock %}
+
+{% block content %}
+  <section class="collection" aria-labelledby="collection-title">
+    <div class="shell">
+      <h1 class="collection__title" id="collection-title">The collection</h1>
+      <p class="collection__lede">
+        A quiet grid of woven-style bags. Every card is an original illustration
+        with honest labels &mdash; search, filter, and sort without any purchase
+        pressure.
+      </p>
+
+      <form class="collection-filters" method="get" action="/products" aria-label="Filter the collection">
+        <div class="collection-filters__field">
+          <label class="collection-filters__label" for="filter-q">Search</label>
+          <input class="collection-filters__input" type="search" id="filter-q" name="q"
+                 value="{{ q }}" placeholder="e.g. tote, sling, clutch">
+        </div>
+        <div class="collection-filters__field">
+          <label class="collection-filters__label" for="filter-category">Category</label>
+          <select class="collection-filters__select" id="filter-category" name="category">
+            <option value="">All categories</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}"{% if cat == category %} selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="collection-filters__field">
+          <label class="collection-filters__label" for="filter-sort">Sort</label>
+          <select class="collection-filters__select" id="filter-sort" name="sort">
+            <option value="newest"{% if sort == 'newest' %} selected{% endif %}>Newest</option>
+            <option value="price_asc"{% if sort == 'price_asc' %} selected{% endif %}>Price: low to high</option>
+            <option value="price_desc"{% if sort == 'price_desc' %} selected{% endif %}>Price: high to low</option>
+          </select>
+        </div>
+        <div class="collection-filters__actions">
+          <button class="btn btn--primary" type="submit">Apply filters</button>
+        </div>
+      </form>
+
+      <p class="collection-count">
+        Showing {{ products|length }} of {{ total }} bags{% if has_filters %} &middot; <a class="link-quiet" href="/products">Clear filters</a>{% endif %}
+      </p>
+
+      {% if products|length > 0 %}
+        <ul class="product-grid">
+          {% for product in products %}
+            {% include 'storefront/_product-card.twig' with { product: product } only %}
+          {% endfor %}
+        </ul>
+      {% elseif has_filters %}
+        <div class="empty-state empty-state--filtered">
+          <h2>No bags match those filters</h2>
+          <p>Try a different search term or category &mdash; or clear the filters
+             to see the whole collection.</p>
+          <p><a class="link-quiet" href="/products">Clear filters</a></p>
+        </div>
+      {% else %}
+        <div class="empty-state empty-state--catalog">
+          <h2>The collection is empty</h2>
+          <p>There are no active bags to browse right now. The material studies
+             are still open, with no shopping required.</p>
+          <p><a class="link-quiet" href="/#explore">Explore the weave</a></p>
+        </div>
+      {% endif %}
+
+      {% if pages > 1 %}
+        <nav class="pagination" aria-label="Collection pages">
+          {% if previous_url %}
+            <a class="pagination__link" href="{{ previous_url }}" rel="prev">
+              {{ icons.icon('arrow-left') }} Previous
+            </a>
+          {% else %}
+            <span class="pagination__link pagination__link--disabled" aria-disabled="true">Previous</span>
+          {% endif %}
+          <p class="pagination__status">Page {{ page }} of {{ pages }}</p>
+          {% if next_url %}
+            <a class="pagination__link" href="{{ next_url }}" rel="next">
+              Next {{ icons.icon('arrow-right') }}
+            </a>
+          {% else %}
+            <span class="pagination__link pagination__link--disabled" aria-disabled="true">Next</span>
+          {% endif %}
+        </nav>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

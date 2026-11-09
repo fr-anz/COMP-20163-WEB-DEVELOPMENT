@@ -88,10 +88,11 @@ Admin: same app, routes under /admin behind AdminAuthMiddleware (R19)
 ├── Dockerfile  railway.json  render.yaml  .env.example  composer.json  README.md
 ```
 
-M0 implements only `GET /` directly in `public/index.php`; `src/Bootstrap/` handles
-initialization/catalog seeding, `src/Support/` environment/PDO helpers, and `src/Console/`
-the explicit reset command. The controller/service/viewer/admin paths above describe
-later milestones, not empty placeholder directories. See README/BUILD for runtime status.
+M1 implements home, catalog, read-only product inspection and stock JSON through
+`Controllers/StorefrontController` and `Services/ProductService`, registered in
+`public/index.php`. `src/Bootstrap/` handles initialization/catalog seeding,
+`src/Support/` environment/PDO helpers, and `src/Console/` the explicit reset command.
+Other controller/service/viewer/admin paths above remain later milestones.
 
 ## 5. Data Model
 
@@ -142,6 +143,14 @@ Indexes: `products(slug)`, `products(category,is_active)`, `orders(order_number)
 | GET/POST | `/admin/products…` | Product CRUD + image upload (R20, R23) | admin |
 | POST | `/admin/products/{id}/stock` | Stock adjust + audit (R21, R18) | admin |
 | GET | `/admin/orders…` | List/detail/status update, cancel restores stock (R22) | admin |
+
+Implemented stock response: `{slug, stock, low_stock_threshold}` with `Cache-Control:
+no-store`; missing/inactive products return JSON 404 `{error: "Product not found"}`.
+M1 listing uses six products per page, combines literal name/description/material search
+with category, and preserves filters in pagination. Supported sort values are `newest`,
+`price_asc`, `price_desc`; unknown sort defaults to newest. Creation date and ID provide
+deterministic newest order. Out-of-range pages clamp to available pages. Product detail
+is read-only in M1; full R3 controls and viewer remain M2/M4.
 
 All POST routes pass `CsrfMiddleware`; all templates use Twig auto-escape (N2).
 
@@ -280,8 +289,10 @@ SQLite remains the current target; no migration implementation requested.
 ---
 
 > **Implementation boundary:** M0 supplies the PHP/Twig shell, environment/PDO bootstrap,
-> initial SQLite schema and fictional seed catalog. Runtime evidence belongs in BUILD, not
-> in the planned architecture descriptions above. Supplied images remain inspiration/modeling
-> references only, never publication assets or proof of provenance. Original SVG illustrations
-> are the seed image format; viewer models/textures, commerce, admin and deployment remain
-> later milestones. PRD R1–R28, N1–N8 remain the target traceability baseline.
+> initial SQLite schema and fictional seed catalog. M1 adds R1/R2 craft discovery and
+> catalog, active product lookup/read-only inspection, and stock JSON. Runtime evidence
+> belongs in BUILD, not in the planned architecture descriptions above. Supplied images
+> remain inspiration/modeling references only, never publication assets or proof of
+> provenance. Original SVG illustrations are the seed image format; viewer models/textures,
+> commerce, admin and deployment remain later milestones. PRD R1–R28, N1–N8 remain the
+> target traceability baseline.

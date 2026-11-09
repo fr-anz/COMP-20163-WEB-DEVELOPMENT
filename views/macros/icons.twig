@@ -7,6 +7,7 @@
 {%~ set paths = {
     'arrow-right': '<path d="M4 12h15"/><path d="m13 6 6 6-6 6"/>',
     'arrow-down': '<path d="M12 4v15"/><path d="m6 13 6 6 6-6"/>',
+    'arrow-left': '<path d="M20 12H5"/><path d="m11 6-6 6 6 6"/>',
     'weave': '<path d="M4 8h16"/><path d="M4 16h16"/><path d="M8 4v16"/><path d="M16 4v16"/>',
 } ~%}
 <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">{{ paths[name]|raw }}</svg>

@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Habi\Bootstrap\Initializer;
+use Habi\Controllers\StorefrontController;
 use Habi\Middleware\ErrorHandler;
+use Habi\Services\ProductService;
 use Habi\Support\Database;
 use Habi\Support\Env;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -55,16 +57,32 @@ $app->add(function (
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(new ErrorHandler($psr17Factory));
 
-$app->get('/', function (
+// The controller is built inside each route handler so the database
+// connection is only opened after the first-boot middleware has run.
+$storefront = static function () use ($twig): StorefrontController {
+    return new StorefrontController($twig, new ProductService(Database::connection()));
+};
+
+$app->get('/', fn (
     ServerRequestInterface $request,
     ResponseInterface $response
-) use ($twig): ResponseInterface {
-    $response->getBody()->write($twig->render('storefront/home.twig', [
-        'app_name' => 'Habi',
-        'app_env' => (string) Env::get('APP_ENV', 'local'),
-    ]));
+): ResponseInterface => $storefront()->home($request, $response));
 
-    return $response->withHeader('Content-Type', 'text/html; charset=UTF-8');
-});
+$app->get('/products', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $storefront()->products($request, $response));
+
+$app->get('/product/{slug}', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $storefront()->product($request, $response, $args));
+
+$app->get('/api/product/{slug}/stock', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $storefront()->stock($request, $response, $args));
 
 $app->run();

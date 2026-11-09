@@ -1,0 +1,32 @@
+{#-
+  Habi quiet product card. Receives exactly: product (one ProductService row).
+  Original seeded illustration, linked name/image, price/category/stock text.
+  No commerce controls in M1 — cart and checkout arrive in a later milestone.
+-#}
+<li>
+<article class="product-card">
+  <a class="product-card__media" href="/product/{{ product.slug }}">
+    <img src="{{ product.image_path }}"
+         alt="{{ product.name }} — illustrative demo illustration"
+         width="480" height="600" loading="lazy" decoding="async">
+  </a>
+  <div class="product-card__body">
+    <p class="product-card__category">{{ product.category }}</p>
+    <h3 class="product-card__name">
+      <a href="/product/{{ product.slug }}">{{ product.name }}</a>
+    </h3>
+    <p class="product-card__price">
+      ₱{{ (product.price_centavos / 100)|number_format(2, '.', ',') }}
+    </p>
+    {% if product.stock == 0 %}
+      <p class="product-card__stock product-card__stock--out">Sold out</p>
+    {% elseif product.stock <= product.low_stock_threshold %}
+      <p class="product-card__stock product-card__stock--low">Only {{ product.stock }} left</p>
+    {% else %}
+      <p class="product-card__stock">In stock</p>
+    {% endif %}
+    <p class="product-card__materials">{{ product.materials }}</p>
+    <p class="product-card__origin">{{ product.place_of_make }}</p>
+  </div>
+</article>
+</li>
