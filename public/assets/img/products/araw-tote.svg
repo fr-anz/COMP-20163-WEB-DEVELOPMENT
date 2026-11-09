@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Illustration of the araw-tote bag">
+  <rect width="800" height="1000" fill="#F8F2E3"/>
+  <rect x="48" y="48" width="704" height="904" rx="28" fill="none" stroke="#96702E" stroke-width="2" opacity="0.35"/>
+  <g stroke="#D19A3F" stroke-width="7" stroke-linecap="round">
+    <circle cx="400" cy="200" r="34" fill="#D19A3F" stroke="none"/>
+    <path d="M400 138v-20M400 282v-20M338 200h-20M482 200h-20M356 156l-14-14M458 258l-14-14M458 142l-14 14M342 258l14-14" fill="none"/>
+  </g>
+  <ellipse cx="400" cy="782" rx="180" ry="18" fill="#96702E" opacity="0.14"/>
+<defs>
+  <pattern id="weave-araw-tote" width="32" height="32" patternUnits="userSpaceOnUse">
+    <rect width="32" height="32" fill="#E3C078"/>
+    <path d="M16 1L31 16L16 31L1 16Z" fill="none" stroke="#C7A052" stroke-width="2.5" opacity="0.45"/>
+  </pattern>
+</defs>
+  <path d="M310 434C310 326 490 326 490 434" fill="none" stroke="#96702E" stroke-width="15"/>
+  <path d="M342 434C342 352 458 352 458 434" fill="none" stroke="#96702E" stroke-width="12"/>
+  <path d="M270 434L530 434L556 730Q558 756 532 756L268 756Q242 756 244 730Z" fill="url(#weave-araw-tote)" stroke="#96702E" stroke-width="6"/>
+  <path d="M270 470H530" stroke="#96702E" stroke-width="6" opacity="0.55"/>
+</svg>
+

@@ -1,0 +1,66 @@
+{#-
+  Habi shell layout. Receives exactly: app_name (string), app_env (string).
+  No catalog queries. Light theme only. Anchors: #main-content, #foundation.
+-#}
+{% import "macros/icons.twig" as icons %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }} — woven bags, woven with care{% endblock %}</title>
+  {% block meta %}
+  <meta name="description" content="Habi is an educational demo shop for handwoven-style bags. Craft-first design study: the foundation shell, not a real store.">
+  {% endblock %}
+  <link rel="stylesheet" href="/assets/css/app.css">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="shell">
+      <a class="wordmark" href="/">
+        <span class="wordmark__mark" aria-hidden="true">{{ icons.icon('weave') }}</span>
+        <span class="wordmark__text">{{ app_name }}</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <ul class="site-nav__list">
+          <li><a class="nav-link" href="/">Welcome</a></li>
+          <li><a class="nav-link" href="/#foundation">The weave</a></li>
+        </ul>
+      </nav>
+      <p class="demo-tag">Demo shop</p>
+    </div>
+  </header>
+
+  <main id="main-content" class="site-main" tabindex="-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell site-footer__grid">
+      <div>
+        <p class="site-footer__wordmark">{{ app_name }}</p>
+        <p class="site-footer__notice">
+          Habi is an educational demo shop. Products, prices, and stock are
+          fictional; no real sales or payments happen here.
+        </p>
+        <p class="site-footer__notice">
+          The full collection, product pages, cart, and checkout are still being
+          woven &mdash; they arrive in later milestones.
+        </p>
+      </div>
+      <nav aria-label="Footer">
+        <ul class="site-footer__links">
+          <li><a href="/">Welcome</a></li>
+          <li><a href="/#foundation">The weave</a></li>
+        </ul>
+      </nav>
+    </div>
+    <div class="shell site-footer__meta">
+      <p><small>Environment: {{ app_env }}</small></p>
+    </div>
+  </footer>
+</body>
+</html>

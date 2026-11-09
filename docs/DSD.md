@@ -5,7 +5,7 @@
 | Version | 1.1 |
 | Date | 2026-11-09 |
 | Direction | **Contemporary Filipino craft — approved by user, 2026-11-09** |
-| Status | Design specification only; no app, CSS tokens, components, or runtime verification yet |
+| Status | M0 shell implemented; verified local runtime scope is recorded in BUILD/README, not a claim that all planned components exist |
 | Serves | [PRD.md](PRD.md) R1–R28, N1–N8 · [BUILD.md](BUILD.md) · [USER-JOURNEY.md](USER-JOURNEY.md) |
 
 **Craft first, commerce second.** Habi should feel handmade, contemporary, and distinctly
@@ -33,9 +33,10 @@ rust, yellow, green, and blue accents. Use a limited subset within each section,
 accent everywhere. Colorful textiles are the reference; burgundy/olive/metallic-gold luxury
 styling is no longer the governing palette.
 
-Exact hex values are **open**, not approved or contrast-verified. At implementation,
-define raw palette values once in `public/assets/css/app.css`, then map purpose-named roles
-to them. No stylesheet currently exists. Do not reuse the retired palette as an approved token set.
+M0 implements exact palette values in `public/assets/css/app.css`: warm cream/fiber,
+dark brown, rust action, yellow/green/blue accents. These are implementation selections,
+not values approved in the earlier interview. Raw values live once in `:root`; components
+consume purpose-named roles. Runtime contrast checks are recorded with milestone evidence.
 
 | Planned role | Purpose |
 |---|---|
@@ -56,9 +57,10 @@ background and control-boundary pairs before claiming accessibility (§10).
 The wordmark and a few short headings carry character; body text, prices, forms, navigation,
 and admin tables prioritize legibility. Do not decorate every heading or imitate another brand's lettering.
 
-**Open:** exact display/UI font families, wordmark treatment, licensing, and loading strategy.
-The former Fraunces/Inter pairing is not a retained requirement. Select and inspect licensed
-specimens before locking font choices; do not claim a custom font or logo has been made.
+**M0 selection (implementation decision):** locally hosted Bricolage Grotesque for display/
+wordmark and DM Sans for interface/body text. Both use SIL OFL 1.1; license files are shipped
+in `public/assets/fonts/`. These are inspected shell specimens, not custom lettering or an
+approved final logo. Narrow/wide shell checks and measured contrast are recorded in BUILD evidence.
 
 Existing scale retained as a starting specification: base 16 px; display 3 rem, h1 2.25,
 h2 1.75, h3 1.375, body 1, small .875, caption .75. Headings line-height 1.15; body 1.6.
@@ -86,8 +88,8 @@ symbols. No emoji in UI. Icon-only controls need accessible names; touch targets
 
 ## 6. Planned Components
 
-All APIs/classes below describe future Twig macros/CSS with `data-*` JS hooks, not shipped exports.
-Choose actual selectors during BUILD M0; keep one canonical stylesheet and documented variants.
+The table below remains the product-wide plan, not a shipped API list. M0 implements only
+the shell subset documented in §13; later component states belong to their milestones.
 
 | Component | Planned behavior and presentation |
 |---|---|
@@ -174,7 +176,8 @@ serve as 3D-modeling references for this non-real shop. This is not permission t
 
 ## 10. Accessibility & Verification Targets (R24, R25)
 
-These are acceptance targets, **not completed checks**. No runnable surface currently exists.
+These remain product-wide acceptance targets. M0 shell runtime results are recorded in BUILD;
+they do not certify unimplemented catalog, checkout or viewer surfaces.
 
 - WCAG 2.2 AA where applicable: text contrast ≥4.5:1, qualifying large text ≥3:1;
   necessary control boundaries/focus indicators ≥3:1 against adjacent colors. Measure real pairs.
@@ -206,10 +209,61 @@ Use stable semantic roles so later theme work would not require one-off componen
 | PHP/Twig/vanilla JS, procedural Three.js, commerce/admin requirements | Existing-preserved | Current course/architecture constraints; no rewrite requested |
 | Spacing/type scale, light-only theme, responsive viewer arrangement | Existing-preserved | Retain useful foundations unless actual specimens reveal a conflict |
 
-**Open before affected implementation:** exact licensed fonts/wordmark, tested color pairs,
-shadow/easing values, publishable original/authorized assets, verified attribution if used,
-and per-product procedural configurations. These are not remaining brand-name decisions or
-permission to publish references. Do not treat unspecified choices as user-approved defaults.
+**M0 implementation choices:** local Bricolage Grotesque/DM Sans, canonical warm palette,
+original SVG shell motifs and fictional product illustrations/configs. These are engineering
+selections under issue #1, not retroactive user approval of exact fonts/colors.
 
-**Approval scope:** design brief/specification and document reconciliation only. No app,
-component, token, 3D model, deployment, or runtime accessibility result is delivered by this revision.
+**Still open before affected milestones:** final wordmark treatment, overlay shadows/easing,
+additional original/authorized assets, and any verified attribution. No reference attachments
+may be published. M0 seed configs do not establish actual viewer/model behavior.
+
+**Approval scope:** the original interview approved the direction/specification. The later
+request to implement issue #1 authorizes the M0 shell and data foundation, not M1–M8.
+
+## 13. Implemented M0 Shell
+
+Preview: follow [README](../README.md), then open `/`. The page itself is the live font,
+palette and shell specimen and imports canonical `app.css`; no duplicate preview stylesheet.
+
+| API/source | Use and states |
+|---|---|
+| `.btn.btn--primary` in `views/storefront/home.twig` | Anchor navigation to the existing foundation section. Default/hover/focus-visible; native Enter activation. No disabled/loading/toggle state because it is a navigation link. No secondary/danger/small variants shipped. |
+| `.nav-link`, `.link-quiet` | Named text links for existing routes/anchors. Hover underline/color and visible focus; no selected or validation state. Use a real button instead if an action changes application state. |
+| `.skip-link` → `main#main-content[tabindex="-1"]` | First keyboard link, revealed on focus; moves to the main content. No dialog or focus trap exists. |
+| `.demo-tag`, `.site-footer__notice` | Static, explicit educational/fictional identification. Not a stock, success or payment badge. |
+| `icons.icon(name)` in `views/macros/icons.twig` | `weave`, `arrow-down`, `arrow-right`; decorative SVG alongside named text. Import explicitly in each consuming Twig template. Never pass product/user HTML or rely on an icon alone for a name. |
+| `.foundation__panel` | Repeated specimen panels on this one shell page. Not an extracted storefront/material-selector block or an implemented catalog component. |
+
+Good navigation composition (implemented API):
+
+```html
+<a class="btn btn--primary" href="#foundation">Discover the weave</a>
+```
+
+Bad usage (not shipped): `class="btn btn--danger"` invents an unimplemented variant;
+an anchor with `href="#"` and an Add-to-cart label would imply nonexistent behavior.
+
+Fonts are local WOFF2 with `font-display: swap`; Bricolage Grotesque display and DM Sans
+400/500/700 UI text. SIL OFL 1.1 notices in `public/assets/fonts/` retain author/source links:
+[Bricolage](https://github.com/ateliertriay/bricolage) and
+[DM Sans](https://github.com/googlefonts/dm-fonts). CSS/SVG framing and seeded illustrations
+are original procedural assets, not supplied photographs. No custom font/logo or actual maker
+provenance is claimed.
+
+The shell is flat, light-only and motion-free: no loading/success/error interaction, form,
+modal, drawer or animation has been added merely to demonstrate a planned component.
+Screen review instructions: `design-system/skills/review-screen/SKILL.md` (manual guide).
+
+### Font provenance (downloaded 2026-11-09)
+
+Source metadata: [Bricolage Grotesque v9](https://gwfh.mranftl.com/api/fonts/bricolage-grotesque)
+and [DM Sans v17](https://gwfh.mranftl.com/api/fonts/dm-sans). Latin WOFF2 subsets, unmodified,
+SIL OFL 1.1; intended use is local shell/display and UI text respectively.
+
+| Local font file (`public/assets/fonts/`) | Download source |
+|---|---|
+| `bricolage-grotesque-latin-variable.woff2` | [Google Fonts v9](https://fonts.gstatic.com/s/bricolagegrotesque/v9/3y9U6as8bTXq_nANBjzKo3IeZx8z6up5BeSl5jBNz_19PpbpMXuECpwUxJBOm_OJWiaaD30YfKfjZZoLvfzl-Molsg.woff2) |
+| `dm-sans-latin-400.woff2` | [Google Fonts v17 regular](https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAopxRSW32.woff2) |
+| `dm-sans-latin-500.woff2` | [Google Fonts v17 medium](https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAkJxRSW32.woff2) |
+| `dm-sans-latin-700.woff2` | [Google Fonts v17 bold](https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwARZtRSW32.woff2) |
+

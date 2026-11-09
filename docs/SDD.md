@@ -88,6 +88,11 @@ Admin: same app, routes under /admin behind AdminAuthMiddleware (R19)
 ├── Dockerfile  railway.json  render.yaml  .env.example  composer.json  README.md
 ```
 
+M0 implements only `GET /` directly in `public/index.php`; `src/Bootstrap/` handles
+initialization/catalog seeding, `src/Support/` environment/PDO helpers, and `src/Console/`
+the explicit reset command. The controller/service/viewer/admin paths above describe
+later milestones, not empty placeholder directories. See README/BUILD for runtime status.
+
 ## 5. Data Model
 
 Money is stored as **integer centavos** (₱1 = 100) to avoid float errors (N2-ish correctness).
@@ -248,8 +253,10 @@ On failure:
   so `app.sqlite` survives restarts/redeploys. Env vars: `APP_ENV=production`, `DB_DSN=sqlite:/app/data/app.sqlite`, `SESSION_SECRET` (Railway secret).
 - **Render:** `render.yaml` (web service, Docker runtime, persistent disk at `/app/data`) —
   either platform works; Railway preferred, Render documented as alternative.
-- **Boot:** `public/index.php` runs migrations idempotently if `data/app.sqlite` missing, then
-  seeds (N7) — first deploy self-initializes; admin seeded from `ADMIN_SEED_EMAIL/PASSWORD_HASH` env.
+- **Boot:** `public/index.php` checks for the complete initial schema. On an empty database,
+  `Bootstrap/Initializer` acquires a SQLite write transaction, rechecks, migrates and seeds.
+  Missing admin credentials roll the initialization back; later boots preserve inventory/admin.
+  Credentials come from `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD_HASH` (and optional name).
 - **HTTPS:** provided by platform. Health check: `GET /` → 200.
 - **CI (GitHub Actions):** on PR/push to main — `composer validate`, `php -l` over `src/ public/`,
   run PHPUnit, build Docker image (smoke). Deploy on merge to main (Railway/Render auto).
@@ -272,7 +279,9 @@ SQLite remains the current target; no migration implementation requested.
 
 ---
 
-> **Asset and implementation status:** Supplied images are inspiration and procedural-3D modeling references only,
-> NOT publication assets or Habi ownership/provenance. Demo does not confer rights. Original
-> generated imagery/textures and procedural models remain planned (DSD §9). No runtime claims;
-> everything planned not shipped. Preserves PRD R1–R28, N1–N8 traceability.
+> **Implementation boundary:** M0 supplies the PHP/Twig shell, environment/PDO bootstrap,
+> initial SQLite schema and fictional seed catalog. Runtime evidence belongs in BUILD, not
+> in the planned architecture descriptions above. Supplied images remain inspiration/modeling
+> references only, never publication assets or proof of provenance. Original SVG illustrations
+> are the seed image format; viewer models/textures, commerce, admin and deployment remain
+> later milestones. PRD R1–R28, N1–N8 remain the target traceability baseline.

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Illustration of the gabi-clutch bag">
+  <rect width="800" height="1000" fill="#ECEBEF"/>
+  <rect x="48" y="48" width="704" height="904" rx="28" fill="none" stroke="#2A2836" stroke-width="2" opacity="0.35"/>
+  <g fill="#6E6884">
+    <path d="M430 156a52 52 0 1 0 0 88a60 60 0 0 1 0-88Z"/>
+    <circle cx="342" cy="180" r="7"/>
+    <circle cx="356" cy="236" r="5"/>
+    <circle cx="318" cy="210" r="4"/>
+  </g>
+  <ellipse cx="400" cy="782" rx="180" ry="18" fill="#2A2836" opacity="0.14"/>
+<defs>
+  <pattern id="weave-gabi-clutch" width="32" height="32" patternUnits="userSpaceOnUse">
+    <rect width="32" height="32" fill="#4E4A5E"/>
+    <path d="M16 1L31 16L16 31L1 16Z" fill="none" stroke="#3A3748" stroke-width="2.5" opacity="0.45"/>
+  </pattern>
+</defs>
+  <rect x="250" y="530" width="300" height="170" rx="36" fill="url(#weave-gabi-clutch)" stroke="#2A2836" stroke-width="6"/>
+  <path d="M272 566H512" stroke="#2A2836" stroke-width="7" stroke-dasharray="3 12" stroke-linecap="round"/>
+  <circle cx="524" cy="566" r="11" fill="#2A2836"/>
+  <path d="M272 640H528" stroke="#2A2836" stroke-width="5" opacity="0.4"/>
+</svg>
+

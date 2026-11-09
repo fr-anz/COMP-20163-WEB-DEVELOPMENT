@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Illustration of the sinag-tote bag">
+  <rect width="800" height="1000" fill="#F8F1E4"/>
+  <rect x="48" y="48" width="704" height="904" rx="28" fill="none" stroke="#8A4B2F" stroke-width="2" opacity="0.35"/>
+  <g stroke="#C96F2E" stroke-width="7" stroke-linecap="round" fill="none">
+    <circle cx="400" cy="200" r="26" fill="#C96F2E" stroke="none"/>
+    <path d="M400 138v-26M400 262v26M338 200h-26M462 200h26M356 156l-18-18M444 156l18-18M356 244l-18 18M444 244l18 18"/>
+  </g>
+  <ellipse cx="400" cy="782" rx="180" ry="18" fill="#8A4B2F" opacity="0.14"/>
+<defs>
+  <pattern id="weave-sinag-tote" width="32" height="32" patternUnits="userSpaceOnUse">
+    <rect width="32" height="32" fill="#D9A05B"/>
+    <path d="M16 1L31 16L16 31L1 16Z" fill="none" stroke="#B97F3E" stroke-width="2.5" opacity="0.45"/>
+  </pattern>
+</defs>
+  <path d="M310 434C310 326 490 326 490 434" fill="none" stroke="#8A4B2F" stroke-width="15"/>
+  <path d="M342 434C342 352 458 352 458 434" fill="none" stroke="#8A4B2F" stroke-width="12"/>
+  <path d="M270 434L530 434L556 730Q558 756 532 756L268 756Q242 756 244 730Z" fill="url(#weave-sinag-tote)" stroke="#8A4B2F" stroke-width="6"/>
+  <path d="M270 470H530" stroke="#8A4B2F" stroke-width="6" opacity="0.55"/>
+</svg>
+

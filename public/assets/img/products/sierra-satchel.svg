@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Illustration of the sierra-satchel bag">
+  <rect width="800" height="1000" fill="#EFF2EA"/>
+  <rect x="48" y="48" width="704" height="904" rx="28" fill="none" stroke="#3E4E33" stroke-width="2" opacity="0.35"/>
+  <g fill="none" stroke="#5C7350" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M310 248l46-64l46 64"/>
+    <path d="M398 248l48-80l48 80"/>
+  </g>
+  <ellipse cx="400" cy="782" rx="180" ry="18" fill="#3E4E33" opacity="0.14"/>
+<defs>
+  <pattern id="weave-sierra-satchel" width="32" height="32" patternUnits="userSpaceOnUse">
+    <rect width="32" height="32" fill="#7D8F6A"/>
+    <path d="M16 1L31 16L16 31L1 16Z" fill="none" stroke="#5F7350" stroke-width="2.5" opacity="0.45"/>
+  </pattern>
+</defs>
+  <path d="M340 470C340 388 460 388 460 470" fill="none" stroke="#3E4E33" stroke-width="14"/>
+  <rect x="250" y="470" width="300" height="280" rx="30" fill="url(#weave-sierra-satchel)" stroke="#3E4E33" stroke-width="6"/>
+  <path d="M250 500Q250 470 280 470H520Q550 470 550 500V580Q550 610 520 610H280Q250 610 250 580Z" fill="#7D8F6A" stroke="#3E4E33" stroke-width="6"/>
+  <rect x="384" y="592" width="32" height="26" rx="7" fill="#3E4E33"/>
+</svg>
+

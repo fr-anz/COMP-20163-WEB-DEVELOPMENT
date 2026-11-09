@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Illustration of the tala-sling bag">
+  <rect width="800" height="1000" fill="#F9F3E2"/>
+  <rect x="48" y="48" width="704" height="904" rx="28" fill="none" stroke="#8A6420" stroke-width="2" opacity="0.35"/>
+  <g fill="#B98A2C">
+    <path d="M400 158l12 34l34 12l-34 12l-12 34l-12-34l-34-12l34-12Z"/>
+    <circle cx="330" cy="236" r="7"/>
+    <circle cx="474" cy="176" r="7"/>
+  </g>
+  <ellipse cx="400" cy="782" rx="180" ry="18" fill="#8A6420" opacity="0.14"/>
+<defs>
+  <pattern id="weave-tala-sling" width="32" height="32" patternUnits="userSpaceOnUse">
+    <rect width="32" height="32" fill="#E0B457"/>
+    <path d="M16 1L31 16L16 31L1 16Z" fill="none" stroke="#C2933B" stroke-width="2.5" opacity="0.45"/>
+  </pattern>
+</defs>
+  <path d="M332 478C296 330 504 330 468 478" fill="none" stroke="#8A6420" stroke-width="12"/>
+  <rect x="310" y="470" width="180" height="280" rx="44" fill="url(#weave-tala-sling)" stroke="#8A6420" stroke-width="6"/>
+  <path d="M310 514Q310 470 354 470H446Q490 470 490 514V556H310Z" fill="#E0B457" stroke="#8A6420" stroke-width="6"/>
+  <path d="M336 614H464" stroke="#8A6420" stroke-width="5" opacity="0.55" stroke-dasharray="2 12" stroke-linecap="round"/>
+</svg>
+

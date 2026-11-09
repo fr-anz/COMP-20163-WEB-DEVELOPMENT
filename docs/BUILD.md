@@ -32,8 +32,15 @@ milestone = all track tasks done + acceptance criteria green.
 - C: DSD tokens → `app.css` (colors, type, spacing, radius, shadows, motion), fonts, base layout,
   header/footer, icon SVG set (DSD §2–§6).
 - D: `.env.example`, `.gitignore` (vendor, data/*.sqlite, .env), README quickstart:
-  `composer install && php -S localhost:8000 -t public` → home page renders "hello".
+  `composer install`, copy/configure `.env`, then `php -S localhost:8000 -t public` → the Habi shell renders.
 - **Done when:** fresh clone → 3 commands → site boots, DB seeded, Lighthouse a11y ≥ 90 on shell. Cites N6, N7, N8. Shell only; does not promise complete intro.
+
+M0 local runtime verified 2026-11-09: fresh SQLite initialization, 10 products/four categories,
+env-configured administrator, preserved inventory across restart, and 360 px/wide keyboard shell.
+Lighthouse accessibility: **100**. Evidence: local run
+`/home/franz/.omp/evidence/habi-m0-20261109-56854d2e/verify/report.md`.
+PHPUnit/PSR-12 final repair checks are tracked in the run's `verify-final/` report.
+Human PR review/merge remains pending; Docker/hosted N6 checks remain M8.
 
 ### M1 — Catalog backend + listing (A + C)
 - A: `ProductService` (list w/ q/category/sort/page, getBySlug), `StorefrontController` routes,
@@ -98,14 +105,14 @@ milestone = all track tasks done + acceptance criteria green.
 
 ## 3. Local Dev Commands
 
-CLI/API planned; no app currently.
+M0 setup contract (see [README](../README.md) for requirements and password-hash configuration):
 
 ```bash
-composer install                 # deps
-cp .env.example .env             # fill SESSION_SECRET etc.
-php -S localhost:8000 -t public   # run (auto-migrates + seeds on first boot)
-php seed/seed.php                # re-seed (wipes data) — **Destructive: do not execute in production**
-vendor/bin/phpunit               # tests
+composer install                 # pinned dependencies
+cp .env.example .env             # configure ADMIN_SEED_EMAIL/PASSWORD_HASH before first boot
+php -S localhost:8000 -t public   # run (auto-migrates + seeds on first request)
+php seed/seed.php --force        # destructive reset; never run against data you need
+vendor/bin/phpunit               # isolated first-boot/preservation tests
 ```
 ## 4. Git Workflow
 

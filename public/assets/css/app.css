@@ -1,0 +1,506 @@
+/* ==========================================================================
+   Habi — app.css
+   Canonical stylesheet. Raw palette values are defined once here; components
+   consume semantic roles only. Light theme. No motion required in M0.
+   ========================================================================== */
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/assets/fonts/bricolage-grotesque-latin-variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("/assets/fonts/dm-sans-latin-400.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("/assets/fonts/dm-sans-latin-500.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("/assets/fonts/dm-sans-latin-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+/* --------------------------------------------------------------------------
+   Raw palette primitives (do not use directly in components — use roles)
+   -------------------------------------------------------------------------- */
+:root {
+  --cream-050: #faf6ec; /* page */
+  --cream-100: #f3eada; /* inset surface */
+  --cream-200: #e9dcc2; /* fiber tone */
+
+  --brown-950: #1b1108; /* deepest footer ground */
+  --brown-900: #2b1d12; /* primary text */
+  --brown-700: #5c4a33; /* secondary text */
+  --brown-300: #c9b896;
+
+  --rust-600: #a4441f; /* primary action */
+  --rust-700: #8a3413; /* action hover / quiet links */
+  --mustard-400: #e8b93b; /* decorative accent */
+  --moss-600: #3f6b3a;   /* decorative accent */
+  --river-700: #1f4e6e;  /* focus indicator */
+
+  --divider: #e0d3b8;
+  --border: #b9a77f;
+
+  /* Semantic roles */
+  --color-page: var(--cream-050);
+  --color-surface-inset: var(--cream-100);
+  --color-text: var(--brown-900);
+  --color-text-secondary: var(--brown-700);
+  --color-text-on-dark: var(--cream-100);
+  --color-action: var(--rust-600);
+  --color-action-hover: var(--rust-700);
+  --color-action-text: var(--cream-050);
+  --color-link: var(--rust-700);
+  --color-focus: var(--river-700);
+  --color-accent-rust: var(--rust-600);
+  --color-accent-moss: var(--moss-600);
+  --color-accent-blue: var(--river-700);
+  --color-divider: var(--divider);
+  --color-border: var(--border);
+  --color-footer: var(--brown-950);
+  --color-footer-muted: var(--brown-300);
+  --color-footer-link-hover: var(--mustard-400);
+  --color-demo: var(--mustard-400);
+  --color-demo-text: var(--brown-900);
+  --color-accent-yellow: var(--mustard-400);
+
+  /* Type */
+  --font-display: "Bricolage Grotesque", "Georgia", serif;
+  --font-body: "DM Sans", "Helvetica Neue", Arial, sans-serif;
+  --type-display: 3rem;
+  --type-heading-1: 2.25rem;
+  --type-heading-2: 1.75rem;
+  --type-heading-3: 1.375rem;
+  --type-body: 1rem;
+  --type-lede: 1.125rem;
+  --type-small: 0.875rem;
+  --type-caption: 0.75rem;
+  --type-wordmark: 1.5rem;
+  --leading-heading: 1.15;
+  --leading-body: 1.6;
+
+  /* Spacing — 4px grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --radius-control: 6px;
+  --radius-panel: 12px;
+  --container: 68rem;
+  --target: 44px; /* minimum touch target */
+}
+
+/* --------------------------------------------------------------------------
+   Base
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  line-height: var(--leading-heading);
+  margin: 0;
+  overflow-wrap: break-word;
+}
+
+p {
+  margin: 0 0 var(--space-4);
+  overflow-wrap: break-word;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+/* Universal visible focus: dark-blue ring over a page-colored gap so it
+   reads on cream, inset surfaces, and dark footer alike. */
+:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-page),
+    0 0 0 5px var(--color-focus);
+}
+
+/* --------------------------------------------------------------------------
+   Skip link
+   -------------------------------------------------------------------------- */
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: var(--space-4);
+  z-index: 10;
+  min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  background: var(--color-action);
+  color: var(--color-action-text);
+  border-radius: var(--radius-control);
+  text-decoration: none;
+  font-weight: 500;
+  transform: translateY(-200%);
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   Shell
+   -------------------------------------------------------------------------- */
+.shell {
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+
+@media (min-width: 48em) {
+  .shell {
+    padding-inline: var(--space-6);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Header
+   -------------------------------------------------------------------------- */
+.site-header {
+  border-bottom: 1px solid var(--color-divider);
+  background: var(--color-page);
+}
+
+.site-header .shell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+  padding-block: var(--space-2);
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target);
+  color: var(--color-text);
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-size: var(--type-wordmark);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.wordmark__mark {
+  display: inline-flex;
+  color: var(--color-accent-rust);
+}
+
+.site-nav__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  padding: 0 var(--space-3);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  border-radius: var(--radius-control);
+}
+
+.nav-link:hover {
+  color: var(--color-link);
+  text-decoration: underline;
+}
+
+.demo-tag {
+  margin: 0 0 0 auto;
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-demo);
+  color: var(--color-demo-text);
+  border-radius: 999px;
+  font-size: var(--type-small);
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   Hero
+   -------------------------------------------------------------------------- */
+.hero {
+  padding-block: var(--space-16) var(--space-12);
+  background-image: url("/assets/img/weave-band.svg");
+  background-repeat: repeat-x;
+  background-position: top center;
+}
+
+.hero .shell {
+  max-width: 44rem;
+}
+
+.hero__kicker {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  margin-bottom: var(--space-2);
+}
+
+.hero__title {
+  font-size: clamp(var(--type-heading-1), 5vw + 1rem, var(--type-display));
+  margin-bottom: var(--space-4);
+}
+
+.hero__lede {
+  font-size: var(--type-lede);
+  max-width: 36rem;
+  margin-bottom: var(--space-6);
+}
+
+.hero__actions {
+  margin-bottom: var(--space-4);
+}
+
+.hero__note {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small);
+}
+
+/* --------------------------------------------------------------------------
+   Foundation section
+   -------------------------------------------------------------------------- */
+.foundation {
+  padding-block: var(--space-12) var(--space-16);
+  background: var(--color-surface-inset);
+  border-top: 1px solid var(--color-divider);
+}
+
+.foundation__title {
+  font-size: var(--type-heading-2);
+  margin-bottom: var(--space-4);
+}
+
+.foundation__lede {
+  max-width: 40rem;
+  margin-bottom: var(--space-8);
+}
+
+.foundation__grid {
+  display: grid;
+  gap: var(--space-6);
+}
+
+@media (min-width: 48em) {
+  .foundation__grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.foundation__panel {
+  background: var(--color-page);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-panel);
+  padding: var(--space-6);
+}
+
+.foundation__panel h3 {
+  font-size: var(--type-heading-3);
+  margin-bottom: var(--space-3);
+}
+
+.swatches {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.swatch__chip {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.swatch__chip--cream { background: var(--color-page); }
+.swatch__chip--rust { background: var(--color-accent-rust); }
+.swatch__chip--mustard { background: var(--color-accent-yellow); }
+.swatch__chip--moss { background: var(--color-accent-moss); }
+.swatch__chip--river { background: var(--color-accent-blue); }
+
+.type-specimen {
+  font-family: var(--font-display);
+  font-size: var(--type-display);
+  line-height: var(--leading-heading);
+  margin-bottom: var(--space-3);
+}
+
+.loom-list {
+  margin: 0 0 var(--space-4);
+  padding-left: 1.25rem;
+}
+
+/* --------------------------------------------------------------------------
+   Actions & links
+   -------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target);
+  padding: var(--space-3) var(--space-6);
+  border: none;
+  border-radius: var(--radius-control);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn--primary {
+  background: var(--color-action);
+  color: var(--color-action-text);
+}
+
+.btn--primary:hover {
+  background: var(--color-action-hover);
+}
+
+.link-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target);
+  color: var(--color-link);
+  text-decoration: underline;
+}
+
+.link-quiet:hover {
+  color: var(--color-action-hover);
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+.site-footer {
+  background: var(--color-footer);
+  color: var(--color-text-on-dark);
+  padding-block: var(--space-8);
+}
+
+.site-footer__grid {
+  display: grid;
+  gap: var(--space-6);
+}
+
+@media (min-width: 48em) {
+  .site-footer__grid {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.site-footer__wordmark {
+  font-family: var(--font-display);
+  font-size: var(--type-wordmark);
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+}
+
+.site-footer__notice {
+  color: var(--color-footer-muted);
+  font-size: var(--type-small);
+  max-width: 36rem;
+}
+
+.site-footer__links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.site-footer__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  color: var(--color-text-on-dark);
+  text-decoration: underline;
+}
+
+.site-footer__links a:hover {
+  color: var(--color-footer-link-hover);
+}
+
+/* On the dark footer the dark-blue ring would not clear 3:1, so focus
+   switches to a cream ring over a footer-colored gap. */
+.site-footer :focus-visible {
+  box-shadow:
+    0 0 0 2px var(--color-footer),
+    0 0 0 5px var(--color-text-on-dark);
+}
+
+.site-footer__meta {
+  border-top: 1px solid var(--color-divider);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+}
+
+.site-footer__meta p {
+  color: var(--color-footer-muted);
+  font-size: var(--type-caption);
+  margin: 0;
+}
+
