@@ -249,15 +249,24 @@ On failure:
     matching DSD surface color.
   - **Procedural bag builder** (`bagFactory.js`): builds meshes from `three_config` JSON —
     body (extruded/lathe geometry by `shape`: tote/satchel/sling/clutch), lid/flap where applicable,
-    handle(s), zipper/pull and feet. The **interior group** (lining, pockets, divider) remains M3.
+    handle(s), zipper/pull and feet. Each shape has an **interior group** with generated lining
+    and configured pockets; a divider is built only for `divider_pocket`, and empty pocket lists stay empty.
     Materials: MeshStandardMaterial with roughness/metalness per `material` (canvas/leather/rattan);
     all materials support generated weave/textile patterns via canvas texture, not only rattan.
   - **Rotate (R4):** OrbitControls with damping + keyboard orbit; auto-rotate 1.5°/s when idle >3 s,
     pause/resume on user interaction; respects `prefers-reduced-motion` (DSD §4).
-  - **Peek inside (R5; M3, not implemented):** "Peek inside" button → tween lid open (rotation.x) + camera fly to
-    front-above-interior, interior group visible, front wall set to `clip` via
-    `renderer.localClippingEnabled` + clipping plane (cuts the front face so you see in).
-    Toggle back reverses the tween.
+  - **Peek inside (R5; M3):** `setInside(inside, {animate})` changes `isInside` and emits
+    `viewchange` immediately. A horizontal local clipping plane removes the upper shell/lining
+    at 68% of body height, revealing the cavity from every orbit direction. Pocket, flap and
+    handle materials are separate and unclipped. Broad lining panels are inset from shell caps.
+    Satchel/clutch flaps hinge at the rear rim and fold back by π; totes/slings have no flap.
+    Camera/target/flap transitions retarget from the current pose using DSD's 700 ms
+    `--duration-viewer` and `--ease-weave`. Keyboard and reduced-motion toggles snap immediately;
+    enabling reduced motion during a transition completes it immediately.
+    Back outside restores the saved exterior camera/target, closes the flap exactly and
+    clears clipping. Reset restores the current mode's framing; inside manual orbit/tilt/zoom
+    remain available, but idle rotation is suspended. Resizing preserves orbit/zoom and
+    scales the saved exterior framing; hidden views suspend the animation loop.
   - **Fallback (R27):** renderer creation failure swaps in an original static image + note.
   - Config served by `GET /api/product/{slug}/3d` (R6); viewer degrades gracefully on fetch error.
 - Performance (N1): single renderer per page, `antialias` on, pixelRatio capped at 2,
@@ -310,6 +319,7 @@ SQLite remains the current target; no migration implementation requested.
 > per-product config JSON and four procedural exterior shapes with accessible controls,
 > reduced motion and static fallback. Runtime evidence belongs in BUILD. Supplied images
 > remain inspiration/modeling references only, never publication assets or proof of
-> provenance. Original SVG illustrations are the seed image format. Interiors (M3),
-> commerce, admin and deployment remain later milestones; full R3/R7 is not claimed.
+> provenance. Original SVG illustrations are the seed image format. M3 adds reversible
+> interior cutaways and configured pockets. Commerce, admin and deployment remain later
+> milestones; full R3/R7 is not claimed. Review/merge status is tracked separately in BUILD.
 > PRD R1–R28, N1–N8 remain the target traceability baseline.

@@ -24,8 +24,8 @@ are superseded. They are not permitted alternatives to the reference.
 Adaptation is limited to real application state and PHP integration: existing product
 IDs, stock, prices and routes remain data-driven; reference sample cart counts/orders
 must not be fabricated. Keep the working procedural Three.js renderer instead of the
-showcase's conceptual CSS model. M3 interiors and M4–M6 commerce/admin stay separate
-milestones. Where sample business values differ, [PRD §9](PRD.md#prototype-vs-requirements)
+showcase's conceptual CSS model. M3 adds real interior cutaways; M4–M6 commerce/admin
+remain separate milestones. Where sample business values differ, [PRD §9](PRD.md#prototype-vs-requirements)
 prevails; that does not permit changing the visual treatment.
 
 ## 2. Canonical CSS and tokens
@@ -130,7 +130,7 @@ neutral 4:5 reference illustrations, caption category, semibold DM Sans name, a 
 material/variant line, then price + stock chip. No sun/moon poster illustrations,
 verbose provenance paragraphs on cards, rounded filter-panel redesign or hover-only actions.
 
-### Product (`/product/{slug}`, R3 inspection, R4/R6/R27)
+### Product (`/product/{slug}`, R3 inspection, R4–R6/R27)
 
 Breadcrumb chevrons; gallery/viewer on the left and information on the right in a
 1.15:1 split at 900 px. Desktop media is square and sticky; narrow media is 4:5 and
@@ -148,6 +148,12 @@ pretending to be the real viewer. No invented interior images, technique, handle
 measurement, maker or geographic provenance. Quantity/purchase remain unavailable until
 M4 with an explicit reason, rather than simulating cart success.
 
+M3 uses the published secondary small Peek inside / Back outside button as a sibling
+of the persistent orbit toolbar, with its eye/up glyphs and an interior info chip.
+Keep wrapping at narrow widths, persistent hint/status text and the same focusable stage.
+The actual cutaway shows authored lining/pockets, not invented interior photographs;
+an empty pocket configuration stays empty. Keyboard/reduced-motion switches are immediate.
+
 ## 5. Implemented component APIs and compositions
 
 | API / source | Contract |
@@ -160,7 +166,7 @@ M4 with an explicit reason, rather than simulating cart success.
 | `icons.icon(name, size = 24, class = '')` in `views/macros/icons.twig` | Shared 1.75 px round-stroke family, with the reference's per-control sizes and optional utility classes. Only names defined in the macro are supported. |
 | `_product-card.twig` | Repeated on catalog and discovery; escaped ProductService data, exact price formatting, one product destination and no nested controls. |
 | `data-*` storefront controls | Progressive mobile navigation, material tabs and catalog GET submission; no framework or fake application state. |
-| `product.js` + `BagViewer` | One real renderer, gallery/mode switching, live status, retry/fallback and native narrow-screen dialog. |
+| `product.js` + `BagViewer` | One real renderer, gallery/mode switching, persistent Peek inside / Back outside controls, live status, retry/fallback and native narrow-screen dialog. `setInside(inside, {animate})` emits `viewchange`; reset stays in the current inspection mode. |
 
 Good navigation:
 
@@ -172,7 +178,7 @@ Bad: `href="#"` labeled Add to bag suggests an unavailable mutation; decorative 
 colors on competing buttons discard the reference's action hierarchy. Do not add
 undocumented variants or recreate tokens in individual templates.
 
-Cart, checkout, toast, admin and Peek inside components in the published system are the
+Cart, checkout, toast and admin components in the published system remain the
 **future visual specification**, not shipped PHP APIs. Their milestone implementation
 must follow that specification, rather than revive the old direction.
 

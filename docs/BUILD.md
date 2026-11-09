@@ -293,7 +293,7 @@ Observed verification after the cutover:
   missing IDEA/RESEARCH/QAD pipeline files and QAD requirement coverage.
 
 Earlier reconciliation/performance evidence is historical, not recertified here.
-Cart/checkout/interiors/admin remain their existing later milestones. No commit, push,
+Cart/checkout/admin remain their existing later milestones. No commit, push,
 merge or deployment performed.
 
 ### M3 — Peek inside (B, with C polish)
@@ -301,6 +301,57 @@ merge or deployment performed.
   cutaway, "Peek inside" toggle button (R5, DSD §4 and published viewer component).
 - C: toggle button styling, hint chips, reduced-motion handling.
 - **Done when:** R5 passes; toggle reversible; no z-fighting; 60 fps on mid laptop.
+
+M3 local implementation (issue #4, branch `abc/m3-peek-inside`, 2026-11-10):
+- `bagFactory.js` builds hollow shells plus per-shape lining and authored pocket builders
+  (`interior_zip`, `slip_pocket`, `back_slip`, `bottle_slip`, `pen_slip`, `divider_pocket`,
+  `interior_slip`, `card_slots`, `key_leash`); exterior-only keys get no fake interior.
+  Satchel/clutch flaps hinge at the rear rim and fold back π; tote/sling have `flap = null`.
+  Lining/pockets are inset from shell caps; only shell/lining/obstructing trim enter
+  `cutawayMaterials`, so pockets, flap and handles are never sliced.
+- `viewer3d.js` adds `setInside(inside, {animate})`, immediate `isInside` + `viewchange`,
+  a horizontal 68%-height cutaway, inside orbit/tilt/zoom limits, 700 ms `--duration-viewer`
+  `--ease-weave` camera/target/flap transitions, exact destination restore, and current-mode
+  `reset()`. Reduced motion and keyboard activation snap immediately; enabling reduced motion
+  mid-transition completes it immediately. Mobile hint space is reserved so the dialog stage
+  does not resize during the transition.
+- `product.js`/`product.twig` add the published wrapping Peek inside / Back outside button,
+  eye/arrow glyph swap, `aria-pressed`, stage label, live status, truthful interior chip,
+  persistent hint, and disabled "Automatic rotation paused inside" state; retry/bfcache restores
+  a real interior view. `app.css` adds the published `.btn--sm` and reserved dialog note box.
+
+Exact commands and observed checks (isolated server, never local inventory):
+- Server: `env DB_DSN=sqlite:/tmp/habi-m3-uRddX6/app.sqlite ADMIN_SEED_EMAIL=viewer@example.test ADMIN_SEED_PASSWORD_HASH='<isolated fixture hash>' php -S 127.0.0.1:8016 -t public`.
+- `git diff --check && node --check public/assets/js/product.js && node --check public/assets/js/viewer3d.js && node --check public/assets/js/bagFactory.js && composer cs && composer lint && vendor/bin/phpunit tests/Services/ProductServiceTest.php && npx --no-install contextspine check`
+  → JS syntax clean; PSR-12/lint clean; PHPUnit **10 tests / 60 assertions OK**;
+  context check **0 failures / 31 existing warnings**.
+- Final-code desktop Chromium scenario over all ten seeded products at 1440×1000, with idle
+  auto-rotation paused before the baseline: Peek inside set `inside=true`, one clipping plane
+  on every cutaway material, no page overflow, interior chip visible; rotate changed the camera
+  inside; Back outside returned `inside=false`, all `clippingPlanes=null`, flap `0`, and the
+  saved camera/target exactly at transition completion (`cameraError=0`, `targetError=0`;
+  idle auto-rotation intentionally resumes afterward). Artifact:
+  `/tmp/habi-m3-uRddX6/desktop-strict-scenarios.json`.
+- Strict mobile 360×800 dialog scenario for tote/satchel/sling/clutch: interior chip visible,
+  status "Interior view", pause disabled with truthful label, no dialog overflow, ArrowRight
+  orbited inside, Reset stayed inside, Back outside restored the saved camera/target exactly at
+  transition completion (`cameraError=0`, `targetError=0`), flap closed where present, stage
+  height stayed 653.609375 px outside/inside/restored, Esc returned focus to 3D. Artifact:
+- Reduced motion on Lupa: keyboard Enter produced immediate `inside=true`, no transition,
+  damping off, flap −π, chip/status updated; Enter back produced immediate exterior with flap `0`
+  and no clipping. Returning to no-preference animated again. 12 rapid API reversals finished
+  exterior with `cameraError=0`, `targetError=0`, clipping cleared and flap `0`. Artifact:
+  `/tmp/habi-m3-uRddX6/motion-fps.json`.
+- 60 fps target, measured not assumed. Environment: Linux x86_64 host, AMD Ryzen 7 4800HS
+  (8 cores/16 threads), headed Chrome 150.0.7871.24 using ANGLE on **AMD Radeon Graphics
+  (Renoir, Mesa 26.2.6)** rather than SwiftShader, viewport 1440×1000 DPR 1, 180 Hz display
+  baseline. rAF over 5 s each on Sinag: exterior **180.18 fps** (901 frames), inside cutaway
+  **180.18 fps** (901 frames). Environment JSON: `/tmp/habi-m3-uRddX6/browser-profile.json`;
+  timings: `/tmp/habi-m3-uRddX6/motion-fps.json`.
+
+Shared DoD status: local R5/UI/PHP checks and docs are covered; no secrets or inventory changes.
+**Still pending:** another track owner's PR review and merge to `main` (BUILD §2.5).
+No commit, push, merge or deployment was performed.
 
 ### M4 — Cart (A + C)
 - A: session cart service w/ stock clamping (R9, R28), POST add/update, cart JSON for badge.

@@ -3,14 +3,14 @@
 Purpose/completion criteria: build **Habi** — educational PHP handbag storefront with
 craft-first discovery, 3D product viewer (rotate + peek inside), real SQLite demo inventory,
 simulated checkout and admin panel; deploy to Railway/Render via Docker. Completion =
-live URL + all PRD R#/N# acceptance criteria verified. M0 foundation, M1 discovery/catalog and M2 exterior inspection are implemented locally; current checks/status are in state.md and docs/BUILD.md.
+live URL + all PRD R#/N# acceptance criteria verified. M0–M2 and M3 interior inspection are implemented locally; current verification/DoD status is in state.md and docs/BUILD.md.
 Constraints/conventions: PHP 8.2+ required (course), Composer allowed, PSR-12, no real
 payments, no secrets in repo; follow .context/rules.md; docs pipeline in docs/ (PRD owns R# IDs).
 Structure: PHP/Slim front controller in public/, PSR-4 src/, Twig views/, migrations/, seed/, tests/.
 Planning docs in docs/; PRD owns R# IDs, DSD owns visual/asset policy and implemented shell APIs.
 Commands: `composer install`; copy/configure `.env` per README; `php -S localhost:8000 -t public`;
 `vendor/bin/phpunit`; `composer cs`; `composer lint`. First request initializes SQLite.
-`php seed/seed.php --force` wipes demo data. Catalog, stock/config JSON and exterior inspection are implemented; interiors, commerce, admin and deploy remain later milestones.
+`php seed/seed.php --force` wipes demo data. Catalog, stock/config JSON and exterior/interior inspection are implemented; commerce, admin and deploy remain later milestones.
 
 ## When to read
 

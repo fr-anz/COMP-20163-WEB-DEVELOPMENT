@@ -1,9 +1,9 @@
 # State
 
 Updated: 2026-11-10. Project: COMP-20163-WEB-DEVELOPMENT.
-Objective: published-reference cutover complete on `abc/design-reconciliation`.
-Direction: published UI/design system is authoritative 1:1; DSD 2.0 replaces earlier interpretations.
-Progress: source fonts/artwork/tokens, discovery/catalog/product UI and docs reconciled. Fixed native sold-out filtering, menu/tab behavior, recovery readability and responsive 3D framing.
-Checks: native 1440/768/360 comparison; viewer/retry/WebGL/no-JS/keyboard scenarios; service tests 10/60; PHP style/lint and JS syntax passed. Context check: 0 failures, 31 existing warnings. Details: BUILD exact-cutover section.
-Pending: none in this scope; M3+ remain planned.
-Preserved: inventory/.env; named pre-switch context stash. No commit/push/merge/deploy.
+Objective: M3 Peek inside implementation/verification on `abc/m3-peek-inside` (issue #4).
+Direction: published UI/design system remains authoritative 1:1 (DSD 2.0).
+Progress: all four shapes have lining/configured pockets, rear-hinged flaps only where modeled, reversible cutaway/camera controls, published toggle/hints, stable mobile dialog, keyboard and immediate reduced-motion states.
+Checks: JS syntax, PSR-12/lint, PHPUnit 10/60, context 0 failures/31 existing warnings. Final-code all-10 desktop strict restore camera/target error 0; strict 360px restore camera/target error 0; 12 rapid reversals exact; reduced-motion immediate; measured 180.18 fps exterior and inside on Ryzen 7 4800HS/Renoir Chrome 150 hardware-backed profile. Details in BUILD M3.
+Pending: cross-track PR review and merge to main (BUILD §2.5); no commit/push/merge/deploy performed. Commerce/admin/deploy remain later milestones.
+Preserved: inventory/.env and prior context stash.
