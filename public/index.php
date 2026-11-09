@@ -85,4 +85,10 @@ $app->get('/api/product/{slug}/stock', fn (
     array $args
 ): ResponseInterface => $storefront()->stock($request, $response, $args));
 
+$app->get('/api/product/{slug}/3d', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $storefront()->config3d($request, $response, $args));
+
 $app->run();

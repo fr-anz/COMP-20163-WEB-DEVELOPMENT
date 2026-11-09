@@ -88,11 +88,11 @@ Admin: same app, routes under /admin behind AdminAuthMiddleware (R19)
 ├── Dockerfile  railway.json  render.yaml  .env.example  composer.json  README.md
 ```
 
-M1 implements home, catalog, read-only product inspection and stock JSON through
-`Controllers/StorefrontController` and `Services/ProductService`, registered in
-`public/index.php`. `src/Bootstrap/` handles initialization/catalog seeding,
-`src/Support/` environment/PDO helpers, and `src/Console/` the explicit reset command.
-Other controller/service/viewer/admin paths above remain later milestones.
+M1 implements home, catalog and stock JSON through `Controllers/StorefrontController`
+and `Services/ProductService`, registered in `public/index.php`. M2 extends detail with
+ordered gallery images and adds the active-only procedural config endpoint.
+`src/Bootstrap/` handles initialization/catalog seeding, `src/Support/` environment/PDO
+helpers, and `src/Console/` the explicit reset command. Commerce/admin remain later milestones.
 
 ## 5. Data Model
 
@@ -149,8 +149,14 @@ no-store`; missing/inactive products return JSON 404 `{error: "Product not found
 M1 listing uses six products per page, combines literal name/description/material search
 with category, and preserves filters in pagination. Supported sort values are `newest`,
 `price_asc`, `price_desc`; unknown sort defaults to newest. Creation date and ID provide
-deterministic newest order. Out-of-range pages clamp to available pages. Product detail
-is read-only in M1; full R3 controls and viewer remain M2/M4.
+deterministic newest order. Out-of-range pages clamp to available pages.
+
+M2 config responses are the decoded per-product `three_config` object: `shape`,
+centimeter `dimensions`, `colors`, `handle_style`, `material`, `lining`, and `pockets`.
+The endpoint uses `Cache-Control: no-store`; missing/inactive products return the same
+JSON 404 as stock. Sold-out products remain inspectable. Detail gallery images are
+ordered primary-first, then `sort_order` and ID; catalog queries do not load galleries
+or model configs. Purchase behavior remains M4.
 
 All POST routes pass `CsrfMiddleware`; all templates use Twig auto-escape (N2).
 
@@ -238,20 +244,25 @@ On failure:
     matching DSD surface color.
   - **Procedural bag builder** (`bagFactory.js`): builds meshes from `three_config` JSON —
     body (extruded/lathe geometry by `shape`: tote/satchel/sling/clutch), lid/flap where applicable,
-    handle(s), zipper/pull, feet, plus **interior group** (lining box, inner pockets, divider) hidden until inside mode.
+    handle(s), zipper/pull and feet. The **interior group** (lining, pockets, divider) remains M3.
     Materials: MeshStandardMaterial with roughness/metalness per `material` (canvas/leather/rattan);
     all materials support generated weave/textile patterns via canvas texture, not only rattan.
   - **Rotate (R4):** OrbitControls with damping + keyboard orbit; auto-rotate 1.5°/s when idle >3 s,
     pause/resume on user interaction; respects `prefers-reduced-motion` (DSD §8).
-  - **Peek inside (R5):** "Peek inside" button → tween lid open (rotation.x) + camera fly to
+  - **Peek inside (R5; M3, not implemented):** "Peek inside" button → tween lid open (rotation.x) + camera fly to
     front-above-interior, interior group visible, front wall set to `clip` via
     `renderer.localClippingEnabled` + clipping plane (cuts the front face so you see in).
     Toggle back reverses the tween.
-  - **Fallback (R27):** `WebGLRenderingContext` check → swap in original generated/authorized static image + note.
+  - **Fallback (R27):** renderer creation failure swaps in an original static image + note.
   - Config served by `GET /api/product/{slug}/3d` (R6); viewer degrades gracefully on fetch error.
 - Performance (N1): single renderer per page, `antialias` on, pixelRatio capped at 2,
-  `powerPreference: 'high-performance'`, dispose on page unload, geometry shared across bags
-  of same shape.
+  `powerPreference: 'high-performance'`, dispose on pagehide and reconstruct on bfcache restore;
+  repeated handles/feet share geometry within each model. The vendored r160 module is served
+  through `three.module.php?v=0.160.1`, which negotiates zlib compression, uses immutable
+  caching and varies by Accept-Encoding. Increase the query version when upgrading.
+  Config/module loading has a ten-second failure deadline; config retry refetches,
+  while a module-load failure retries by reloading the document (clearing the module map).
+  One renderer is reparented between inline and native mobile-dialog slots.
 
 ## 12. Deployment Design (N6; BUILD M8)
 
@@ -290,9 +301,10 @@ SQLite remains the current target; no migration implementation requested.
 
 > **Implementation boundary:** M0 supplies the PHP/Twig shell, environment/PDO bootstrap,
 > initial SQLite schema and fictional seed catalog. M1 adds R1/R2 craft discovery and
-> catalog, active product lookup/read-only inspection, and stock JSON. Runtime evidence
-> belongs in BUILD, not in the planned architecture descriptions above. Supplied images
+> catalog, active product lookup and stock JSON. M2 adds ordered gallery inspection,
+> per-product config JSON and four procedural exterior shapes with accessible controls,
+> reduced motion and static fallback. Runtime evidence belongs in BUILD. Supplied images
 > remain inspiration/modeling references only, never publication assets or proof of
-> provenance. Original SVG illustrations are the seed image format; viewer models/textures,
-> commerce, admin and deployment remain later milestones. PRD R1–R28, N1–N8 remain the
-> target traceability baseline.
+> provenance. Original SVG illustrations are the seed image format. Interiors (M3),
+> commerce, admin and deployment remain later milestones; full R3/R7 is not claimed.
+> PRD R1–R28, N1–N8 remain the target traceability baseline.

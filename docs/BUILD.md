@@ -86,8 +86,111 @@ M1 local implementation (issue #2, branch `a/m1-catalog-discovery`):
 - A: product detail route (R3), `GET /api/product/{slug}/3d` (R6).
 - B: `BagViewer` class, `bagFactory` for 4 shapes, OrbitControls w/ damping + idle auto-rotate (R4),
   vendored three, WebGL fallback image (R27), loading state (DSD §8). Exterior viewer only.
-- C: detail page layout, gallery, qty stepper + Add-to-cart button (visual, disabled until M4), accordions, stock badge (R17 partial).
-- **Done when:** R3, R4, R6, R27 pass on desktop + mobile (viewer overlay); LCP < 3 s (N1). **Keyboard:** viewer buttons focusable. **Reduced-motion:** respects `prefers-reduced-motion` (DSD §10).
+- C: detail layout/gallery, disabled quantity + Add-to-bag controls until M4, accordions and stock badge (R17 display only).
+- **Done when:** R3 inspection portion, R4, R6 and R27 pass on desktop + mobile (viewer dialog); LCP <3 s and viewer initialization <2 s after page load (N1). Controls work without drag and respect reduced motion. Full R3/R7 purchase acceptance is M4; Peek inside is M3.
+
+M2 local implementation (issue #3, branch `abc/m2-product-viewer`, 2026-11-09):
+- `npx --no-install contextspine check` → **0 failures / 31 existing pipeline warnings**
+  (missing IDEA/RESEARCH/QAD and QAD requirement coverage); no unrelated pipeline scope added.
+- [x] Detail + active-only config API; ordered image gallery, dimensions and illustrative material/origin labels.
+- [x] Pinned local Three.js 0.160.1 + matching OrbitControls/MIT license; original tote/satchel/sling/clutch exteriors and generated material textures.
+- [x] Pointer/touch orbit, keyboard rotation/tilt/reset, idle rotation with pause/resume and live reduced-motion behavior.
+- [x] Photos/3D switching, stock display and accordions. Quantity/Add to bag/Sold out controls are visibly/native-disabled; no cart mutation, Peek inside or full R3/R7 claim.
+- [x] Loading, ten-second failure deadline, fetch failure/retry, and original-image WebGL fallback.
+- [x] Desktop inline inspection and 360 px native fullscreen dialog, Close/Esc, explicit Tab wrapping and focus return.
+
+Commands and observed checks:
+- `vendor/bin/phpunit tests/Services/ProductServiceTest.php` → **7 tests / 39 assertions**.
+  New boundary coverage: sold-out config stays inspectable, inactive/missing configs disappear,
+  and gallery primary/sort ordering does not mix products.
+- `composer cs && composer lint` → pass.
+- `node --check public/assets/js/product.js && node --check public/assets/js/viewer3d.js && node --check public/assets/js/bagFactory.js` → pass.
+- `vendor/bin/phpcs --standard=PSR12 public/assets/vendor/three/three.module.php && php -l public/assets/vendor/three/three.module.php` → pass.
+- Actual HTTP: all ten slugs return their own shape/material/dimensions config;
+  200 JSON + `no-store`, sold-out still 200, missing/inactive JSON 404 and inactive detail 404.
+- Isolated server: `env DB_DSN=sqlite:/tmp/habi-m2-RGCkSD/app.sqlite ADMIN_SEED_EMAIL=viewer@example.test ADMIN_SEED_PASSWORD_HASH='<isolated fixture hash>' php -S 127.0.0.1:8013 -t public`.
+  Real `.env` and local inventory were not changed.
+
+Consumer scenarios (Chromium 150, **1280×900 and 360×800**):
+- All ten product pages: one canvas, correct per-product exterior, inline desktop/modal mobile,
+  no horizontal overflow; all six viewer controls ≥44 px tall. Representative screenshots:
+  tote desktop `/tmp/omp-sshots-15c76809771b5fd5.webp`, mobile
+  `/tmp/omp-sshots-15c76871cf5b5fd6.webp`; mobile satchel/sling/clutch
+  `/tmp/omp-sshots-15c76965d21b5fda.webp`, `/tmp/omp-sshots-15c76967449b5fdb.webp`,
+  `/tmp/omp-sshots-15c76969219b5fdc.webp`.
+- Actual mouse drag and CDP touch gesture changed the rendered canvas. Enter activates rotation
+  without drag; Reset restored the initial image. Under reduced motion, manual rotation/reset
+  still work and automatic rotation is disabled with explanatory text. Pause kept the canvas
+  unchanged past the idle interval; Resume changed it again.
+- Modal Close/Esc returns focus to 3D view; Tab/Shift+Tab wrap at first/last enabled control.
+  Resizing between inline/modal keeps a single renderer. Back navigation reconstructs GPU
+  state after bfcache restoration (the initially observed empty canvas was repaired).
+- Held config request shows loading; a 503 shows persistent failure + Try again; retry renders
+  successfully on both layouts. A held request reaches failure instead of loading indefinitely.
+  WebGL contexts disabled via browser fixture: original illustration + exact
+  “3D unavailable in this browser” on desktop and mobile; no canvas.
+  Fallback captures: `/tmp/omp-sshots-15c768ecac80ff87.webp`,
+  `/tmp/omp-sshots-15c768eccf00ff88.webp`.
+- No-JS 360 px: image/details readable, enhancement controls hidden, explicit 3D prerequisite
+  note, purchase controls disabled and no overflow.
+- Isolated additional-image/stock-0 fixture: named second thumbnail changes image/pressed state;
+  Sold out button remains disabled. Native accordion Enter/Space reveals unverified origin and
+  38×34×14 cm dimensions; visible keyboard focus. Gabi displays Only 3 left. Fixtures restored.
+- Measured foreground/background: control text **7.54:1**, status text/control boundary
+  **7.84:1**, focus/page **8.20:1**. Disabled purchase controls all have muted 0.55 opacity.
+  No JavaScript errors were observed on the twenty ordinary product/layout visits.
+
+N1 performance (cold cache, CDP applied 150 ms latency, **1.6 Mbps down / 750 Kbps up**,
+4× CPU slowdown; first synchronous render marked `habi-viewer-ready`):
+
+| Viewport | LCP | Page load | Viewer ready from navigation | Ready after load |
+|---|---|---|---|---|
+| 1280×900 | 0.696 s | 1.337 s | 2.590 s | **1.253 s** |
+| 360×800 | 1.000 s | 1.645 s | 2.894 s | **1.249 s** |
+
+The original uncompressed Three.js transfer took 4.083 s and missed readiness at
+3.853 s after load. `three.module.php?v=0.160.1` now uses PHP zlib negotiation:
+transferred module bytes fell from 670,981 to 167,187. Both N1 targets pass locally.
+Separate targeted Lighthouse **13.6.0** mobile LCP: **0.740 s**, no runtime error:
+
+```sh
+npx --no-install lighthouse http://127.0.0.1:8013/product/sinag-tote --port=33145 \
+  --only-audits=largest-contentful-paint --throttling-method=devtools \
+  --throttling.requestLatencyMs=150 --throttling.downloadThroughputKbps=1600 \
+  --throttling.uploadThroughputKbps=750 --throttling.cpuSlowdownMultiplier=4 \
+  --screenEmulation.width=360 --screenEmulation.height=800 \
+  --screenEmulation.deviceScaleFactor=1 --output=json \
+  --output-path=/tmp/habi-m2-RGCkSD/lighthouse.json --quiet
+```
+
+Raw output: `/tmp/habi-m2-RGCkSD/lighthouse.json`. The port points to this run's managed
+Chromium; use the active CDP port when repeating. This is an LCP-only check, not an
+unrun whole-site performance/accessibility certification.
+
+Verification follow-up (user-requested, 2026-11-09):
+- Found and repaired a modal focus escape: keyboard activation of Try again removed
+  the focused status button and left focus on `body`. Status replacement now moves
+  focus before detaching the button. Rechecked: mobile retry → Close (inside dialog);
+  desktop retry → 3D view; both recover one working canvas.
+- Found and repaired Reset view retaining drag inertia. It now clears OrbitControls'
+  pending damping before restoring the camera. After an actual drag followed immediately
+  by keyboard Reset, canvas captures match the initial view at both 1280 and 360 px.
+  Manual rotation/reset also still work under reduced motion.
+- Fresh assertions passed for modal Tab/Shift+Tab containment/Esc focus return,
+  config 200/no-store and missing 404; ordinary consumer checks reported no JS errors.
+- Re-ran the targeted PHP service tests (**7 tests / 39 assertions**), `composer cs`,
+  `composer lint`, wrapper PSR-12, and `node --check` on both repaired modules: pass.
+- Repeated the cold 4G/4× CPU measurements after these repairs; the table above contains
+  this latest run. Earlier Lighthouse output remains the separate LCP-only artifact.
+  Updated mobile capture: `/tmp/omp-sshots-15c76cb706ab471d.webp`.
+
+
+Shared DoD status: local requirements/UI/PHP checks, relevant docs and asset licenses
+are covered; no new environment variables or secrets were added.
+**Still pending:** another track owner's PR review and merge to `main` (BUILD §2.5).
+No commit, push, merge or deployment was performed; the issue is not fully Done until
+that external requirement is met.
+
 
 ### M3 — Peek inside (B, with C polish)
 - B: interior group (lining, pockets) per shape, lid-open tween, camera fly-in, clipping plane
