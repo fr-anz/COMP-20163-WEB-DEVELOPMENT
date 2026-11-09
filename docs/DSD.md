@@ -5,7 +5,7 @@
 | Version | 1.1 |
 | Date | 2026-11-09 |
 | Direction | **Contemporary Filipino craft — approved by user, 2026-11-09** |
-| Status | M0 shell implemented; verified local runtime scope is recorded in BUILD/README, not a claim that all planned components exist |
+| Status | M0 shell and M1 discovery/catalog implemented; local runtime scope/checks are recorded in BUILD/README, not a claim that later commerce/viewer components exist |
 | Serves | [PRD.md](PRD.md) R1–R28, N1–N8 · [BUILD.md](BUILD.md) · [USER-JOURNEY.md](USER-JOURNEY.md) |
 
 **Craft first, commerce second.** Habi should feel handmade, contemporary, and distinctly
@@ -88,8 +88,8 @@ symbols. No emoji in UI. Icon-only controls need accessible names; touch targets
 
 ## 6. Planned Components
 
-The table below remains the product-wide plan, not a shipped API list. M0 implements only
-the shell subset documented in §13; later component states belong to their milestones.
+The table below remains the product-wide plan, not a blanket shipped API list.
+M0/M1 implemented APIs are documented in §§13–14; later component states belong to their milestones.
 
 | Component | Planned behavior and presentation |
 |---|---|
@@ -176,8 +176,8 @@ serve as 3D-modeling references for this non-real shop. This is not permission t
 
 ## 10. Accessibility & Verification Targets (R24, R25)
 
-These remain product-wide acceptance targets. M0 shell runtime results are recorded in BUILD;
-they do not certify unimplemented catalog, checkout or viewer surfaces.
+These remain product-wide acceptance targets. M0/M1 runtime results are recorded in BUILD;
+they do not certify unimplemented checkout or viewer surfaces.
 
 - WCAG 2.2 AA where applicable: text contrast ≥4.5:1, qualifying large text ≥3:1;
   necessary control boundaries/focus indicators ≥3:1 against adjacent colors. Measure real pairs.
@@ -217,27 +217,26 @@ selections under issue #1, not retroactive user approval of exact fonts/colors.
 additional original/authorized assets, and any verified attribution. No reference attachments
 may be published. M0 seed configs do not establish actual viewer/model behavior.
 
-**Approval scope:** the original interview approved the direction/specification. The later
-request to implement issue #1 authorizes the M0 shell and data foundation, not M1–M8.
+**Approval scope:** the original interview approved the direction/specification. Requests
+to implement issues #1 and #2 authorize M0/M1, not later viewer/commerce/admin milestones.
 
-## 13. Implemented M0 Shell
+## 13. M0 Foundations
 
-Preview: follow [README](../README.md), then open `/`. The page itself is the live font,
-palette and shell specimen and imports canonical `app.css`; no duplicate preview stylesheet.
+Preview: follow [README](../README.md), then open `/`. M1 replaces the original foundation
+specimen with craft discovery, importing the same canonical fonts, palette and `app.css`.
 
 | API/source | Use and states |
 |---|---|
-| `.btn.btn--primary` in `views/storefront/home.twig` | Anchor navigation to the existing foundation section. Default/hover/focus-visible; native Enter activation. No disabled/loading/toggle state because it is a navigation link. No secondary/danger/small variants shipped. |
+| `.btn.btn--primary` | Anchor navigation or native form submission, with default/hover/focus-visible states. M1 usage is documented in §14. |
 | `.nav-link`, `.link-quiet` | Named text links for existing routes/anchors. Hover underline/color and visible focus; no selected or validation state. Use a real button instead if an action changes application state. |
 | `.skip-link` → `main#main-content[tabindex="-1"]` | First keyboard link, revealed on focus; moves to the main content. No dialog or focus trap exists. |
 | `.demo-tag`, `.site-footer__notice` | Static, explicit educational/fictional identification. Not a stock, success or payment badge. |
-| `icons.icon(name)` in `views/macros/icons.twig` | `weave`, `arrow-down`, `arrow-right`; decorative SVG alongside named text. Import explicitly in each consuming Twig template. Never pass product/user HTML or rely on an icon alone for a name. |
-| `.foundation__panel` | Repeated specimen panels on this one shell page. Not an extracted storefront/material-selector block or an implemented catalog component. |
+| `icons.icon(name)` in `views/macros/icons.twig` | `weave`, `arrow-down`, `arrow-right`, `arrow-left`; decorative SVG alongside named text. Import explicitly in each consuming Twig template. Never pass product/user HTML or rely on an icon alone for a name. |
 
 Good navigation composition (implemented API):
 
 ```html
-<a class="btn btn--primary" href="#foundation">Discover the weave</a>
+<a class="btn btn--primary" href="#craft">Discover the weave</a>
 ```
 
 Bad usage (not shipped): `class="btn btn--danger"` invents an unimplemented variant;
@@ -250,8 +249,8 @@ Fonts are local WOFF2 with `font-display: swap`; Bricolage Grotesque display and
 are original procedural assets, not supplied photographs. No custom font/logo or actual maker
 provenance is claimed.
 
-The shell is flat, light-only and motion-free: no loading/success/error interaction, form,
-modal, drawer or animation has been added merely to demonstrate a planned component.
+The foundations are flat, light-only and motion-free. No loading animation, modal or drawer
+has been added merely to demonstrate a planned component.
 Screen review instructions: `design-system/skills/review-screen/SKILL.md` (manual guide).
 
 ### Font provenance (downloaded 2026-11-09)
@@ -266,4 +265,46 @@ SIL OFL 1.1; intended use is local shell/display and UI text respectively.
 | `dm-sans-latin-400.woff2` | [Google Fonts v17 regular](https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAopxRSW32.woff2) |
 | `dm-sans-latin-500.woff2` | [Google Fonts v17 medium](https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAkJxRSW32.woff2) |
 | `dm-sans-latin-700.woff2` | [Google Fonts v17 bold](https://fonts.gstatic.com/s/dmsans/v17/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwARZtRSW32.woff2) |
+
+
+## 14. Implemented M1 Discovery & Catalog
+
+`/` is the real craft preview; `/products` is the quiet catalog. Both use canonical
+`app.css`. Runtime scenarios and measured narrow/wide results are recorded in BUILD M1.
+
+| API/source | Use and supported states |
+|---|---|
+| `.hero__actions` in `home.twig` | Discover the weave → `#craft`; Skip introduction → `#explore`, before the large illustration. Native scrolling, persistent navigation, no autoplay or scroll lock. |
+| `.material-study` / native `details > summary` | Independent natural-fiber/colorful-textile studies in `#explore`. Closed/open, click/touch/Enter/Space, visible focus and native expanded semantics. No required order, purchase or JS. |
+| `.material-study__weave` / `--textile` | Original CSS pattern diagrams with accessible image descriptions and explanatory text; not verified material samples or named traditional textiles. |
+| `_product-card.twig` | Repeated on home and catalog; receives one public ProductService row. List item + article, separate image/name links, price/category/material/origin, In stock / Only N left / Sold out text. No nested actions or hover-only controls. |
+| `.collection-filters__input`, `__select` | Labeled native search/category/sort controls, resting boundary via `--color-control-border`, focus ring, values retained after GET submission. No price-range or stock-only filter. |
+| `.btn.btn--primary` | Discovery/collection anchors and native Apply filters submit. Default/hover/focus-visible. No fake loading/disabled/async states; no secondary/danger variants shipped. |
+| `.pagination__link` / `--disabled` | Previous/Next preserve filters. Unavailable direction is noninteractive `aria-disabled` text; page status stays visible. |
+| `.empty-state--filtered` / `--catalog` | No matches offers Clear filters; no active bags offers Explore the weave. Neither hides navigation or claims a successful purchase. |
+| `.product-detail` in `product.twig` | Read-only real seed data, image/price/stock/dimensions and fictional labels, with Back to collection. Full R3 controls/viewer and cart remain later milestones. |
+
+`--color-stock-low` supplies the readable low-stock foreground on the page surface;
+stock always has a text cue. Controls and product-name links retain ≥44 px touch
+height. Keyboard focus on image links is not clipped by the card.
+
+Good composition (implemented API):
+
+```twig
+<ul class="product-grid">
+  {% for product in products %}
+    {% include 'storefront/_product-card.twig' with { product: product } only %}
+  {% endfor %}
+</ul>
+```
+
+Bad usage (not shipped): wrapping the whole card in another anchor creates nested
+links; adding a decorative Add to bag link would imply unavailable M4 behavior.
+Cards are for quiet inspection, not patterned craft backgrounds.
+
+Asset provenance: `public/assets/img/craft-weave.svg` and the material-study CSS diagrams
+are original procedural artwork created for issue #2 on 2026-11-09, intended for Habi's
+fictional craft introduction/exploration. No supplied references, external photographs,
+maker biographies or traditional-pattern attribution are published. Existing font
+licenses and original seeded bag illustration provenance remain unchanged.
 

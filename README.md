@@ -1,6 +1,6 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products, illustrations and origin labels are fictional demonstrations, not real goods or verified maker stories. **M0 delivers the working shell and SQLite seed only.** Catalog discovery, 3D, cart, checkout, admin UI and deployment belong to later [milestones](docs/BUILD.md).
+Educational Filipino-inspired handbag storefront. Products, illustrations and origin labels are fictional demonstrations, not real goods or verified maker stories. **M1 adds craft discovery and a searchable SQLite catalog to the M0 foundation.** Full product-detail controls/3D, cart, checkout, admin UI and deployment belong to later [milestones](docs/BUILD.md).
 
 ## Local setup — three steps
 
@@ -43,12 +43,21 @@ vendor/bin/phpcs --standard=PSR12 src public/index.php seed tests
 find src public seed tests -name '*.php' -print0 | xargs -0 -n1 php -l
 ```
 
-PHPUnit uses isolated databases, not your local demo inventory. The shell must also be inspected in a browser at 360 px and wide widths, with keyboard-only navigation and Lighthouse accessibility ≥90; automated PHP checks do not establish visual accessibility.
+PHPUnit uses isolated databases, not your local demo inventory. Catalog behavior coverage includes search/category combinations, price/newest order, pagination, inactive products, sold-out visibility and empty results. Inspect the actual discovery/catalog at 360 px and wide widths with keyboard navigation; automated PHP checks do not establish visual accessibility.
 
 ## Architecture and scope
 
-`public/index.php` → Slim 4 → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with first-boot transactional initialization. Only `GET /` is implemented. Templates autoescape HTML; later milestones add commerce routes, sessions and CSRF.
+`public/index.php` → Slim 4 → `StorefrontController` → `ProductService`/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with first-boot transactional initialization. Templates autoescape HTML. Later milestones add commerce mutations, sessions and CSRF.
+
+| Route | Available behavior |
+|---|---|
+| `/` | Short skippable introduction, material/bag exploration without purchase, optional featured collection |
+| `/products?q=&category=&sort=&page=` | Active products, literal text search over name/description/materials, category, `newest`/`price_asc`/`price_desc`, six products per page |
+| `/product/{slug}` | Read-only bag inspection using seeded imagery, price, stock and illustrative material/origin labels; no cart or viewer yet |
+| `/api/product/{slug}/stock` | Uncached JSON `{slug, stock, low_stock_threshold}`; missing/inactive products return JSON 404 |
+
+Search and category combine; pagination retains those filters and sorting. Out-of-range pages use the nearest available page. Sold-out products remain visible; inactive products do not. A missing/inactive product detail returns 404.
 
 Canonical visual source: [`public/assets/css/app.css`](public/assets/css/app.css); design and asset policy: [DSD](docs/DSD.md). Use semantic tokens instead of ad hoc component colors. Font license files are shipped with the fonts; supplied reference images are not website assets.
 
-Requirements: [PRD](docs/PRD.md) · architecture: [SDD](docs/SDD.md) · [issue #1](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/1). N6 local execution is M0 scope; Docker, deployment and persistence on a hosted volume remain M8. No real payments are processed. No PR review, merge or deployment is implied by a working local shell.
+Requirements: [PRD](docs/PRD.md) · architecture: [SDD](docs/SDD.md) · [issue #2](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/2). N6 local execution is M0 scope; Docker, deployment and persistence on a hosted volume remain M8. No real payments are processed. Local implementation does not imply human PR review, merge or deployment.

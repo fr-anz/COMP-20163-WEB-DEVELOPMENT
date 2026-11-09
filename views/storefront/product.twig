@@ -1,0 +1,58 @@
+{% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
+
+{% block title %}{{ product.name }} — {{ app_name }}{% endblock %}
+
+{% block meta %}
+<meta name="description" content="{{ product.description|striptags }}">
+{% endblock %}
+
+{% block content %}
+  <article class="product-detail">
+    <div class="shell">
+      <p class="product-detail__back">
+        <a class="link-quiet" href="/products">
+          {{ icons.icon('arrow-left') }}
+          Back to the collection
+        </a>
+      </p>
+
+      <div class="product-detail__grid">
+        <figure class="product-detail__media">
+          <img src="{{ product.image_path }}"
+               alt="{{ product.name }} — illustrative demo illustration"
+               width="480" height="600">
+        </figure>
+
+        <div class="product-detail__info">
+          <p class="product-detail__category">{{ product.category }}</p>
+          <h1 class="product-detail__name">{{ product.name }}</h1>
+          <p class="product-detail__price">
+            ₱{{ (product.price_centavos / 100)|number_format(2, '.', ',') }}
+          </p>
+          {% if product.stock == 0 %}
+            <p class="product-detail__stock product-detail__stock--out">Sold out</p>
+          {% elseif product.stock <= product.low_stock_threshold %}
+            <p class="product-detail__stock product-detail__stock--low">Only {{ product.stock }} left</p>
+          {% else %}
+            <p class="product-detail__stock">In stock</p>
+          {% endif %}
+
+          <p class="product-detail__description">{{ product.description }}</p>
+          <p class="product-detail__materials">{{ product.materials }}</p>
+          <p class="product-detail__origin">{{ product.place_of_make }}</p>
+          <p class="product-detail__dimensions">
+            Dimensions: {{ product.dimensions.width }} &times;
+            {{ product.dimensions.height }} &times;
+            {{ product.dimensions.depth }} cm
+          </p>
+
+          <p class="product-detail__note">
+            Browsing is fully open &mdash; cart and checkout arrive in a later
+            milestone, and nothing here is for sale yet.
+          </p>
+        </div>
+      </div>
+    </div>
+  </article>
+{% endblock %}
