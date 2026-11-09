@@ -17,6 +17,20 @@ use Twig\Environment as TwigEnvironment;
  */
 final class StorefrontController
 {
+    /**
+     * Home "Seen in" chips per material tab: SQL LIKE patterns matched against
+     * the seeded (illustrative) material text, so the chips always link to
+     * real catalog products in deterministic id order.
+     *
+     * @var array<string, list<string>>
+     */
+    private const MATERIAL_SEEN_IN = [
+        'fiber' => ['%straw%', '%raffia%', '%rattan%', '%buri%', '%abaca%', '%fiber%'],
+        'strip' => ['%strip%', '%weave%', '%panels%'],
+        'yarn' => ['%yarn%', '%rope%', '%webbing%'],
+        'loom' => ['%canvas%', '%twill%', '%cloth%', '%loom%'],
+    ];
+
     public function __construct(
         private readonly TwigEnvironment $twig,
         private readonly ProductService $products,
@@ -28,11 +42,19 @@ final class StorefrontController
         ResponseInterface $response,
         array $args = []
     ): ResponseInterface {
-        $newest = $this->products->list(['sort' => 'newest', 'page' => 1])['products'];
-        $featured = array_slice($newest, 0, 3);
+        $listing = $this->products->list(['sort' => 'featured']);
+        $categories = $this->products->categories();
+
+        $materialsSeen = [];
+        foreach (self::MATERIAL_SEEN_IN as $materialId => $patterns) {
+            $materialsSeen[$materialId] = $this->products->byMaterials($patterns, 3);
+        }
 
         return $this->render($response, 'storefront/home.twig', [
-            'featured_products' => $featured,
+            'featured_products' => array_slice($listing['products'], 0, 3),
+            'materials_seen' => $materialsSeen,
+            'total' => $listing['total'],
+            'form_count' => count($categories),
         ]);
     }
 
@@ -47,7 +69,13 @@ final class StorefrontController
             'category' => $query['category'] ?? '',
             'sort' => $query['sort'] ?? '',
             'page' => $query['page'] ?? 1,
+            'hide_soldout' => ($query['hide_sold_out'] ?? '') === '1',
         ]);
+
+        $pageUrls = [];
+        foreach (range(1, $listing['pages']) as $number) {
+            $pageUrls[$number] = $this->pageUrl($request, $listing, $number) ?? '';
+        }
 
         return $this->render($response, 'storefront/products.twig', [
             'products' => $listing['products'],
@@ -58,9 +86,11 @@ final class StorefrontController
             'q' => $listing['q'],
             'category' => $listing['category'],
             'sort' => $listing['sort'],
+            'hide_sold_out' => $listing['hide_soldout'],
             'categories' => $this->products->categories(),
             'previous_url' => $this->pageUrl($request, $listing, $listing['page'] - 1),
             'next_url' => $this->pageUrl($request, $listing, $listing['page'] + 1),
+            'page_urls' => $pageUrls,
         ]);
     }
 
@@ -144,7 +174,8 @@ final class StorefrontController
 
     /**
      * URL of a listing page with every active filter preserved, or null when
-     * the page number falls outside the available range.
+     * the page number falls outside the available range. The default sort
+     * ("featured") and absent filters are omitted from the URL.
      */
     private function pageUrl(
         ServerRequestInterface $request,
@@ -158,7 +189,8 @@ final class StorefrontController
         $params = array_filter([
             'q' => $listing['q'],
             'category' => $listing['category'],
-            'sort' => $listing['sort'] !== 'newest' ? $listing['sort'] : '',
+            'sort' => $listing['sort'] !== 'featured' ? $listing['sort'] : '',
+            'hide_sold_out' => !empty($listing['hide_soldout']) ? '1' : '',
             'page' => $page !== 1 ? (string) $page : '',
         ], static fn (string $value): bool => $value !== '');
 

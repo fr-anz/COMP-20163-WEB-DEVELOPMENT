@@ -46,7 +46,7 @@ Human PR review/merge remains pending; Docker/hosted N6 checks remain M8.
 - A: `ProductService` (list w/ q/category/sort/page, getBySlug), `StorefrontController` routes,
   JSON stock endpoint.
 - C: craft home (R1), listing page w/ search/filter/sort/pagination (R2), product card component, empty state.
-- **Done when:** R1, R2 work end-to-end; 10 seeded products browsable/filterable; PRD acceptance green. **M1 acceptance:** short skippable intro + free exploration + optional commerce visible (DSD §7).
+- **Done when:** R1/R2 work end-to-end, ten seeded products remain browsable/filterable, and the current published UI contract passes (DSD §4).
 
 M1 local implementation (issue #2, branch `a/m1-catalog-discovery`):
 - `ProductService`/`StorefrontController` implement active-only listing, literal search,
@@ -85,8 +85,8 @@ M1 local implementation (issue #2, branch `a/m1-catalog-discovery`):
 ### M2 — Product detail + 3D viewer MVP (A + B + C)
 - A: product detail route (R3), `GET /api/product/{slug}/3d` (R6).
 - B: `BagViewer` class, `bagFactory` for 4 shapes, OrbitControls w/ damping + idle auto-rotate (R4),
-  vendored three, WebGL fallback image (R27), loading state (DSD §8). Exterior viewer only.
-- C: detail layout/gallery, disabled quantity + Add-to-bag controls until M4, accordions and stock badge (R17 display only).
+  vendored three, WebGL fallback image (R27), loading state (DSD §4). Exterior viewer only.
+- C: exact published detail/gallery layout, disabled purchase until M4, open information sections and stock chip (R17 display only).
 - **Done when:** R3 inspection portion, R4, R6 and R27 pass on desktop + mobile (viewer dialog); LCP <3 s and viewer initialization <2 s after page load (N1). Controls work without drag and respect reduced motion. Full R3/R7 purchase acceptance is M4; Peek inside is M3.
 
 M2 local implementation (issue #3, branch `abc/m2-product-viewer`, 2026-11-09):
@@ -192,9 +192,113 @@ No commit, push, merge or deployment was performed; the issue is not fully Done 
 that external requirement is met.
 
 
+### Design reconciliation — approved reference (2026-11-09)
+
+> **Historical, superseded visual interpretation.** The checks below describe that earlier
+> revision. The user subsequently required a 1:1 published-reference cutover; they do not
+> establish acceptance of the current visual direction.
+
+The user approved the [published Habi UI and design system](https://fit-igloo-66636772.figma.site/)
+on 2026-11-09. Started from `main` after `git pull --ff-only`, then created
+`abc/design-reconciliation`. The prior local context checkpoint is preserved in the
+named stash `preserve pre-reconciliation context checkpoint`.
+
+- Reconciled DSD/PRD/SDD/USER-JOURNEY/README to the approved reference and actual PHP/Twig
+  APIs. PRD §9 resolves the prototype's conflicting sample fees, order numbers and stock
+  presentation without changing business requirements.
+- Updated canonical `app.css`: approved colors, quiet commerce typography, 1280 px
+  content area, 4/3/2 catalog columns, readable disabled/status states and real focus outlines.
+  Updated shell/wordmark/search, split craft hero/process, original woven artwork,
+  material disclosures, cards, product breadcrumbs and the viewer's cream studio surface.
+- Kept existing inventory, `.env`, URLs, GET filtering/pagination, local fonts/licenses,
+  procedural models and viewer contracts. No M3–M6 behavior was implemented.
+
+Observed checks on `php -S 127.0.0.1:8015 -t public`, Chromium, 2026-11-09:
+- Desktop **1440×1000**, tablet **768×900**, narrow **360×800**: catalog has 4/3/2
+  columns. Home, catalog and product checks showed no horizontal overflow; narrow catalog
+  interactive targets measured ≥44 px tall. Local fonts/images load; CSS role references resolve.
+- Keyboard skip-to-main, Skip introduction, native material disclosures and visible
+  **3 px blue focus / 2 px offset** work. Header search retains `q`; category/sort,
+  pagination, no-match reset and stock labels work. No-JS search/disclosures and product
+  illustration/details remain usable; purchase controls stay disabled.
+- Actual Twig card rendering preserves **₱1,200** and **₱1,200.55** exactly.
+- Sinag exterior: one desktop canvas, six 44 px controls, rotate/reset/pause; narrow
+  dialog, Esc/focus return and Tab/Shift+Tab wrap. Reduced motion disables auto-rotation,
+  not manual controls. Injected config 503 → retry restores one canvas and focus inside
+  the dialog. Disabled WebGL → original image and “3D unavailable in this browser”.
+  Gabi's low-stock label and Sinag's W/H/D labels remain visible in their relevant states.
+- Measured actual color pairs: primary/page **12.96:1**, secondary/page **5.95:1**,
+  secondary/inset **5.05:1**, action label **5.73:1**; strong boundary/surface **4.15:1**
+  and boundary/inset **3.29:1**; focus/page **5.14:1**, focus/inset **4.36:1**;
+  stock/low-stock/sold-out status pairs **5.78/6.18/5.91:1**.
+- `vendor/bin/phpunit tests/Services/ProductServiceTest.php` → **7 tests / 39 assertions**;
+  `composer cs`, `composer lint`, `node --check public/assets/js/viewer3d.js` → pass.
+  Ordinary final browser visits reported no JS errors. No new permanent tests or dependencies.
+- `npx --no-install contextspine check` → **0 failures / 31 existing warnings**
+  (missing IDEA/RESEARCH/QAD pipeline files and QAD requirement coverage).
+
+Historical M0–M2 performance/Lighthouse evidence above is not re-certified by this visual
+reconciliation. No commit, push, merge or deployment performed; human PR review remains
+the next integration step.
+
+### Exact published-reference cutover (2026-11-10)
+
+User correction: match the published UI and design system **1:1**; replace the previous
+visual interpretation. DSD 2.0 makes the source-rendered markup, stylesheet, exact font
+variants, SVG artwork and responsive states authoritative.
+
+Implemented on `abc/design-reconciliation`:
+
+- Ported the published header/mobile drawer, mosaic hero, process diagrams, four material
+  tabs/swatches, asymmetric editorial cards, full-width dark CTA and dark selvedge footer.
+- Replaced old tokens/components with the published semantic roles and native utility
+  styles. Four local variable-font subsets and the published SVG family replace the
+  earlier font/art direction; obsolete assets were removed. No frontend build added.
+- Catalog follows the reference filter/grid/pagination layout: Featured default, eight
+  rows per page and working Hide sold-out filtering. Native GET submission also works
+  without JavaScript.
+- Product follows the reference split, typography, mode segment, open information
+  sections, purchase panel and viewer controls. Real procedural Three.js inspection
+  remains; resize now preserves orbit/zoom while fitting the new viewport shape.
+- PRD/SDD/journey/README and the manual screen-review guide now point to this authority,
+  not earlier-direction exceptions. Inventory, environment and business contracts remain
+  intact; sample commerce state is not fabricated.
+
+Observed verification after the cutover:
+
+- Native **1440, 768 and 360 px** reference/application comparison: header, hero, hero
+  heading and introduction bounding rectangles match exactly at each width, with no
+  horizontal overflow. Inspected the actual mobile editorial artwork after lazy loading.
+  These measurements do not claim whole-application pixel identity: product data and
+  the real renderer replace prototype sample data and its conceptual model.
+- Material selection/keyboard navigation shows one panel; mobile menu navigation closes
+  the dialog and Tab/Shift+Tab wrap correctly. Shared navigation also works on products.
+- Catalog showed **8 + 2** products over two pages. Hide sold-out reaches the server and
+  survives native no-JS submission; service fixtures prove actual exclusion and totals.
+- Real 3D loaded, rotated, paused and reset. Mobile dialog is viewport-sized, has no
+  internal overflow, keeps the complete model in frame across desktop/mobile resizing,
+  closes with Escape and returns focus. Reduced motion disables automatic rotation.
+- Injected **503** config failure → visible retry → real viewer ready; focus returns
+  outside the hidden recovery panel. Forced no-WebGL → static original illustration,
+  legible recovery card using published panel styles → Images closes the dialog.
+  No-JS product image remains visible; unavailable mode/menu controls stay hidden.
+- `vendor/bin/phpunit tests/Services/ProductServiceTest.php` → **10 tests / 60 assertions**.
+  `composer cs`, `composer lint` and `node --check` for storefront/product/viewer scripts
+  passed. Two new long test lines were wrapped after PHPCS reported warnings.
+- Current semantic contrast: primary/secondary text on page **12.96 / 5.95**, primary
+  action **5.73**, status text/background pairs **5.78–6.18**, strong control border
+  on surface **4.15**, focus ring on page **5.14**. This is targeted contrast evidence,
+  not an accessibility certification.
+- `npx --no-install contextspine check` → **0 failures / 31 existing warnings** for
+  missing IDEA/RESEARCH/QAD pipeline files and QAD requirement coverage.
+
+Earlier reconciliation/performance evidence is historical, not recertified here.
+Cart/checkout/interiors/admin remain their existing later milestones. No commit, push,
+merge or deployment performed.
+
 ### M3 — Peek inside (B, with C polish)
 - B: interior group (lining, pockets) per shape, lid-open tween, camera fly-in, clipping plane
-  cutaway, "Peek inside" toggle button (R5, DSD §8).
+  cutaway, "Peek inside" toggle button (R5, DSD §4 and published viewer component).
 - C: toggle button styling, hint chips, reduced-motion handling.
 - **Done when:** R5 passes; toggle reversible; no z-fighting; 60 fps on mid laptop.
 
@@ -264,7 +368,7 @@ vendor/bin/phpunit               # isolated first-boot/preservation tests
 | SQLite write contention under concurrent checkouts | `BEGIN IMMEDIATE` + guarded UPDATE + concurrency test in M5 (SDD §8); MySQL migration path documented (SDD §14) |
 | WebGL unsupported on some grader machine | R27 fallback image; document in README |
 | Railway/Render free tier sleeps | Note cold-start in README; paid tier optional |
-| Asset/font selection not finalized | Select licensed fonts, original generated imagery/textures and procedural model configs before their implementation milestone (DSD §§9,12); reference images are not publication assets |
-| Modeling constraints for procedural bags | Ensure procedural weave/textile materials match DSD §§8–9; validate performance on mid-tier devices; procedural configs and generated textures, no generated model download |
+| Asset/font drift | Use the approved published artwork and exact local variable fonts; record sources/licenses in DSD §6. Supplied photographs remain unpublished inspiration. |
+| Modeling constraints for procedural bags | Follow the published viewer presentation (DSD §4), retain procedural configs/textures and verify actual rendering/performance; no downloaded model substitution. |
 | Three.js vendored file goes stale | Pin version in README; upgrade = replace 2 files in `public/assets/vendor/three/` |
 | Scope creep (accounts, reviews) | PRD §4 out-of-scope; park in backlog |

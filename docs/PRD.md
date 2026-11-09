@@ -25,7 +25,8 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
 ## 2. Brand
 
 - **Name:** `Habi`
-- **Positioning:** contemporary craft. Earthy, warm, photography-forward (full spec in [DSD.md](DSD.md)).
+- **Positioning:** contemporary Filipino craft. Earthy, warm, craft-forward — woven structure
+  carries the identity and product imagery sits on quiet neutral grounds (full spec in [DSD.md](DSD.md)).
 - **Origin story surface:** product pages use neutral illustrative material/origin labels (e.g., "illustrative sample" or "unknown origin if unverified"); these are **demonstration labels only** and do not assert actual provenance or ownership.
 
 ## 3. Target Users
@@ -57,7 +58,7 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
 
 ### 5.1 Catalog & discovery
 - **R1** Home page with short, skippable craft-first intro; free material/bag exploration section; optional shopping path. Hero, featured products, and expressive craft sections with quiet inspection focus.
-- **R2** Catalog page: grid of active products with search, category filter, sort (price asc/desc, newest), and pagination or "load more". Out-of-stock items show a badge. Price and in-stock status displayed per item.
+- **R2** Catalog page: grid of active products with search, category filter, featured/newest/price sorting, optional Hide sold-out bags, and eight-item pagination. Show price and icon+text availability per item. Match the published catalog component and responsive card layout (DSD §4).
 - **R3** Product detail page: gallery images, name, price (₱), description, materials / place-of-make, dimensions, stock indicator, quantity selector, Add-to-Cart, and the 3D viewer.
 
 ### 5.2 3D viewer
@@ -76,10 +77,12 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
 - **R28** Cart persists across page loads (server session) for the session lifetime.
 
 ### 5.4 Checkout & simulated payment
-- **R10** Guest checkout (no account required): steps Shipping → Payment → Review → Confirmation. Order numbers use prefix **H-YYYYMMDD-NNNN**.
+- **R10** Guest checkout (no account required): steps Shipping → Payment → Review → Confirmation. Order numbers use prefix **H-YYYYMMDD-NNNN** (this format prevails over the shorter sample numbers shown in the approved reference's prototype screens).
 - **R11** Shipping form: name, phone, email, address, region (select), with server-side validation and inline errors.
 - **R12** Shipping fee computed from region (Metro Manila ₱120, Luzon ₱180, Visayas ₱220,
-  Mindanao ₱250; free above ₱5,000 subtotal). Total shown before payment.
+  Mindanao ₱250; free above ₱5,000 subtotal). Total shown before payment. These rates and the
+  free threshold are binding; the approved visual reference's sample cart figures
+  (₱150/₱220/₱280/₱320) are prototype content, not requirements.
 - **R13** Payment step is a **mock card form**: card number validated with Luhn, expiry
   MM/YY future-dated, CVC 3–4 digits. Clearly labeled "SIMULATED — no real payment is processed."
 - **R14** Fake gateway: "processing" state (spinner, 1.5–2.5 s), then success or decline. Test cards: `4242 4242 4242 4242` → success; `4000 0000 0000 0002` → card declined; `4000 0000 0000 9995` → insufficient funds. Any other Luhn-valid number → success. **Declined payments do not create orders; no order on decline.**
@@ -141,10 +144,21 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
 
 ## 9. Open Items / Placeholders
 
-- **Fonts and assets:** the M0 shell selects licensed local fonts and canonical colors; selections and runtime checks are recorded in DSD/BUILD. Later screen assets still require review.
-- **Product imagery:** original local SVG demo illustrations are the M0 seed format; M2 adds original procedural exterior models/textures. **Supplied images remain inspiration and procedural-3D modeling references only, NOT publication assets or Habi ownership/provenance**. Interior inspection remains M3.
+- **Fonts and assets:** fonts and colors are approved via the design reference and implemented in `app.css` (DSD §2–3); later screen assets still require review.
+- **Product imagery:** published-reference SVG illustrations replace the previous poster-style seed artwork; original procedural exterior models/textures remain M2. Asset sources and licenses are recorded in DSD §6. **Supplied reference photographs remain inspiration/modeling references only, NOT publication assets or proof of Habi ownership/provenance.** Interior inspection remains M3.
 - **Province list:** simplified region-level shipping map (R12); full PH province list is v2.
 - **Deployment:** Railway preferred; dev command uses `-t public` (N6). Privacy references SDD §9-10.
+
+### Prototype vs requirements
+
+The approved visual reference is a design specification, not a requirements source. Where its
+prototype screens and this PRD disagree, the PRD prevails:
+
+- **Shipping fees:** the reference's sample figures do not replace R12's rates or free-shipping threshold.
+- **Order numbers:** the reference's shortened examples do not replace R10's required format.
+- **Stock handling:** the reference replaces the sold-out button; R17 requires only that
+  0-stock products cannot be added, and R9 clamping plus R15 atomic decrement are binding.
+  Purchase controls remain unavailable until M4; preserve the published visual layout while explaining that real application state (DSD §4).
 
 ## 10. Glossary
 

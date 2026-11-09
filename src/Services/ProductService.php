@@ -10,12 +10,13 @@ use PDO;
  * Read-only queries for the public storefront catalog. Only active products
  * are returned; procedural configs are fetched separately from catalog data.
  *
- * Money is integer centavos. Listing pages hold 6 products. Sorting is a
- * fixed allowlist so no user input ever reaches the ORDER BY clause.
+ * Money is integer centavos. Listing pages hold 8 products. Sorting is a
+ * fixed allowlist ("featured", the deterministic id order, is the default) so
+ * no user input ever reaches the ORDER BY clause.
  */
 final class ProductService
 {
-    private const PER_PAGE = 6;
+    private const PER_PAGE = 8;
 
     /**
      * Deterministic sort fragments; the user-facing sort key must exist here.
@@ -23,6 +24,7 @@ final class ProductService
      * @var array<string, string>
      */
     private const SORTS = [
+        'featured' => 'p.id ASC',
         'newest' => 'p.created_at DESC, p.id DESC',
         'price_asc' => 'p.price_centavos ASC, p.id ASC',
         'price_desc' => 'p.price_centavos DESC, p.id DESC',
@@ -37,22 +39,27 @@ final class ProductService
      * Paginated, filtered catalog listing.
      *
      * Accepted filters: q (string), category (string), sort (allowlist key),
-     * page (positive integer). Malformed values fall back to their defaults;
-     * the page is clamped to the available range.
+     * page (positive integer), hide_soldout (bool). Malformed values fall
+     * back to their defaults; the page is clamped to the available range.
      *
      * @return array{
      *     products: list<array<string, mixed>>, total: int, page: int,
-     *     pages: int, per_page: int, q: string, category: string, sort: string
+     *     pages: int, per_page: int, q: string, category: string, sort: string,
+     *     hide_soldout: bool
      * }
      */
     public function list(array $filters = []): array
     {
         $q = $this->scalar($filters['q'] ?? '');
         $category = $this->scalar($filters['category'] ?? '');
-        $sort = self::SORTS[$this->scalar($filters['sort'] ?? '')] ?? self::SORTS['newest'];
+        $sort = self::SORTS[$this->scalar($filters['sort'] ?? '')] ?? self::SORTS['featured'];
         $page = $this->positiveInt($filters['page'] ?? 1);
+        $hideSoldout = (bool) ($filters['hide_soldout'] ?? false);
 
         [$conditions, $parameters] = $this->filters($q, $category);
+        if ($hideSoldout) {
+            $conditions[] = 'p.stock > 0';
+        }
         $where = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
 
         $countStatement = $this->pdo->prepare('SELECT COUNT(*) FROM products p' . $where);
@@ -92,6 +99,7 @@ final class ProductService
             'q' => $q,
             'category' => $category,
             'sort' => array_search($sort, self::SORTS, true),
+            'hide_soldout' => $hideSoldout,
         ];
     }
 
@@ -167,6 +175,45 @@ final class ProductService
         $config = $statement->fetchColumn();
 
         return $config === false ? null : json_decode((string) $config, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Products whose material text matches one of the LIKE patterns, in
+     * deterministic id order — used for the home page "Seen in" chips.
+     *
+     * @param list<string> $patterns SQL LIKE patterns (trusted, may contain %)
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function byMaterials(array $patterns, int $limit = 3): array
+    {
+        if ($patterns === []) {
+            return [];
+        }
+
+        $conditions = [];
+        $parameters = [];
+        foreach (array_values($patterns) as $index => $pattern) {
+            $conditions[] = 'p.materials LIKE :material_' . $index;
+            $parameters['material_' . $index] = $pattern;
+        }
+
+        $statement = $this->pdo->prepare(
+            'SELECT p.id, p.slug, p.name, p.category, p.description, p.materials,
+                    p.place_of_make, p.price_centavos, p.stock, p.low_stock_threshold,
+                    p.dimensions,
+                    (SELECT pi.path FROM product_images pi
+                     WHERE pi.product_id = p.id
+                     ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
+                     LIMIT 1) AS image_path
+             FROM products p
+             WHERE p.is_active = 1 AND (' . implode(' OR ', $conditions) . ')
+             ORDER BY p.id ASC
+             LIMIT ' . max(1, $limit)
+        );
+        $statement->execute($parameters);
+
+        return array_map($this->hydrate(...), $statement->fetchAll());
     }
 
     /**

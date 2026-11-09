@@ -14,7 +14,7 @@
 Design a PHP e-commerce system that (a) satisfies every R#/N# in the PRD, (b) runs locally
 with zero install beyond PHP+Composer, and (c) deploys to the web unchanged via Docker
 (Railway/Render). Checkout payment is simulated by design (N3).
-**Direction:** craft-first short skippable intro → free material/bag exploration → optional shopping (DSD §7).
+**UI authority:** the published Habi UI/design system is followed 1:1, replacing earlier visual interpretations (DSD §§1–4). Craft discovery remains skippable; shopping is optional.
 
 ## 2. Technology Stack
 
@@ -25,7 +25,7 @@ with zero install beyond PHP+Composer, and (c) deploys to the web unchanged via 
 | Framework | **Slim 4** (micro-framework) + nyholm/psr7 | Tiny, explicit routing; no framework lock-in |
 | Templating | **Twig 3** | Auto-escaping kills most XSS (N2); clean separation |
 | Database | **PDO + SQLite** (dev & prod default), MySQL-compatible schema for easy migration | Zero-setup dev (`php -S`), persists on a Railway volume; DSN switch via env (§12) |
-| 3D | **Three.js** (vendored ES module in `public/assets/vendor/three/`), vanilla JS modules | Procedural woven-fiber/textile-inspired bags (R4–R6, DSD §§8–9), no external model files, works offline |
+| 3D | **Three.js** (vendored ES module in `public/assets/vendor/three/`), vanilla JS modules | Procedural woven-fiber/textile-inspired bags (R4–R6, DSD §§4,6), no external model files, works offline |
 | Frontend | Server-rendered Twig pages + small vanilla JS module per page; no SPA build step | Fast LCP (N1), simple deploy, course-friendly |
 | Sessions | Native PHP sessions, `HttpOnly`, `SameSite=Lax`, regenerated on admin login (N2) | Cart persistence (R28), admin auth (R19) |
 | Container | **Docker** (`php:8.2-cli` + Composer + `php -S 0.0.0.0:$PORT -t public`) | Identical runtime locally and on Railway/Render (N6) |
@@ -94,6 +94,11 @@ ordered gallery images and adds the active-only procedural config endpoint.
 `src/Bootstrap/` handles initialization/catalog seeding, `src/Support/` environment/PDO
 helpers, and `src/Console/` the explicit reset command. Commerce/admin remain later milestones.
 
+Canonical CSS is `public/assets/css/app.css`, using the exact published semantic roles
+and consumed component/utility rules (DSD §2). Actual modules are `storefront.js`
+(menu/materials/catalog enhancement), `product.js`, `viewer3d.js` and `bagFactory.js`,
+with Twig views under `views/`. No React runtime, Tailwind build or CDN is required.
+
 ## 5. Data Model
 
 Money is stored as **integer centavos** (₱1 = 100) to avoid float errors (N2-ish correctness).
@@ -146,10 +151,10 @@ Indexes: `products(slug)`, `products(category,is_active)`, `orders(order_number)
 
 Implemented stock response: `{slug, stock, low_stock_threshold}` with `Cache-Control:
 no-store`; missing/inactive products return JSON 404 `{error: "Product not found"}`.
-M1 listing uses six products per page, combines literal name/description/material search
-with category, and preserves filters in pagination. Supported sort values are `newest`,
-`price_asc`, `price_desc`; unknown sort defaults to newest. Creation date and ID provide
-deterministic newest order. Out-of-range pages clamp to available pages.
+Listing uses eight products per page and combines literal name/description/material search,
+category and optional `hide_sold_out=1`; pagination preserves these values. Sort values are
+`featured`, `newest`, `price_asc`, `price_desc`; featured uses stable catalog ID order and is
+the default. Newest uses creation date and ID. Out-of-range pages clamp to available pages.
 
 M2 config responses are the decoded per-product `three_config` object: `shape`,
 centimeter `dimensions`, `colors`, `handle_style`, `material`, `lining`, and `pockets`.
@@ -248,7 +253,7 @@ On failure:
     Materials: MeshStandardMaterial with roughness/metalness per `material` (canvas/leather/rattan);
     all materials support generated weave/textile patterns via canvas texture, not only rattan.
   - **Rotate (R4):** OrbitControls with damping + keyboard orbit; auto-rotate 1.5°/s when idle >3 s,
-    pause/resume on user interaction; respects `prefers-reduced-motion` (DSD §8).
+    pause/resume on user interaction; respects `prefers-reduced-motion` (DSD §4).
   - **Peek inside (R5; M3, not implemented):** "Peek inside" button → tween lid open (rotation.x) + camera fly to
     front-above-interior, interior group visible, front wall set to `clip` via
     `renderer.localClippingEnabled` + clipping plane (cuts the front face so you see in).
