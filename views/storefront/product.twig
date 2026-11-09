@@ -1,6 +1,10 @@
 {% extends "layouts/base.twig" %}
 {% import "macros/icons.twig" as icons %}
+{% set active_nav = 'collection' %}
 {% set primary_image = (product.images[0].path ?? product.image_path) %}
+{% set centavos = product.price_centavos % 100 %}
+{% set price = (product.price_centavos / 100)|number_format(centavos == 0 ? 0 : 2, '.', ',') %}
+{% set material_label = product.materials|replace({'Illustrative materials: ': ''})|split(',')|first|trim %}
 
 {% block title %}{{ product.name }} — {{ app_name }}{% endblock %}
 
@@ -20,43 +24,47 @@
 {% endblock %}
 
 {% block content %}
-  <article class="product-detail" data-product-page data-product-slug="{{ product.slug }}" data-fallback-image="{{ primary_image }}">
-    <div class="shell">
-      <p class="product-detail__back">
-        <a class="link-quiet" href="/products">
-          {{ icons.icon('arrow-left') }}
-          Back to the collection
-        </a>
-      </p>
+  <article data-product-page data-product-slug="{{ product.slug }}" data-fallback-image="{{ primary_image }}">
+    <div class="mx-auto max-w-[1280px] px-4 py-6 @3xl:px-8 @3xl:py-10">
+      <nav aria-label="Breadcrumb">
+        <ol class="flex flex-wrap items-center gap-1 text-small text-ink-2">
+          <li class="flex items-center gap-1"><a class="link py-2" href="/">Home</a>{{ icons.icon('chevron-right', 16) }}</li>
+          <li class="flex items-center gap-1"><a class="link py-2" href="/products">Collection</a>{{ icons.icon('chevron-right', 16) }}</li>
+          <li class="flex items-center gap-1"><a class="link py-2" href="/products?category={{ product.category|url_encode }}">{{ product.category }}</a>{{ icons.icon('chevron-right', 16) }}</li>
+          <li class="flex items-center gap-1"><span class="font-medium text-ink" aria-current="page">{{ product.name }}</span></li>
+        </ol>
+      </nav>
 
-      <div class="product-detail__grid">
-        <div class="product-detail__media">
-          <div class="view-toggle" role="group" aria-label="Product view" hidden>
-            <button type="button" class="view-toggle__button" data-mode="photos" aria-pressed="true">Photos</button>
-            <button type="button" class="view-toggle__button" data-mode="3d" aria-pressed="false">3D view</button>
+      <div class="mt-5 grid gap-8 @min-[900px]:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] @min-[900px]:gap-12">
+        <div class="@min-[900px]:sticky @min-[900px]:top-24 @min-[900px]:self-start">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div role="group" aria-label="View mode" data-view-toggle hidden class="inline-flex rounded-control border-[1.5px] border-line-strong bg-raised p-0.5">
+              <button type="button" aria-pressed="true" data-mode="photos" class="flex h-10 items-center gap-1.5 rounded-[4px] px-3.5 text-small font-semibold transition-colors duration-[var(--duration-fast)] bg-ink text-inverse">{{ icons.icon('image', 18) }}Images</button>
+              <button type="button" aria-pressed="false" data-mode="3d" class="flex h-10 items-center gap-1.5 rounded-[4px] px-3.5 text-small font-semibold transition-colors duration-[var(--duration-fast)] text-ink hover:bg-inset">{{ icons.icon('cube', 18) }}3D<span data-viewer-expand hidden>{{ icons.icon('expand', 14) }}</span></button>
+            </div>
           </div>
-          <noscript><p>JavaScript is needed for 3D inspection. The original illustration and product details remain available.</p></noscript>
 
           <div data-photos-panel>
-            <figure class="gallery__stage">
+            <div class="aspect-[4/5] overflow-hidden rounded-panel border border-line bg-[#F3EEE4] @min-[900px]:aspect-[5/5]">
               <img data-gallery-image
                    src="{{ primary_image }}"
                    alt="{{ product.name }} — illustrative demo illustration"
-                   width="480" height="600">
-            </figure>
+                   width="480" height="600"
+                   class="block h-full w-full object-contain">
+            </div>
 
             {% if product.images|length > 1 %}
-            <ul class="gallery__thumbs" data-gallery-thumbs hidden>
+            <ul class="mt-3 flex gap-2" aria-label="Choose image" data-gallery-thumbs hidden>
               {% for image in product.images %}
               <li>
                 <button type="button"
-                        class="gallery__thumb"
                         data-gallery-thumb
                         data-src="{{ image.path }}"
                         aria-label="View {{ loop.index }} of {{ product.images|length }}"
                         data-alt="{{ product.name }} — illustrative demo illustration, view {{ loop.index }} of {{ product.images|length }}"
-                        aria-pressed="{{ loop.first ? 'true' : 'false' }}">
-                  <img src="{{ image.path }}" alt="" width="64" height="80" loading="lazy">
+                        aria-pressed="{{ loop.first ? 'true' : 'false' }}"
+                        class="block h-[72px] w-[60px] overflow-hidden rounded-control border-2 {{ loop.first ? 'border-ink' : 'border-transparent opacity-80 hover:opacity-100' }}">
+                  <img src="{{ image.path }}" alt="" width="64" height="80" loading="lazy" class="block h-full w-full object-contain">
                 </button>
               </li>
               {% endfor %}
@@ -64,93 +72,180 @@
             {% endif %}
           </div>
 
+          <noscript><p class="mt-2 text-caption text-ink-2">JavaScript is needed for 3D inspection. The photos and product details remain available.</p></noscript>
+
           <div data-viewer-inline-slot>
-            <div class="viewer" data-viewer hidden>
-              <div class="viewer__stage">
-                <div class="viewer__holder" data-viewer-container></div>
+            <div class="viewer relative" data-viewer hidden>
+              <div class="relative aspect-[4/5] select-none overflow-hidden rounded-panel border border-line @min-[900px]:aspect-[5/5]" style="background: radial-gradient(120% 80% at 50% 30%, #FFFCF6 0%, #F3ECDF 60%, #E8DECC 100%);">
+                <div class="absolute top-3 left-3 z-10 flex flex-wrap gap-1.5">
+                  <span class="chip border border-line bg-surface/90 text-ink">{{ icons.icon('cube', 14) }}3D · procedural model</span>
+                </div>
+                <p class="viewer__status sr-only" data-viewer-status role="status" aria-live="polite"></p>
+
+                <div class="absolute inset-0 grid place-items-center" data-viewer-loading>
+                  <div role="status" class="flex flex-col items-center gap-3">
+                    <div class="flex h-8 w-16 flex-col justify-between" aria-hidden="true">
+                      <span class="block h-1.5 origin-left rounded-sm bg-action" style="animation: habi-weave-load 1.2s 0s var(--ease-weave) infinite;"></span>
+                      <span class="block h-1.5 origin-left rounded-sm bg-yellow-400" style="animation: habi-weave-load 1.2s 0.15s var(--ease-weave) infinite;"></span>
+                      <span class="block h-1.5 origin-left rounded-sm bg-green-700" style="animation: habi-weave-load 1.2s 0.3s var(--ease-weave) infinite;"></span>
+                    </div>
+                    <span class="text-small text-ink-2">Preparing the 3D view…</span>
+                  </div>
+                </div>
+
+                <div class="absolute inset-0 grid place-items-center p-6 text-center" data-viewer-error role="alert" hidden>
+                  <div class="max-w-xs">
+                    <span class="mx-auto block text-error">{{ icons.icon('alert') }}</span>
+                    <p class="mt-2 font-semibold">The 3D view didn't load</p>
+                    <p class="mt-1 text-small text-ink-2">This can happen on a slow connection. Your bag and place on the page are kept.</p>
+                    <button type="button" class="btn btn--secondary mt-4" data-viewer-retry>{{ icons.icon('rotate') }}Try again</button>
+                  </div>
+                </div>
+
+                <div class="absolute inset-0 grid place-items-center p-6 text-center" data-viewer-nowebgl hidden>
+                  <div class="max-w-xs rounded-panel border border-line bg-surface p-6 shadow-popover">
+                    <span class="mx-auto block text-ink-2">{{ icons.icon('image') }}</span>
+                    <p class="mt-2 font-semibold">3D viewing isn't available here</p>
+                    <p class="mt-1 text-small text-ink-2">Your browser or device doesn't support WebGL. The product illustration and details remain available.</p>
+                    <button type="button" class="btn btn--secondary mt-4" data-viewer-images>{{ icons.icon('image') }}View images instead</button>
+                  </div>
+                </div>
+
+                <div class="viewer__stage absolute inset-0 cursor-grab touch-none active:cursor-grabbing focus-visible:outline-offset-[-4px]"
+                     tabindex="0" role="img" aria-roledescription="3D viewer"
+                     aria-label="{{ product.name }}, exterior view. Drag or use arrow keys to rotate."
+                     data-viewer-stage>
+                  <div class="viewer__holder h-full w-full" data-viewer-container></div>
+                </div>
+
+                <div class="absolute inset-x-3 bottom-3 z-10 flex flex-wrap items-center justify-between gap-2">
+                  <div class="viewer__controls flex items-center gap-1 rounded-control border border-line bg-surface/95 p-1 shadow-popover" data-viewer-controls hidden>
+                    <button type="button" class="icon-btn relative" data-viewer-rotate data-h="-0.785398" data-v="0" aria-label="Rotate left" title="Rotate left">{{ icons.icon('arrow-left') }}</button>
+                    <button type="button" class="icon-btn relative" data-viewer-rotate data-h="0.785398" data-v="0" aria-label="Rotate right" title="Rotate right">{{ icons.icon('arrow-right') }}</button>
+                    <button type="button" class="icon-btn relative" data-viewer-pause aria-pressed="true" aria-label="Pause automatic rotation" title="Pause automatic rotation">
+                      <span data-viewer-icon-pause>{{ icons.icon('pause') }}</span>
+                      <span data-viewer-icon-play hidden>{{ icons.icon('play') }}</span>
+                    </button>
+                    <button type="button" class="icon-btn relative" data-viewer-reset aria-label="Reset orientation" title="Reset orientation">{{ icons.icon('reset') }}</button>
+                  </div>
+                </div>
               </div>
-              <p class="viewer__status" data-viewer-status role="status"></p>
-              <div class="viewer__controls" data-viewer-controls hidden>
-                <button type="button" class="viewer__control" data-viewer-rotate data-h="-0.261799" data-v="0">Rotate left</button>
-                <button type="button" class="viewer__control" data-viewer-rotate data-h="0.261799" data-v="0">Rotate right</button>
-                <button type="button" class="viewer__control" data-viewer-rotate data-h="0" data-v="0.261799">Tilt up</button>
-                <button type="button" class="viewer__control" data-viewer-rotate data-h="0" data-v="-0.261799">Tilt down</button>
-                <button type="button" class="viewer__control" data-viewer-reset>Reset view</button>
-                <button type="button" class="viewer__control" data-viewer-pause>Pause rotation</button>
-              </div>
-              <p class="viewer__note" data-viewer-note hidden></p>
-              <p class="viewer__hint" data-viewer-hint hidden>Drag the bag to rotate it. It keeps turning on its own when left alone.</p>
+              <p class="viewer__note mt-2 text-caption text-ink-2" data-viewer-note hidden></p>
             </div>
           </div>
+
+          <p class="mt-2 text-caption text-ink-2" data-viewer-below-hint>Below 900px the 3D viewer opens fullscreen, so the page keeps scrolling normally.</p>
         </div>
 
-        <div class="product-detail__info">
-          <p class="product-detail__category">{{ product.category }}</p>
-          <h1 class="product-detail__name">{{ product.name }}</h1>
-          <p class="product-detail__price">
-            ₱{{ (product.price_centavos / 100)|number_format(2, '.', ',') }}
-          </p>
-          {% if product.stock == 0 %}
-            <p class="product-detail__stock product-detail__stock--out">Sold out</p>
-          {% elseif product.stock <= product.low_stock_threshold %}
-            <p class="product-detail__stock product-detail__stock--low">Only {{ product.stock }} left</p>
-          {% else %}
-            <p class="product-detail__stock">In stock</p>
-          {% endif %}
-
-          <p class="product-detail__description">{{ product.description }}</p>
-
-          <details class="product-detail__accordion">
-            <summary>Materials &amp; origin</summary>
-            <div class="product-detail__accordion-body">
-              <p class="product-detail__materials">{{ product.materials }}</p>
-              <p class="product-detail__origin">Place of make: {{ product.place_of_make }}</p>
-              <p class="product-detail__origin-note">Demo information — not a factual product description.</p>
-            </div>
-          </details>
-
-          <details class="product-detail__accordion">
-            <summary>Dimensions</summary>
-            <div class="product-detail__accordion-body">
-              <p class="product-detail__dimensions">
-                {{ product.dimensions.width }} &times;
-                {{ product.dimensions.height }} &times;
-                {{ product.dimensions.depth }} cm
-              </p>
-            </div>
-          </details>
-
-          <div class="product-detail__purchase">
-            <span class="qty">
-              <label class="qty__label" for="product-qty">Qty</label>
-              <button type="button" class="qty__button" aria-label="Decrease quantity" disabled>&minus;</button>
-              <input class="qty__input" id="product-qty" name="quantity" value="1" inputmode="numeric" disabled aria-describedby="purchase-note">
-              <button type="button" class="qty__button" aria-label="Increase quantity" disabled>&plus;</button>
-            </span>
+        <div>
+          <p class="text-caption font-medium tracking-wide text-ink-2 uppercase">{{ product.category }}</p>
+          <h1 class="mt-1 font-display text-[30px] font-bold @3xl:text-h1">{{ product.name }}</h1>
+          <p class="mt-1 text-ink-2">{{ material_label }}</p>
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <span class="text-h3 font-semibold tabular-nums"><span class="sr-only">Price: </span>&#8369;{{ price }}</span>
             {% if product.stock == 0 %}
-              <button type="button" class="btn btn--primary" disabled>Sold out</button>
+              <span class="chip bg-error-bg text-error"><span class="h-2 w-2 rotate-45 border-[1.5px] border-current" aria-hidden="true"></span>Sold out</span>
+            {% elseif product.stock <= product.low_stock_threshold %}
+              <span class="chip bg-warning-bg text-warning">{{ icons.icon('alert', 14) }}Only {{ product.stock }} left</span>
             {% else %}
-              <button type="button" class="btn btn--primary" disabled>Add to bag</button>
+              <span class="chip bg-success-bg text-success">{{ icons.icon('check', 14) }}In stock</span>
             {% endif %}
           </div>
-          <p class="product-detail__purchase-note" id="purchase-note">
-            Quantity and &ldquo;Add to bag&rdquo; are disabled until milestone 4.
-            Checkout arrives later &mdash; browsing is fully open.
-          </p>
+          <p class="mt-5 text-[17px]">{{ product.description }}</p>
+
+          <div class="mt-6 rounded-panel border border-line bg-surface p-5">
+            {% if product.stock == 0 %}
+              <p class="font-semibold">This bag is sold out</p>
+              <p class="mt-1 text-small text-ink-2">Demo inventory isn't restocked automatically. Explore similar weaves in the collection.</p>
+              <a class="btn btn--secondary mt-4" href="/products">Browse the collection</a>
+              <p class="mt-4 text-small text-ink-2">Checkout arrives in a later milestone — browsing stays fully open.</p>
+            {% else %}
+              <div class="flex flex-wrap items-end gap-3">
+                <div>
+                  <label class="field-label" for="product-qty">Quantity</label>
+                  <div class="inline-flex h-11 items-stretch overflow-hidden rounded-control border-[1.5px] border-line-strong bg-raised">
+                    <button type="button" class="grid w-11 place-items-center hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="Decrease quantity" disabled>{{ icons.icon('minus', 18) }}</button>
+                    <input id="product-qty" name="quantity" inputmode="numeric" value="1" disabled
+                           class="w-10 border-x border-line bg-transparent text-center font-semibold tabular-nums focus:outline-none focus-visible:bg-info-bg"
+                           aria-describedby="product-qty-max">
+                    <button type="button" class="grid w-11 place-items-center hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="Increase quantity" disabled>{{ icons.icon('plus', 18) }}</button>
+                  </div>
+                  <p id="product-qty-max" class="field-hint">Up to {{ product.stock }} available</p>
+                </div>
+                <button type="button" class="btn btn--primary btn--lg min-w-[200px] flex-1" disabled>
+                  {{ icons.icon('bag', 20) }}<span>Add to bag · &#8369;{{ price }}</span>
+                </button>
+                <p class="w-full text-small text-ink-2">Quantity and &ldquo;Add to bag&rdquo; are disabled until checkout arrives in a later milestone &mdash; browsing is fully open.</p>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="mt-8 divide-y divide-line border-y border-line">
+            <section class="py-5" aria-labelledby="mat">
+              <h2 id="mat" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('thread', 20) }} Materials</h2>
+              <dl class="mt-3 grid grid-cols-[120px_1fr] gap-x-4 gap-y-2 text-[15px]">
+                <dt class="text-ink-2">Material</dt>
+                <dd>{{ product.materials }}</dd>
+                <dt class="text-ink-2">Place of make</dt>
+                <dd>{{ product.place_of_make }}</dd>
+              </dl>
+              <p class="mt-3 flex items-start gap-2 rounded-control bg-inset px-3 py-2 text-caption text-ink">
+                <span class="mt-px flex-none">{{ icons.icon('info', 16) }}</span>
+                <span><strong>Illustrative provenance label.</strong> Habi is a demo &mdash; no maker, region of origin or certification is claimed for this product.</span>
+              </p>
+            </section>
+
+            <section class="py-5" aria-labelledby="dim">
+              <h2 id="dim" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('ruler', 20) }} Dimensions</h2>
+              <div class="mt-3 flex items-center gap-6">
+                <svg viewBox="0 0 120 100" class="h-24 w-28 flex-none text-ink-2" aria-hidden="true">
+                  <rect x="22" y="34" width="76" height="52" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
+                  <path d="M42 34 C42 6 78 6 78 34" fill="none" stroke="currentColor" stroke-width="1.5"></path>
+                  <path d="M22 94H98M10 34V86" stroke="#A8462C" stroke-width="1.5"></path>
+                  <text x="60" y="100" font-size="9" text-anchor="middle" fill="currentColor">W</text>
+                  <text x="4" y="62" font-size="9" fill="currentColor">H</text>
+                </svg>
+                <dl class="grid grid-cols-2 gap-x-6 gap-y-1 text-[15px] tabular-nums">
+                  <dt class="text-ink-2">Width</dt><dd>{{ product.dimensions.width }} cm</dd>
+                  <dt class="text-ink-2">Height</dt><dd>{{ product.dimensions.height }} cm</dd>
+                  <dt class="text-ink-2">Depth</dt><dd>{{ product.dimensions.depth }} cm</dd>
+                </dl>
+              </div>
+            </section>
+
+            <section class="py-5" aria-labelledby="ship">
+              <h2 id="ship" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('truck', 20) }} Shipping estimate</h2>
+              <ul class="mt-3 grid grid-cols-2 gap-2 text-small">
+                <li class="rounded-control border border-line px-3 py-2"><span class="block font-semibold">Metro Manila</span><span class="text-ink-2">&#8369;120 &middot; 1&ndash;3 days</span></li>
+                <li class="rounded-control border border-line px-3 py-2"><span class="block font-semibold">Luzon</span><span class="text-ink-2">&#8369;180 &middot; 3&ndash;5 days</span></li>
+                <li class="rounded-control border border-line px-3 py-2"><span class="block font-semibold">Visayas</span><span class="text-ink-2">&#8369;220 &middot; 4&ndash;7 days</span></li>
+                <li class="rounded-control border border-line px-3 py-2"><span class="block font-semibold">Mindanao</span><span class="text-ink-2">&#8369;250 &middot; 5&ndash;8 days</span></li>
+              </ul>
+              <p class="mt-2 text-small text-ink-2">Free above &#8369;5,000.</p>
+              <p class="mt-1 flex items-start gap-2 text-caption text-ink-2">
+                <span class="mt-px flex-none">{{ icons.icon('info') }}</span>
+                <span>Planned commerce &mdash; an estimate, not a functional promise.</span>
+              </p>
+            </section>
+          </div>
         </div>
       </div>
     </div>
   </article>
 
-  <dialog class="viewer-dialog" data-viewer-dialog aria-labelledby="viewer-dialog-title">
-    <header class="viewer-dialog__header">
-      <h2 class="viewer-dialog__title" id="viewer-dialog-title">{{ product.name }} — 3D view</h2>
-      <button type="button" class="viewer-dialog__close" data-viewer-close autofocus>Close</button>
-    </header>
-    <div class="viewer-dialog__slot" data-viewer-dialog-slot></div>
+  <dialog class="anim-fade-up relative m-auto flex h-full max-h-full w-full max-w-none flex-col overflow-hidden rounded-none bg-surface p-0 shadow-overlay"
+          data-viewer-dialog aria-labelledby="viewer-dialog-title">
+    <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <div>
+        <h2 class="text-h3 font-semibold" id="viewer-dialog-title">{{ product.name }} in 3D</h2>
+        <p class="mt-1 text-small text-ink-2">Drag to rotate</p>
+      </div>
+      <button type="button" class="icon-btn relative -mt-1.5 -mr-2" data-viewer-close aria-label="Close dialog" autofocus>{{ icons.icon('close') }}</button>
+    </div>
+    <div class="flex-1 overflow-auto p-0" data-viewer-dialog-slot></div>
   </dialog>
 {% endblock %}
 {% block scripts %}
+{{ parent() }}
 <script src="/assets/js/product.js" defer></script>
 {% endblock %}
-

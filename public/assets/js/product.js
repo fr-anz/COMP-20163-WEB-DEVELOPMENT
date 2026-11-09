@@ -18,8 +18,7 @@
 
   const slug = page.dataset.productSlug;
   const fallbackImage = page.dataset.fallbackImage || '';
-  const productName =
-    page.querySelector('.product-detail__name')?.textContent.trim() || 'Product';
+  const productName = page.querySelector('h1')?.textContent.trim() || 'Product';
 
   const els = {
     modeButtons: Array.from(page.querySelectorAll('[data-mode]')),
@@ -30,7 +29,16 @@
     status: page.querySelector('[data-viewer-status]'),
     controls: page.querySelector('[data-viewer-controls]'),
     note: page.querySelector('[data-viewer-note]'),
-    hint: page.querySelector('[data-viewer-hint]'),
+    loadingOverlay: page.querySelector('[data-viewer-loading]'),
+    errorOverlay: page.querySelector('[data-viewer-error]'),
+    nowebglOverlay: page.querySelector('[data-viewer-nowebgl]'),
+    retryButton: page.querySelector('[data-viewer-retry]'),
+    imagesButton: page.querySelector('[data-viewer-images]'),
+    iconPause: page.querySelector('[data-viewer-icon-pause]'),
+    iconPlay: page.querySelector('[data-viewer-icon-play]'),
+    expandIndicator: page.querySelector('[data-viewer-expand]'),
+    belowHint: page.querySelector('[data-viewer-below-hint]'),
+    stage: page.querySelector('[data-viewer-stage]'),
     pauseButton: page.querySelector('[data-viewer-pause]'),
     resetButton: page.querySelector('[data-viewer-reset]'),
     dialog: document.querySelector('[data-viewer-dialog]'),
@@ -65,13 +73,15 @@
   function updatePauseButton() {
     if (!els.pauseButton) return;
     const reduced = reducedMotionQuery.matches;
-    els.pauseButton.textContent = reduced
-      ? 'Auto-rotation off'
-      : (state.autoRotate ? 'Pause rotation' : 'Resume rotation');
+    const running = state.autoRotate && !reduced;
+    const label = reduced ? 'Automatic rotation off (reduced motion)' :
+      (running ? 'Pause automatic rotation' : 'Start automatic rotation');
+    els.pauseButton.setAttribute('aria-pressed', String(running));
+    els.pauseButton.setAttribute('aria-label', label);
+    els.pauseButton.title = label;
+    if (els.iconPause) els.iconPause.hidden = !running;
+    if (els.iconPlay) els.iconPlay.hidden = running;
     els.pauseButton.disabled = reduced;
-    els.hint.textContent = reduced
-      ? 'Drag the bag or use the rotation buttons. Automatic motion is off.'
-      : 'Drag the bag or use the rotation buttons. Idle rotation can be paused.';
     setNote(reduced ? 'Auto-rotate is off because your system prefers reduced motion.' : '');
   }
 
@@ -87,55 +97,44 @@
   }
 
   function render3dState() {
-    // Retry removes its own status button; move focus before detaching it.
-    if (els.status.contains(document.activeElement)) {
+    // Hiding the retry button must not strand focus inside a hidden state;
+    // move focus to the 3D mode button (or dialog close) before swapping.
+    if (els.errorOverlay?.contains(document.activeElement)) {
       const target = els.dialog.open
         ? els.dialogClose
         : els.modeButtons.find((button) => button.dataset.mode === '3d');
-      target.focus();
+      target?.focus();
     }
     els.status.replaceChildren();
 
-    if (state.viewerState === 'loading') {
-      els.status.textContent = 'Loading the 3D view…';
-      els.controls.hidden = true;
-      els.hint.hidden = true;
-      setNote('');
+    const loading = state.viewerState === 'loading';
+    const failed = state.viewerState === 'error';
+    const noWebgl = state.viewerState === 'webgl-unavailable';
+    if (els.loadingOverlay) els.loadingOverlay.hidden = !loading;
+    if (els.errorOverlay) els.errorOverlay.hidden = !failed;
+    if (els.nowebglOverlay) els.nowebglOverlay.hidden = !noWebgl;
+    els.controls.hidden = state.viewerState !== 'ready';
+
+    if (loading) {
+      els.status.textContent = 'Loading 3D view';
       return;
     }
 
     if (state.viewerState === 'ready') {
       els.status.textContent = '3D exterior ready.';
-      els.controls.hidden = false;
-      els.hint.hidden = false;
       updatePauseButton();
       return;
     }
 
-    if (state.viewerState === 'webgl-unavailable') {
+    if (noWebgl) {
       showWebglFallback();
       // Exact required note (R27).
       els.status.textContent = '3D unavailable in this browser';
-      els.controls.hidden = true;
-      els.hint.hidden = true;
-      setNote('');
       return;
     }
 
-    // Fetch or module failure: explain and offer retry.
-    els.status.textContent = 'We couldn’t load the 3D view right now. ';
-    const retry = document.createElement('button');
-    retry.type = 'button';
-    retry.className = 'viewer__retry';
-    retry.textContent = 'Try again';
-    retry.addEventListener('click', () => {
-      if (state.moduleFailed) window.location.reload();
-      else loadViewer();
-    });
-    els.status.appendChild(retry);
-    els.controls.hidden = true;
-    els.hint.hidden = true;
-    setNote('');
+    // Fetch or module failure: the error overlay explains and offers retry.
+    els.status.textContent = '';
   }
 
   function loadViewer() {
@@ -208,7 +207,10 @@
     const threeD = mode === '3d';
 
     for (const button of els.modeButtons) {
-      button.setAttribute('aria-pressed', String(button.dataset.mode === mode));
+      const selected = button.dataset.mode === mode;
+      button.setAttribute('aria-pressed', String(selected));
+      for (const token of ['bg-ink', 'text-inverse']) button.classList.toggle(token, selected);
+      for (const token of ['text-ink', 'hover:bg-inset']) button.classList.toggle(token, !selected);
     }
     els.photosPanel.hidden = threeD;
     els.viewer.hidden = !threeD;
@@ -258,16 +260,22 @@
     syncActivity();
   });
 
+  // Orientation announcer: the sr-only live region is the reference's
+  // orientation label (no visible readout in the source overlay).
+  const announce = (text) => {
+    els.status.textContent = text;
+  };
+
   els.controls.addEventListener('click', (event) => {
     const button = event.target.closest('button');
     if (!button || !state.viewer) return;
-    if (button.hasAttribute('data-h') || button.hasAttribute('data-v')) {
-      state.viewer.rotate(
-        parseFloat(button.dataset.h || '0'),
-        parseFloat(button.dataset.v || '0')
-      );
+    if (button.hasAttribute('data-viewer-rotate')) {
+      const yaw = parseFloat(button.dataset.h || '0');
+      state.viewer.rotate(yaw, parseFloat(button.dataset.v || '0'));
+      announce(yaw < 0 ? 'Rotated left' : 'Rotated right');
     } else if (button === els.resetButton) {
       state.viewer.reset();
+      announce('Orientation reset');
     } else if (button === els.pauseButton) {
       if (state.autoRotate) {
         state.viewer.setAutoRotate(false);
@@ -281,6 +289,30 @@
     }
   });
 
+  // Static retry in the error overlay (same retry semantics as before).
+  els.retryButton?.addEventListener('click', () => {
+    if (state.moduleFailed) window.location.reload();
+    else loadViewer();
+  });
+
+  // The nowebgl overlay's escape hatch back to the photo views.
+  els.imagesButton?.addEventListener('click', () => setMode('photos'));
+
+  // Arrow keys rotate/tilt from the focused stage, as the reference viewer does.
+  const KEY_STEPS = {
+    ArrowLeft: [-0.523599, 0, 'Rotated left'],
+    ArrowRight: [0.523599, 0, 'Rotated right'],
+    ArrowUp: [0, 0.261799, 'Tilted up'],
+    ArrowDown: [0, -0.261799, 'Tilted down'],
+  };
+  els.stage?.addEventListener('keydown', (event) => {
+    const step = KEY_STEPS[event.key];
+    if (!step || !state.viewer) return;
+    event.preventDefault();
+    state.viewer.rotate(step[0], step[1]);
+    announce(step[2]);
+  });
+
   // Gallery: works without JS (main image only); thumbs appear when JS runs.
   if (els.thumbs && els.mainImage) {
     els.thumbs.hidden = false;
@@ -290,10 +322,22 @@
       els.mainImage.src = button.dataset.src;
       if (button.dataset.alt) els.mainImage.alt = button.dataset.alt;
       for (const other of els.thumbs.querySelectorAll('[data-gallery-thumb]')) {
-        other.setAttribute('aria-pressed', String(other === button));
+        const selected = other === button;
+        other.setAttribute('aria-pressed', String(selected));
+        other.classList.toggle('border-ink', selected);
+        for (const token of ['border-transparent', 'opacity-80', 'hover:opacity-100']) {
+          other.classList.toggle(token, !selected);
+        }
       }
     });
   }
+
+  // Below 900px the reference shows the fullscreen affordance: an expand
+  // glyph on the 3D toggle and the "opens fullscreen" hint under the stage.
+  const syncBelowWide = () => {
+    if (els.expandIndicator) els.expandIndicator.hidden = isWide();
+    if (els.belowHint) els.belowHint.hidden = isWide();
+  };
 
   // Immediate response to state changes.
   const onViewportChange = () => {
@@ -302,6 +346,7 @@
     } else {
       els.inlineSlot.appendChild(els.viewer);
     }
+    syncBelowWide();
     syncActivity();
   };
   if (wideQuery.addEventListener) {
@@ -337,7 +382,8 @@
 
   /* ---------------------------------------------------------------- Boot */
 
-  page.querySelector('.view-toggle').hidden = false;
+  page.querySelector('[data-view-toggle]').hidden = false;
+  syncBelowWide();
   setMode('photos');
   // Start fetching config + importing the viewer module promptly (N1),
   // even while the Photos view is the one on screen.

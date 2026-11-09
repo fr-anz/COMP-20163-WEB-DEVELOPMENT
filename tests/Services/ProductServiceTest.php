@@ -19,25 +19,52 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
         $this->products = new ProductService($this->database());
     }
 
-    public function testPaginationBrowsesEverySeedWithoutDuplicatesAndNewestUsesCreationDate(): void
+    public function testFeaturedIsTheDefaultSortInDeterministicIdOrderWithEightPerPage(): void
     {
-        $this->database()->prepare('UPDATE products SET created_at = ? WHERE slug = ?')
-            ->execute(['2099-01-01 00:00:00', 'sinag-tote']);
-
         $first = $this->products->list();
         $last = $this->products->list(['page' => 2]);
 
         self::assertSame(10, $first['total']);
         self::assertSame(2, $first['pages']);
+        self::assertSame(8, $first['per_page']);
+        self::assertSame('featured', $first['sort']);
         self::assertSame(
-            ['sinag-tote', 'dahon-sling', 'araw-tote', 'gabi-clutch', 'maya-clutch', 'ulap-sling'],
+            [
+                'sinag-tote', 'alon-tote', 'lupa-satchel', 'sierra-satchel',
+                'tala-sling', 'ulap-sling', 'maya-clutch', 'gabi-clutch',
+            ],
             array_column($first['products'], 'slug')
         );
         self::assertSame(
-            ['tala-sling', 'sierra-satchel', 'lupa-satchel', 'alon-tote'],
+            ['araw-tote', 'dahon-sling'],
             array_column($last['products'], 'slug')
         );
-        self::assertSame($last['products'], $this->products->list(['page' => 3])['products']);
+        self::assertSame(
+            $last['products'],
+            $this->products->list(['sort' => 'featured', 'page' => 2])['products']
+        );
+    }
+
+    public function testNewestSortUsesCreationDate(): void
+    {
+        $this->database()->prepare('UPDATE products SET created_at = ? WHERE slug = ?')
+            ->execute(['2099-01-01 00:00:00', 'sinag-tote']);
+
+        $first = $this->products->list(['sort' => 'newest']);
+        $last = $this->products->list(['sort' => 'newest', 'page' => 2]);
+
+        self::assertSame('newest', $first['sort']);
+        self::assertSame(
+            [
+                'sinag-tote', 'dahon-sling', 'araw-tote', 'gabi-clutch',
+                'maya-clutch', 'ulap-sling', 'tala-sling', 'sierra-satchel',
+            ],
+            array_column($first['products'], 'slug')
+        );
+        self::assertSame(
+            ['lupa-satchel', 'alon-tote'],
+            array_column($last['products'], 'slug')
+        );
     }
 
     public function testSearchAndCategoryCombineIncludingMaterialDescriptions(): void
@@ -47,7 +74,7 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
         self::assertSame(['alon-tote'], array_column($result['products'], 'slug'));
 
         $result = $this->products->list(['q' => 'GEOMETRIC']);
-        self::assertSame(['araw-tote', 'sinag-tote'], array_column($result['products'], 'slug'));
+        self::assertEqualsCanonicalizing(['araw-tote', 'sinag-tote'], array_column($result['products'], 'slug'));
         self::assertSame(['Clutch', 'Satchel', 'Sling', 'Tote'], $this->products->categories());
     }
 
@@ -66,6 +93,31 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
                 array_column(array_merge($first['products'], $second['products']), 'slug')
             );
         }
+    }
+
+    public function testHideSoldOutFlagExcludesSoldOutStockFromListingAndCount(): void
+    {
+        $this->database()->prepare('UPDATE products SET stock = 0 WHERE slug = ?')->execute(['gabi-clutch']);
+
+        $default = $this->products->list();
+        self::assertSame(10, $default['total']);
+        self::assertFalse($default['hide_soldout']);
+        self::assertContains('gabi-clutch', array_column($default['products'], 'slug'));
+
+        $hidden = $this->products->list(['hide_soldout' => true]);
+        self::assertSame(9, $hidden['total']);
+        self::assertTrue($hidden['hide_soldout']);
+        self::assertNotContains('gabi-clutch', array_column(array_merge(
+            $hidden['products'],
+            $this->products->list(['hide_soldout' => true, 'page' => 2])['products']
+        ), 'slug'));
+        self::assertSame(
+            ['dahon-sling'],
+            array_column($this->products->list(['hide_soldout' => true, 'page' => 2])['products'], 'slug')
+        );
+
+        $combined = $this->products->list(['category' => 'Clutch', 'hide_soldout' => true]);
+        self::assertSame(['maya-clutch'], array_column($combined['products'], 'slug'));
     }
 
     public function testInactiveProductsAreHiddenButSoldOutProductsStayBrowsable(): void
@@ -89,6 +141,27 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
             self::assertSame(1, $result['page']);
             self::assertSame(1, $result['pages']);
         }
+    }
+
+    public function testByMaterialsReturnsActiveProductsInIdOrderUpToTheLimit(): void
+    {
+        self::assertSame(
+            ['sinag-tote', 'maya-clutch', 'araw-tote'],
+            array_column($this->products->byMaterials(['%straw%', '%raffia%', '%rattan%']), 'slug')
+        );
+        self::assertSame(
+            ['sinag-tote', 'maya-clutch'],
+            array_column($this->products->byMaterials(['%straw%', '%raffia%', '%rattan%'], 2), 'slug')
+        );
+
+        $this->database()->prepare('UPDATE products SET is_active = 0 WHERE slug = ?')->execute(['maya-clutch']);
+        self::assertSame(
+            ['sinag-tote', 'araw-tote', 'dahon-sling'],
+            array_column($this->products->byMaterials(['%straw%', '%raffia%', '%rattan%']), 'slug')
+        );
+
+        self::assertSame([], $this->products->byMaterials([]));
+        self::assertSame([], array_column($this->products->byMaterials(['%no-such-material%']), 'slug'));
     }
 
     public function testInspectionConfigRemainsAvailableWhenSoldOutButNotInactive(): void

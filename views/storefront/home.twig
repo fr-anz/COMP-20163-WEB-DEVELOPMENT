@@ -1,101 +1,233 @@
 {% extends "layouts/base.twig" %}
 {% import "macros/icons.twig" as icons %}
+{% set active_nav = 'discover' %}
+
+{# Material tab copy is the reference's own material definitions; the
+   "Seen in" chips come from the controller as real catalog products. #}
+{% set materials = [
+    { id: 'fiber', name: 'Natural fiber',
+      summary: 'Undyed strands, worked in close rows. Tone shifts strand to strand.',
+      traits: ['Soft structure', 'Warm, matte surface', 'Darkens gently with use'] },
+    { id: 'strip', name: 'Flat strip',
+      summary: 'Wide, flat strips crossed one-over-one-under into a firm checker.',
+      traits: ['Holds its shape', 'Wipe-clean surface', 'Bold two-tone checks'] },
+    { id: 'yarn', name: 'Yarn inlay',
+      summary: 'Coloured yarn worked into a fiber ground as a single, offset band.',
+      traits: ['Colour in one zone', 'Diagonal rhythm', 'Fiber frame stays visible'] },
+    { id: 'loom', name: 'Loom cloth',
+      summary: 'Warp stripes woven on a loom, then cut and stitched into panels.',
+      traits: ['Soft drape', 'Vertical colour runs', 'Paired with fiber bases'] },
+] %}
 
 {% block title %}{{ app_name }} — the weave comes first{% endblock %}
 
 {% block meta %}
-<meta name="description" content="Habi is a craft-first demo shop: every bag is an original woven-style illustration, the cart and checkout are still on the loom, and nothing is for sale yet.">
+<meta name="description" content="Habi is a craft-first demo shop: explore how fiber, strip, and yarn become handbags, then browse the collection. Original illustrations, honest demo labels — nothing is for sale yet.">
 {% endblock %}
 
 {% block content %}
-  <section class="hero" aria-labelledby="hero-title">
-    <div class="shell">
-      <p class="hero__kicker">A craft-first study in woven bags</p>
-      <h1 class="hero__title" id="hero-title">The weave comes first.</h1>
-      <p class="hero__lede">
-        Habi means <em>weave</em> in Filipino. Follow the crossing of a strand,
-        the rhythm of a pattern, and the shape of a bag. Take a closer look;
-        shopping can wait.
-      </p>
-      <p class="hero__actions">
-        <a class="btn btn--primary" href="#craft">
-          Discover the weave
-          {{ icons.icon('arrow-down') }}
-        </a>
-        <a class="link-quiet" href="#explore">
-          Skip introduction
-          {{ icons.icon('arrow-right') }}
-        </a>
-      </p>
-      <figure class="hero__composition">
-        <img src="/assets/img/craft-weave.svg"
-             alt="Woven-frame illustration: interlaced fiber strips frame three material studies and a quiet Habi demo tote — original procedural artwork for this fictional demo shop"
-             width="800" height="520">
-        <figcaption>
-          Original material-and-bag studies for this fictional demo. Illustrations,
-          not photographs or verified material samples.
-        </figcaption>
-      </figure>
-    </div>
-  </section>
-
-  <section class="craft" id="craft" aria-labelledby="craft-title">
-    <div class="shell">
-      <h2 class="craft__title" id="craft-title">The weave, up close</h2>
-      <p class="craft__text">
-        A weave takes shape where two sets of strands cross. A close, even
-        rhythm makes a surface; a change in color makes that rhythm visible.
-        Look for the same idea in a bag’s panels, edges, and handles.
-      </p>
-      <p class="craft__text">
-        These are illustrative studies, not accounts of a particular maker or
-        community. Product material and origin labels are unverified demo descriptions.
-      </p>
-    </div>
-  </section>
-
-  <section class="explore" id="explore" aria-labelledby="explore-title">
-    <div class="shell">
-      <h2 class="explore__title" id="explore-title">Follow a thread. Find a form.</h2>
-      <p class="explore__lede">
-        Open either material study, in any order. Then explore the bag illustrations
-        below &mdash; no purchase, account, or next step required.
-      </p>
-      <div class="material-studies">
-        <details class="material-study">
-          <summary>Natural fiber &mdash; follow the crossing</summary>
-          <div class="material-study__body">
-            <div class="material-study__weave" role="img" aria-label="Original diagram of light and dark strands crossing in a regular woven grid"></div>
-            <p>Trace a pale strand across the darker ones. Repeated crossings
-              suggest the structure of a woven panel; the warm tones here are
-              a drawing choice, not proof of a particular fiber.</p>
-          </div>
-        </details>
-        <details class="material-study">
-          <summary>Colorful textile &mdash; find the rhythm</summary>
-          <div class="material-study__body">
-            <div class="material-study__weave material-study__weave--textile" role="img" aria-label="Original interlaced color study with rust, yellow, green, and blue bands"></div>
-            <p>Follow a blue band across rust, yellow, and green. Changing the
-              color makes the crossing rhythm stand out. This is an original
-              pattern study, not a named traditional textile.</p>
-          </div>
-        </details>
+  <section class="relative overflow-hidden border-b border-line" aria-labelledby="hero-h">
+    <div class="mx-auto grid max-w-[1280px] items-center gap-10 px-4 py-10 @3xl:px-8 @3xl:py-16 @5xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] @5xl:gap-16">
+      <div class="max-w-xl">
+        <p class="font-display text-[15px] font-medium text-ink-2">
+          <span class="font-semibold text-action">{{ app_name|lower }}</span> &middot; <em class="font-sans not-italic">noun, Filipino</em> &mdash; weave</p>
+        <h1 id="hero-h" class="mt-4 font-display text-[36px] leading-[1.08] font-bold tracking-[-0.02em] @3xl:text-display">Every bag begins as a single strand, crossed over and under.</h1>
+        <p class="mt-5 max-w-md text-[17px] text-ink-2">Explore how fiber, flat strip and yarn become handbags &mdash; then browse the collection at your own pace.</p>
+        <div class="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <a href="#craft" class="btn btn--primary btn--lg">
+            <span>Discover the weave</span>
+            {{ icons.icon('arrow-down', 20) }}
+          </a>
+          <a href="#materials" class="link inline-flex min-h-11 items-center gap-1.5 px-1 font-semibold">Skip introduction {{ icons.icon('arrow-right', 18) }}</a>
+        </div>
       </div>
-      <ul class="product-grid">
-        {% for product in featured_products %}
+      <div class="relative grid grid-cols-6 grid-rows-6 gap-2.5 h-[340px] @3xl:h-[480px]" aria-hidden="true">
+        <div class="absolute top-[30%] -right-4 -left-4 z-10 h-5 rounded-sm bg-yellow-400"></div>
+        <div class="absolute top-[74%] -right-4 left-[30%] z-30 h-3 rounded-sm bg-green-700"></div>
+        <div class="absolute -top-3 -bottom-3 left-[54%] z-[15] w-4 rounded-sm bg-blue-700"></div>
+        <div class="z-20 col-span-3 row-span-6 overflow-hidden rounded-panel">
+          <div class="relative rounded-panel p-2.5 h-full">
+            <div class="absolute inset-0 overflow-hidden rounded-panel">
+              <img src="/assets/img/reference/hero-frame.svg" alt="" class="block h-full w-full">
+            </div>
+            <div class="relative h-full rounded-[6px] bg-[#F3EEE4] overflow-hidden">
+              <img src="/assets/img/reference/hero-bucket.svg" alt="" class="block h-full w-full scale-110">
+            </div>
+          </div>
+        </div>
+        <div class="z-0 col-span-3 row-span-3 overflow-hidden rounded-panel">
+          <img src="/assets/img/reference/hero-band.svg" alt="" class="block h-full w-full">
+        </div>
+        <div class="z-20 col-span-1 row-span-3 overflow-hidden rounded-panel">
+          <img src="/assets/img/reference/hero-stripes.svg" alt="" class="block h-full w-full">
+        </div>
+        <div class="z-0 col-span-2 row-span-3 overflow-hidden rounded-panel bg-fiber-200">
+          <img src="/assets/img/reference/hero-diamond.svg" alt="" class="block h-full w-full">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="craft" class="bg-inset" aria-labelledby="intro-h">
+    <div class="mx-auto max-w-[1280px] px-4 py-14 @3xl:px-8 @3xl:py-20">
+      <div class="grid gap-6 @4xl:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] @4xl:gap-16">
+        <h2 id="intro-h" class="font-display text-h2 font-semibold @3xl:text-h1">Made to be explored</h2>
+        <p class="max-w-2xl text-[17px] text-ink-2">A woven surface is a record of decisions: which strand goes over, which goes under, and how many times before the rhythm changes. Habi's collection groups bags by those decisions, so you can see the craft before the product.</p>
+      </div>
+      <ol class="mt-10 grid gap-px overflow-hidden rounded-panel border border-line bg-line @3xl:grid-cols-3">
+        <li class="flex flex-col gap-4 bg-surface p-6">
+          <img src="/assets/img/reference/process-strand.svg" alt="" width="120" height="72" class="h-16 w-auto">
+          <div>
+            <p class="font-display text-h3 font-semibold">
+              <span class="mr-2 text-action tabular-nums">01</span>Strand</p>
+            <p class="mt-1.5 text-small text-ink-2">Fiber, strip or yarn is prepared &mdash; split, flattened or spun to an even width.</p>
+          </div>
+        </li>
+        <li class="flex flex-col gap-4 bg-surface p-6">
+          <img src="/assets/img/reference/process-crossing.svg" alt="" width="120" height="72" class="h-16 w-auto">
+          <div>
+            <p class="font-display text-h3 font-semibold">
+              <span class="mr-2 text-action tabular-nums">02</span>Over &amp; under</p>
+            <p class="mt-1.5 text-small text-ink-2">Strands cross at right angles. Alternating which one sits on top locks them in place.</p>
+          </div>
+        </li>
+        <li class="flex flex-col gap-4 bg-surface p-6">
+          <img src="/assets/img/reference/process-pattern.svg" alt="" width="120" height="72" class="h-16 w-auto">
+          <div>
+            <p class="font-display text-h3 font-semibold">
+              <span class="mr-2 text-action tabular-nums">03</span>Pattern</p>
+            <p class="mt-1.5 text-small text-ink-2">Shifting the over/under count by one, row by row, makes diamonds and diagonals appear.</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="materials" aria-labelledby="mat-h" class="mx-auto max-w-[1280px] px-4 py-14 @3xl:px-8 @3xl:py-20">
+    <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h2 id="mat-h" class="font-display text-h2 font-semibold @3xl:text-h1">Explore materials</h2>
+        <p class="mt-2 max-w-lg text-ink-2">Natural fibers keep their own tone. Coloured textiles arrive as bands, checks and stripes.</p>
+      </div>
+    </div>
+    <div class="grid overflow-hidden rounded-panel border border-line bg-surface @4xl:grid-cols-[240px_1fr]" data-material-tabs>
+      <div role="tablist" aria-label="Materials" aria-orientation="vertical" class="flex overflow-x-auto border-b border-line @4xl:flex-col @4xl:border-r @4xl:border-b-0">
+        {% for material in materials %}
+        <button type="button" role="tab" id="material-tab-{{ material.id }}" aria-controls="material-panel-{{ material.id }}"
+                data-material-tab="{{ material.id }}"
+                aria-selected="{{ loop.first ? 'true' : 'false' }}" tabindex="{{ loop.first ? '0' : '-1' }}"
+                class="flex min-h-14 flex-none items-center gap-3 px-4 text-left transition-colors duration-[var(--duration-fast)] @4xl:border-l-[3px] {% if loop.first %}bg-inset font-semibold @4xl:border-action{% else %}text-ink-2 hover:bg-page hover:text-ink @4xl:border-transparent{% endif %}">
+          <span class="h-7 w-7 flex-none overflow-hidden rounded-sm border border-line" aria-hidden="true">
+            <img src="/assets/img/reference/material-icon-{{ material.id }}.svg" alt="" class="block h-full w-full">
+          </span>
+          <span class="whitespace-nowrap">{{ material.name }}</span>
+        </button>
+        {% endfor %}
+      </div>
+      {# All panels render for the no-JS fallback; storefront.js hides the
+         unselected ones with the native hidden attribute. #}
+      {% for material in materials %}
+      <div role="tabpanel" id="material-panel-{{ material.id }}" aria-labelledby="material-tab-{{ material.id }}"
+           data-material-panel="{{ material.id }}"
+           class="anim-fade grid gap-6 p-5 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] @3xl:p-8">
+        <figure class="flex flex-col">
+          <div class="relative overflow-hidden rounded-panel border border-line aspect-[5/4]">
+            <img src="/assets/img/reference/material-{{ material.id }}.svg" alt="" class="block h-full w-full">
+            <span class="absolute bottom-0 left-0 bg-cream-50 px-2.5 py-1.5 text-caption font-semibold">{{ material.name }}</span>
+          </div>
+        </figure>
+        <div>
+          <h3 class="font-display text-h2 font-semibold">{{ material.name }}</h3>
+          <p class="mt-2 text-ink-2">{{ material.summary }}</p>
+          <ul class="mt-4 space-y-2">
+            {% for trait in material.traits %}
+            <li class="flex items-center gap-2.5 text-[15px]">
+              <span class="h-2.5 w-2.5 flex-none bg-action" aria-hidden="true"></span>{{ trait }}</li>
+            {% endfor %}
+          </ul>
+          {% if materials_seen[material.id] is defined and materials_seen[material.id]|length > 0 %}
+          <p class="mt-6 text-small font-semibold">Seen in</p>
+          <ul class="mt-2 flex flex-wrap gap-2">
+            {% for seen in materials_seen[material.id] %}
+            <li>
+              <a href="/product/{{ seen.slug }}" class="flex min-h-11 items-center gap-2 rounded-control border border-line-strong bg-raised py-1 pr-3 pl-1 text-small font-medium hover:border-ink">
+                <span class="h-9 w-8 overflow-hidden rounded-sm">
+                  <img src="{{ seen.image_path }}" alt="" class="block h-full w-full" loading="lazy" decoding="async">
+                </span>{{ seen.name }}</a>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="mx-auto max-w-[1280px] px-4 @3xl:px-8">
+    <div class="flex items-center gap-4" role="separator">
+      <span class="h-px flex-1 bg-line-strong/50"></span>
+      <img src="/assets/img/reference/craft-divider.svg" alt="" width="56" height="16">
+      <span class="h-px flex-1 bg-line-strong/50"></span>
+    </div>
+  </div>
+
+  <section aria-labelledby="feat-h" class="mx-auto max-w-[1280px] px-4 py-14 @3xl:px-8 @3xl:py-20">
+    <h2 id="feat-h" class="font-display text-h2 font-semibold @3xl:text-h1">A closer look at the craft</h2>
+    {% if featured_products|length > 0 %}
+    <div class="mt-8 grid gap-8 @4xl:grid-cols-12">
+      {% set featured = featured_products[0] %}
+      <article class="grid overflow-hidden rounded-panel border border-line bg-surface @3xl:grid-cols-2 @4xl:col-span-8">
+        <div class="aspect-[4/5] bg-[#F3EEE4]">
+          <img src="{{ featured.image_path }}" alt="{{ featured.name }} — illustrative demo illustration"
+               class="block h-full w-full" loading="lazy" decoding="async">
+        </div>
+        <div class="flex flex-col p-6 @3xl:p-8">
+          <span class="text-caption font-medium tracking-wide text-ink-2 uppercase">{{ featured.category }}</span>
+          <h3 class="mt-1 font-display text-h2 font-semibold">{{ featured.name }}</h3>
+          <p class="mt-3 text-ink-2">{{ featured.description|replace({'Fictional demo: ': ''}) }}</p>
+          <div class="mt-5 h-16 overflow-hidden rounded-control" aria-hidden="true">
+            <img src="/assets/img/reference/featured-band.svg" alt="" class="block h-full w-full">
+          </div>
+          <p class="mt-1.5 text-caption text-ink-2">The band, close up &mdash; each row offset by one colour.</p>
+          <div class="mt-auto flex flex-wrap items-center justify-between gap-3 pt-6">
+            <div class="flex items-center gap-3">
+              <span class="text-h3 font-semibold tabular-nums">
+                <span class="sr-only">Price: </span>{% if featured.price_centavos % 100 == 0 %}&#8369;{{ (featured.price_centavos / 100)|number_format(0, '.', ',') }}{% else %}&#8369;{{ (featured.price_centavos / 100)|number_format(2, '.', ',') }}{% endif %}</span>
+              {% if featured.stock == 0 %}
+                <span class="chip bg-error-bg text-error">
+                  <span class="h-2 w-2 rotate-45 border-[1.5px] border-current" aria-hidden="true"></span>Sold out</span>
+              {% elseif featured.stock <= featured.low_stock_threshold %}
+                <span class="chip bg-warning-bg text-warning">{{ icons.icon('alert', 14) }}{{ featured.stock }} left</span>
+              {% else %}
+                <span class="chip bg-success-bg text-success">{{ icons.icon('check', 14) }}In stock</span>
+              {% endif %}
+            </div>
+            <a href="/product/{{ featured.slug }}" class="btn btn--secondary">
+              <span>View bag</span>
+              {{ icons.icon('arrow-right', 20) }}
+            </a>
+          </div>
+        </div>
+      </article>
+      <ul class="grid grid-cols-2 content-start gap-x-4 gap-y-8 @4xl:col-span-4">
+        {% for product in featured_products|slice(1, 2) %}
           {% include 'storefront/_product-card.twig' with { product: product } only %}
         {% endfor %}
+        <li class="col-span-2 border-t border-line pt-4 text-small text-ink-2">Strip-woven totes hold their shape; loom cloth drapes. Same over-under logic, different hand.</li>
       </ul>
-      <p class="explore__actions">
-        <a class="btn btn--primary" href="/products">
-          Browse the full collection
-          {{ icons.icon('arrow-right') }}
-        </a>
-      </p>
-      <p class="explore__note">
-        You can stop here &mdash; the craft story, the material studies, and the
-        bag illustrations stand on their own. Shopping is optional.
-      </p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="relative overflow-hidden bg-brown-900 text-inverse" aria-labelledby="cta-h">
+    <div class="absolute inset-y-0 right-0 w-1/3 opacity-90 @max-3xl:hidden" aria-hidden="true">
+      <img src="/assets/img/reference/cta-pattern.svg" alt="" class="block h-full w-full">
+    </div>
+    <div class="relative mx-auto max-w-[1280px] px-4 py-14 @3xl:px-8">
+      <h2 id="cta-h" class="max-w-lg font-display text-h2 font-semibold @3xl:text-h1">{{ total }} bags, {{ form_count }} forms, one way of working.</h2>
+      <p class="mt-3 max-w-md text-inverse/80">Browse every piece with search, filters and stock at a glance.</p>
+      <a href="/products" class="btn btn--lg mt-6 bg-cream-50 text-brown-900 hover:bg-yellow-400">Explore the collection {{ icons.icon('arrow-right', 20) }}</a>
     </div>
   </section>
 {% endblock %}

@@ -108,7 +108,7 @@ export class BagViewer extends THREE.EventDispatcher {
         canvas.style.touchAction = 'none'; // OrbitControls handles touch
         container.appendChild(canvas);
 
-        const backdrop = getComputedStyle(container).getPropertyValue('--color-page').trim();
+        const backdrop = getComputedStyle(container).getPropertyValue('--color-bg-surface').trim();
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(backdrop);
 
@@ -219,6 +219,8 @@ export class BagViewer extends THREE.EventDispatcher {
         const hFov = 2 * Math.atan(Math.tan(vFov / 2) * this.camera.aspect);
         const fitFov = Math.min(vFov, hFov);
         const distance = (radius / Math.sin(fitFov / 2)) * 1.12;
+        this._frameRadius = radius;
+        this._fitDistance = distance;
 
         this._initialTarget = sphere.center.clone();
         this._initialCameraPosition = new THREE.Vector3().setFromSphericalCoords(
@@ -397,7 +399,19 @@ export class BagViewer extends THREE.EventDispatcher {
         const height = this.container.clientHeight;
         if (width === 0 || height === 0) return; // hidden (e.g. closed dialog)
         this.renderer.setSize(width, height, false);
-        this.camera.aspect = width / height;
+        const aspect = width / height;
+        if (aspect !== this.camera.aspect && this._fitDistance && this.controls) {
+            const verticalFov = THREE.MathUtils.degToRad(this.camera.fov);
+            const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
+            const distance = (this._frameRadius / Math.sin(Math.min(verticalFov, horizontalFov) / 2)) * 1.12;
+            const scale = distance / this._fitDistance;
+            // Preserve orbit/zoom while fitting the new inline or fullscreen shape.
+            this.camera.position.sub(this.controls.target).multiplyScalar(scale).add(this.controls.target);
+            this._initialCameraPosition.sub(this._initialTarget).multiplyScalar(scale).add(this._initialTarget);
+            this._fitDistance = distance;
+            this.camera.far = distance * 20;
+        }
+        this.camera.aspect = aspect;
         this.camera.updateProjectionMatrix();
     }
 

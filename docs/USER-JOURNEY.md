@@ -1,6 +1,6 @@
 # USER-JOURNEY — Habi
 
-> **Document status:** Planning approved. All journeys are **documentation-only** and describe planned behavior; nothing in this document asserts runtime behavior or shipped state.
+> **Status:** Journeys describe target behavior. M0–M2 implement discovery, catalog and exterior inspection; Peek inside and purchase/admin remain M3–M6. The published UI/design system is authoritative 1:1: mobile menu drawer, icon-only header search, four material tabs, asymmetric featured editorial, dark CTA/footer and reference catalog/product components replace the prior interpretation. Real inventory, routes and truthful unavailable states remain binding; no fake cart/order data.
 
 | | |
 |---|---|
@@ -20,7 +20,7 @@
 | # | Step | Screen / touchpoint | What the user sees/does | Req |
 |---|---|---|---|---|
 | 1 | Discover | Home / Google | Short, skippable craft-first intro; free material/bag exploration section; optional shopping path. Hero, featured products, expressive craft sections | R1 |
-| 2 | Browse | Listing | Grid of 10 bags, badges (New / Only N left / Sold out); search, category filter, sort, pagination | R2 |
+| 2 | Browse | Listing | Grid of 10 bags with stock labels (In stock / Only N left / Sold out — the approved system ships no other badges); search, category filter, sort, pagination | R2 |
 | 3 | Inspect | Product page | Photos; switches to **3D tab**, drags to rotate the bag | R3, R4 |
 | 4 | Trust | Product page | Clicks **"Peek inside"** — lid/flap opens where applicable (open totes supported), camera goes in, sees lining + pockets; reads neutral label (e.g., "illustrative sample") | R5, R6 |
 | 5 | Decide | Product page | Picks qty 1 (stepper caps at stock), **Add to bag** → toast + cart badge = 1 | R7, R9, R17 |

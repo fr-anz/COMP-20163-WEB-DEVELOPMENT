@@ -1,32 +1,42 @@
 {#-
-  Habi quiet product card. Receives exactly: product (one ProductService row).
-  Original seeded illustration, linked name/image, price/category/stock text.
+  Habi product card, exact reference catalog card. Receives exactly:
+  product (one ProductService row). Single stretched link on the title
+  (after:absolute overlay) — no nested links. Short material label derived
+  from the seeded materials text; price in centavos, stock chip per state.
   No commerce controls in M1 — cart and checkout arrive in a later milestone.
 -#}
-<li>
-<article class="product-card">
-  <a class="product-card__media" href="/product/{{ product.slug }}">
-    <img src="{{ product.image_path }}"
-         alt="{{ product.name }} — illustrative demo illustration"
-         width="480" height="600" loading="lazy" decoding="async">
-  </a>
-  <div class="product-card__body">
-    <p class="product-card__category">{{ product.category }}</p>
-    <h3 class="product-card__name">
-      <a href="/product/{{ product.slug }}">{{ product.name }}</a>
-    </h3>
-    <p class="product-card__price">
-      ₱{{ (product.price_centavos / 100)|number_format(2, '.', ',') }}
-    </p>
-    {% if product.stock == 0 %}
-      <p class="product-card__stock product-card__stock--out">Sold out</p>
-    {% elseif product.stock <= product.low_stock_threshold %}
-      <p class="product-card__stock product-card__stock--low">Only {{ product.stock }} left</p>
-    {% else %}
-      <p class="product-card__stock">In stock</p>
-    {% endif %}
-    <p class="product-card__materials">{{ product.materials }}</p>
-    <p class="product-card__origin">{{ product.place_of_make }}</p>
-  </div>
-</article>
+{% import "macros/icons.twig" as icons %}
+{% set material_label = product.materials|replace({'Illustrative materials: ': ''})|split(', ')|first %}
+<li class="anim-fade">
+  <article class="group relative flex flex-col">
+    <div class="relative aspect-[4/5] overflow-hidden rounded-panel border border-line bg-[#F3EEE4]">
+      <img src="{{ product.image_path }}"
+           alt="{{ product.name }} — illustrative demo illustration"
+           class="block h-full w-full" width="480" height="600" loading="lazy" decoding="async">
+      {% if product.stock == 0 %}
+        <span class="absolute top-3 left-3 rounded-sm bg-brown-900 px-2 py-1 text-caption font-semibold text-inverse">Sold out</span>
+      {% endif %}
+    </div>
+    <div class="mt-3 flex flex-1 flex-col">
+      <span class="text-caption font-medium tracking-wide text-ink-2 uppercase">{{ product.category }}</span>
+      <h3 class="mt-1 text-body leading-snug font-semibold">
+        <a href="/product/{{ product.slug }}"
+           class="text-left decoration-action decoration-2 underline-offset-4 group-hover:underline after:absolute after:inset-0 after:rounded-panel focus-visible:outline-none focus-visible:after:outline-3 focus-visible:after:outline-offset-4 focus-visible:after:outline-focus">{{ product.name }}</a>
+      </h3>
+      <p class="text-small text-ink-2">{{ material_label }}</p>
+      <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <span class="text-body font-semibold tabular-nums">
+          <span class="sr-only">Price: </span>{% if product.price_centavos % 100 == 0 %}&#8369;{{ (product.price_centavos / 100)|number_format(0, '.', ',') }}{% else %}&#8369;{{ (product.price_centavos / 100)|number_format(2, '.', ',') }}{% endif %}
+        </span>
+        {% if product.stock == 0 %}
+          <span class="chip bg-error-bg text-error">
+            <span class="h-2 w-2 rotate-45 border-[1.5px] border-current" aria-hidden="true"></span>Sold out</span>
+        {% elseif product.stock <= product.low_stock_threshold %}
+          <span class="chip bg-warning-bg text-warning">{{ icons.icon('alert', 14) }}{{ product.stock }} left</span>
+        {% else %}
+          <span class="chip bg-success-bg text-success">{{ icons.icon('check', 14) }}In stock</span>
+        {% endif %}
+      </div>
+    </div>
+  </article>
 </li>

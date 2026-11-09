@@ -1,6 +1,6 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products, illustrations and origin labels are fictional demonstrations, not real goods or verified maker stories. M1 supplies craft discovery and a searchable SQLite catalog; **M2 adds product inspection and a procedural exterior 3D viewer.** Peek inside (M3), cart (M4), checkout, admin UI and deployment belong to later [milestones](docs/BUILD.md).
+Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M2 provide discovery, searchable SQLite inventory and real procedural exterior 3D inspection. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**, replacing the current and previous direction; [DSD](docs/DSD.md) records its exact PHP/Twig cutover. Peek inside, cart, checkout, admin and deployment remain later [milestones](docs/BUILD.md).
 
 ## Local setup — three steps
 
@@ -26,7 +26,7 @@ Requires PHP **8.2+**, Composer 2, and PHP extensions `pdo_sqlite`, `mbstring`, 
 
 ## Data and intentional reset
 
-Money is integer centavos (₱1 = 100). Product images are original local SVG illustrations; each product has a procedural `three_config` consumed by the exterior viewer. Schema: [`migrations/001_schema.sql`](migrations/001_schema.sql), seed: [`seed/`](seed/).
+Money is integer centavos (₱1 = 100). Product images use the published reference's SVG illustration family; each product has a procedural `three_config` consumed by the real exterior viewer. Asset/font provenance: [DSD §6](docs/DSD.md#6-assets-fonts-and-provenance). Schema: [`migrations/001_schema.sql`](migrations/001_schema.sql), seed: [`seed/`](seed/). No data reset is needed for the visual cutover.
 
 ```sh
 php seed/seed.php --force
@@ -45,6 +45,8 @@ find src public seed tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
 PHPUnit uses isolated databases, not your local demo inventory. Catalog coverage includes search/category combinations, price/newest order, pagination, inactive products, sold-out visibility and empty results; inspection coverage includes active-only configs and ordered galleries. Inspect the actual changed surface at 360 px and wide widths with keyboard navigation; PHP checks do not establish visual accessibility. On product pages, also exercise viewer loading/retry, WebGL fallback, pause/reduced motion and mobile dialog close/Esc/focus return. Exact observed scenarios/timings are recorded in [BUILD M2](docs/BUILD.md#m2--product-detail--3d-viewer-mvp-a--b--c).
 
+Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD — Exact published-reference cutover](docs/BUILD.md#exact-published-reference-cutover-2026-11-10); earlier reconciliation and performance measurements remain historical.
+
 ## Architecture and scope
 
 `public/index.php` → Slim 4 → `StorefrontController` → `ProductService`/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with first-boot transactional initialization. Templates autoescape HTML. Later milestones add commerce mutations, sessions and CSRF.
@@ -52,14 +54,14 @@ PHPUnit uses isolated databases, not your local demo inventory. Catalog coverage
 | Route | Available behavior |
 |---|---|
 | `/` | Short skippable introduction, material/bag exploration without purchase, optional featured collection |
-| `/products?q=&category=&sort=&page=` | Active products, literal text search over name/description/materials, category, `newest`/`price_asc`/`price_desc`, six products per page |
+| `/products?q=&category=&sort=&hide_sold_out=&page=` | Active products; literal name/description/material search; category; `featured`/`newest`/`price_asc`/`price_desc`; Hide sold-out bags; eight products per page |
 | `/product/{slug}` | Original-image gallery, details/stock, illustrative labels, exterior 3D; quantity/Add to bag visibly disabled until M4 |
 | `/api/product/{slug}/stock` | Uncached JSON `{slug, stock, low_stock_threshold}`; missing/inactive products return JSON 404 |
 | `/api/product/{slug}/3d` | Uncached per-product procedural JSON config; missing/inactive products return JSON 404; sold-out products remain inspectable |
 
-Search and category combine; pagination retains those filters and sorting. Out-of-range pages use the nearest available page. Sold-out products remain visible; inactive products do not. A missing/inactive product detail returns 404.
+Search and category combine; pagination retains those filters and sorting. Out-of-range pages use the nearest available page. Sold-out products remain visible unless “Hide sold-out bags” is selected; inactive products do not. A missing/inactive product detail returns 404.
 
-Canonical visual source: [`public/assets/css/app.css`](public/assets/css/app.css); design and asset policy: [DSD](docs/DSD.md). Use semantic tokens instead of ad hoc component colors. Font license files are shipped with the fonts; supplied reference images are not website assets.
+Canonical visual source: [`public/assets/css/app.css`](public/assets/css/app.css), using the published semantic roles and shared native component/utility classes. [DSD](docs/DSD.md) is the visual/asset contract: reproduce the reference, not the earlier UI. Fonts and SVG artwork are local; no React runtime, Tailwind build or CDN is needed. Reference photographs are not website assets. PRD §9 resolves sample business-value conflicts without authorizing visual redesign.
 
 ### Exterior viewer
 
