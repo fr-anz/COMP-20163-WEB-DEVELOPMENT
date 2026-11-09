@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Illustration of the lupa-satchel bag">
+  <rect width="800" height="1000" fill="#F3EDE2"/>
+  <rect x="48" y="48" width="704" height="904" rx="28" fill="none" stroke="#4A3320" stroke-width="2" opacity="0.35"/>
+  <g fill="none" stroke="#7A5C3A" stroke-width="6" stroke-linejoin="round">
+    <path d="M340 200l24 24l-24 24l-24-24Z"/>
+    <path d="M400 184l30 30l-30 30l-30-30Z"/>
+    <path d="M460 200l24 24l-24 24l-24-24Z"/>
+  </g>
+  <ellipse cx="400" cy="782" rx="180" ry="18" fill="#4A3320" opacity="0.14"/>
+<defs>
+  <pattern id="weave-lupa-satchel" width="32" height="32" patternUnits="userSpaceOnUse">
+    <rect width="32" height="32" fill="#8C6A4A"/>
+    <path d="M16 1L31 16L16 31L1 16Z" fill="none" stroke="#6E4F33" stroke-width="2.5" opacity="0.45"/>
+  </pattern>
+</defs>
+  <path d="M340 470C340 388 460 388 460 470" fill="none" stroke="#4A3320" stroke-width="14"/>
+  <rect x="250" y="470" width="300" height="280" rx="30" fill="url(#weave-lupa-satchel)" stroke="#4A3320" stroke-width="6"/>
+  <path d="M250 500Q250 470 280 470H520Q550 470 550 500V580Q550 610 520 610H280Q250 610 250 580Z" fill="#8C6A4A" stroke="#4A3320" stroke-width="6"/>
+  <rect x="384" y="592" width="32" height="26" rx="7" fill="#4A3320"/>
+</svg>
+

@@ -1,0 +1,9 @@
+/vendor/
+/.env
+/.env.*
+!/.env.example
+/data/*.sqlite
+/data/*.sqlite-*
+/data/uploads/
+/.phpunit.cache/
+/.phpunit.result.cache

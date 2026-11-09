@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Illustration of the ulap-sling bag">
+  <rect width="800" height="1000" fill="#F2F1EC"/>
+  <rect x="48" y="48" width="704" height="904" rx="28" fill="none" stroke="#6E6A5C" stroke-width="2" opacity="0.35"/>
+  <path d="M330 232a30 30 0 0 1 6-59a40 40 0 0 1 76-12a32 32 0 0 1 42 30a26 26 0 0 1-8 41Z"
+        fill="none" stroke="#8B8676" stroke-width="7" stroke-linejoin="round"/>
+  <ellipse cx="400" cy="782" rx="180" ry="18" fill="#6E6A5C" opacity="0.14"/>
+<defs>
+  <pattern id="weave-ulap-sling" width="32" height="32" patternUnits="userSpaceOnUse">
+    <rect width="32" height="32" fill="#B9B4A6"/>
+    <path d="M16 1L31 16L16 31L1 16Z" fill="none" stroke="#9A9484" stroke-width="2.5" opacity="0.45"/>
+  </pattern>
+</defs>
+  <path d="M332 478C296 330 504 330 468 478" fill="none" stroke="#6E6A5C" stroke-width="12"/>
+  <rect x="310" y="470" width="180" height="280" rx="44" fill="url(#weave-ulap-sling)" stroke="#6E6A5C" stroke-width="6"/>
+  <path d="M310 514Q310 470 354 470H446Q490 470 490 514V556H310Z" fill="#B9B4A6" stroke="#6E6A5C" stroke-width="6"/>
+  <path d="M336 614H464" stroke="#6E6A5C" stroke-width="5" opacity="0.55" stroke-dasharray="2 12" stroke-linecap="round"/>
+</svg>
+

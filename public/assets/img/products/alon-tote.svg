@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" role="img" aria-label="Illustration of the alon-tote bag">
+  <rect width="800" height="1000" fill="#EEF3F2"/>
+  <rect x="48" y="48" width="704" height="904" rx="28" fill="none" stroke="#2F4A5A" stroke-width="2" opacity="0.35"/>
+  <g stroke="#3E6E86" stroke-width="7" stroke-linecap="round" fill="none">
+    <path d="M320 178q20-18 40 0t40 0t40 0t40 0"/>
+    <path d="M340 210q20-18 40 0t40 0t40 0"/>
+    <path d="M360 242q20-18 40 0t40 0"/>
+  </g>
+  <ellipse cx="400" cy="782" rx="180" ry="18" fill="#2F4A5A" opacity="0.14"/>
+<defs>
+  <pattern id="weave-alon-tote" width="32" height="32" patternUnits="userSpaceOnUse">
+    <rect width="32" height="32" fill="#6E93A8"/>
+    <path d="M16 1L31 16L16 31L1 16Z" fill="none" stroke="#4F7387" stroke-width="2.5" opacity="0.45"/>
+  </pattern>
+</defs>
+  <path d="M310 434C310 326 490 326 490 434" fill="none" stroke="#2F4A5A" stroke-width="15"/>
+  <path d="M342 434C342 352 458 352 458 434" fill="none" stroke="#2F4A5A" stroke-width="12"/>
+  <path d="M270 434L530 434L556 730Q558 756 532 756L268 756Q242 756 244 730Z" fill="url(#weave-alon-tote)" stroke="#2F4A5A" stroke-width="6"/>
+  <path d="M270 470H530" stroke="#2F4A5A" stroke-width="6" opacity="0.55"/>
+</svg>
+

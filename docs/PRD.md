@@ -1,6 +1,6 @@
 # PRD — Habi: Handmade Filipino Handbags Educational E-Commerce
 
-> **Document status:** Planning approved. All requirements are **documentation-only** and describe planned behavior; nothing in this document asserts runtime behavior or shipped state.
+> **Document status:** Approved requirements baseline. Requirements below describe target behavior, not blanket shipped claims. Current implemented scope is recorded in [README](../README.md) and [BUILD](BUILD.md).
 
 | | |
 |---|---|
@@ -141,13 +141,13 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
 
 ## 9. Open Items / Placeholders
 
-- **Fonts and assets:** selection of final fonts and exact color values remains open.
-- **Product imagery:** seeded demo images for v1 (styled, consistent); **supplied images are inspiration and procedural-3D modeling references only, NOT publication assets or Habi ownership/provenance**. Demo does not confer rights; original generated imagery/textures and procedural models remain plan.
+- **Fonts and assets:** the M0 shell selects licensed local fonts and canonical colors; selections and runtime checks are recorded in DSD/BUILD. Later screen assets still require review.
+- **Product imagery:** original local SVG demo illustrations are the M0 seed format. **Supplied images remain inspiration and procedural-3D modeling references only, NOT publication assets or Habi ownership/provenance**. Viewer models/textures remain later-milestone work.
 - **Province list:** simplified region-level shipping map (R12); full PH province list is v2.
 - **Deployment:** Railway preferred; dev command uses `-t public` (N6). Privacy references SDD §9-10.
 
 ## 10. Glossary
 
 - **Simulated payment / fake gateway:** a UI-only card flow that mimics authorization; no real transaction occurs (R13–R14, N3). **Demo does not confer rights; all payment flows are simulated.**
-- **Stock decrement:** atomic reduction of `products.stock` when an order reaches `paid` (R15). **Everything described is planned, not shipped.**
-- **3D config:** per-product JSON describing the procedural bag model (R6). **Procedural models and textures are planned assets, not current publications.**
+- **Stock decrement:** atomic reduction of `products.stock` when an order reaches `paid` (R15), planned for M5.
+- **3D config:** per-product JSON describing the procedural bag model (R6). Seed configuration is M0 scope; the actual viewer and procedural models/textures are M2–M3.

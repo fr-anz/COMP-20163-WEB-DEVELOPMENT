@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="48" viewBox="0 0 192 48" role="presentation">
+  <!-- Habi decorative interlacing band. Original artwork for the Habi demo shell. -->
+  <title>Weave band</title>
+  <rect width="192" height="48" fill="none"/>
+  <g>
+    <rect x="0" y="14" width="96" height="20" rx="4" fill="#A4441F"/>
+    <rect x="38" y="0" width="20" height="48" rx="4" fill="#3F6B3A"/>
+    <rect x="48" y="14" width="48" height="20" rx="4" fill="#A4441F"/>
+  </g>
+  <g>
+    <rect x="96" y="14" width="96" height="20" rx="4" fill="#2F5D7C"/>
+    <rect x="134" y="0" width="20" height="48" rx="4" fill="#E8B93B"/>
+    <rect x="144" y="14" width="48" height="20" rx="4" fill="#2F5D7C"/>
+  </g>
+</svg>
