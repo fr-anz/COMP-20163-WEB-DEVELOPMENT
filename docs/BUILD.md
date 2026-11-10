@@ -993,6 +993,13 @@ so Caddy used its internal CA rather than Let's Encrypt:
 - [x] SSH forced command: no argument → deploys the branch head; `ls; id` and `deadbeef` → "expected a
   40-character commit SHA"; an unknown 40-hex SHA → "is not on <branch>"; the real SHA deploys. A
   PTY request is refused (`restrict`).
+- [x] Review fixes (re-run on the same VM):
+  - `ssh … c7e8ec5…` (a branch commit without `caddy/Caddyfile`) → "predates …; refusing", and the
+    checkout stayed at `876e90c`.
+  - Two concurrent `update.sh` runs serialized on `flock`: B finished after A.
+  - Caddy reads `/etc/caddy` as a directory mount, and `caddy reload` runs on each deploy; HTTPS 200,
+    stock still 18.
+  - The README backup command ran twice and wrote two timestamped files.
 - [ ] Not exercised in the rehearsal: swap creation (`swapon` is not permitted in a container; it was
   shimmed), Docker starting at boot under systemd, Let's Encrypt issuance, Google firewall/IP, and the
   GitHub `deploy` job itself (it only runs on `main` once `GCE_HOST` is set). actionlint and
