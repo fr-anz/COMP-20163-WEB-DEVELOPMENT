@@ -368,6 +368,7 @@ export class BagViewer extends THREE.EventDispatcher {
             this.camera.position.copy(this._transitionDestination.camera);
             this.controls.target.copy(this._transitionDestination.target);
         }
+        this.renderer.render(this.scene, this.camera);
     };
 
     /* ------------------------------------------------------ public API */
@@ -472,6 +473,7 @@ export class BagViewer extends THREE.EventDispatcher {
     }
 
     _finishTransition() {
+        if (!this._transition) return;
         // Finish with damping off so OrbitControls cannot add a residual pose
         // after the camera/target have reached their exact destinations.
         const damping = this.controls.enableDamping;
