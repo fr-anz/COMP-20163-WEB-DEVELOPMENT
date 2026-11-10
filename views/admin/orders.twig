@@ -49,7 +49,7 @@
       <tbody>
         {% for order in orders %}
           <tr class="hover:bg-page">
-            <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="inline-block py-0.5 underline-offset-4 hover:underline" href="/admin/orders/{{ order.order_number|url_encode }}">{{ order.order_number }}</a></td>
+            <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="touch-link inline-block py-0.5 underline-offset-4 hover:underline" href="/admin/orders/{{ order.order_number|url_encode }}">{{ order.order_number }}</a></td>
             <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ order.created_at|slice(0, 10) }}</td>
             <td class="border-b border-line px-3 py-2.5 align-middle">{{ order.customer_name }}</td>
             <td class="border-b border-line px-3 py-2.5 align-middle">{{ regions[order.shipping_region]|default(order.shipping_region) }}</td>

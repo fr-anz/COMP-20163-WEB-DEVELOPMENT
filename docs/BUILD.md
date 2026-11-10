@@ -788,15 +788,117 @@ New tests: AuthService (6), StockService (6), AdminOrderService (7), AdminProduc
 ImageUploadService (5, checked-in image fixtures), UpgradeMigration (1), AdminAuthMiddleware
 (encoded paths). Evidence: `/tmp/habi-m6-run/{smoke-result.txt,server-log.txt}`.
 
-**Shared DoD blocker:** review by another track owner and merge to `main` (§2.5) are external
-and **not complete**; the automated review agent does not replace it. The human timing
-measurement above is also open.
+**Shared DoD status:** merged to `main` via PR #17 (2026-11-10); GitHub records **no PR review**,
+so the §2.5 review by another track owner is still **not complete** (the automated review agent
+does not replace it). The human timing measurement above is also open. Re-checked on `main`
+2026-11-10: PHPUnit 112/916 OK, `composer cs` and `composer lint` clean.
 
 ### M7 — Polish: responsive, a11y, SEO, content (all)
 - C: 360 px pass (R24), keyboard-only checkout test (R25), focus rings, aria-live toasts,
   reduced-motion, per-page meta/OG/favicon (R26), final seed content (names, descriptions, materials/origin).
 - A: `stock` API edge cases, order number format, error pages (404/500) in DSD style.
 - **Done when:** Lighthouse (perf ≥ 80, a11y ≥ 90) on home/listing/product/checkout; R24–R26 green. **Skip:** all pages skip-to-content. **Keyboard:** full checkout without mouse (R25). **Reduced-motion:** all animations respect preference.
+
+M7 local implementation ([issue #8](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/8),
+branch `abcd/m7-polish`, 2026-11-10). Two writer agents owned the error page/test and the
+SEO head; the coordinator ran the audits and repaired the defects they found.
+
+Implementation checklist:
+
+- [x] Inspected home, listing (results + empty), product (in stock, sold out, long name), bag,
+  checkout, 404 and admin dashboard/products/inventory/orders/audit at 360/768/1440 px (touch
+  emulation) with a 56-character product name: **no horizontal overflow** on any of 39
+  screen/width combinations; confirmation checked at 360 px in the journey below. Loading/
+  failure/fallback states were last exercised in M2/M3 and are unchanged.
+- [x] Keyboard-only 360 px touch device journey with reduced motion (no mouse or tap events):
+  first Tab is the skip link and Enter focuses `#main-content`; Skip introduction; arrow-key
+  material tabs; mobile menu Esc → focus back on Open menu; card → product; 3D opens in 0.81 s,
+  Esc returns focus to the 3D toggle; Add to bag announces "Added Sinag Tote to your bag." and
+  the badge reads 1; bag link opens the drawer with focus inside, Esc returns focus to it; an
+  empty shipping submission marks 7 fields `aria-invalid`, each labelled and linked to its error
+  text, focusing the first; a declined card stays on Payment with an announced error; the approved
+  card reaches Review → Place → `/order/H-20261110-0002`, which shows the simulation notice.
+  Every focused stop had a visible indicator; no console or page errors (422 validation
+  responses excluded).
+- [x] Contrast measured on rendered text/background pairs (all pages above, including admin):
+  lowest **5.05:1** (secondary text on fiber), then 5.34 (rust on cream), 5.73 (skip link),
+  5.78 (In stock chip), 5.94 (Paid chip), 5.99 (footer heading), 6.18 (low-stock chip); body
+  text 13.9:1. Non-text: input border 4.25:1 on its field and 3.87:1 on the page, focus ring
+  5.14:1, secondary button border 12.96:1. Text over illustrations was not measured.
+  Reduced motion: no running animations on home/listing/product, motion tokens `.01ms`,
+  `scroll-behavior: auto`; viewer auto-rotation off with its control disabled ("Automatic rotation
+  off (reduced motion)"). Without reduced motion, 7–11 animations run as designed.
+- [x] Touch targets: compact reference controls were 27–42 px (`.btn--sm` 36, Images/3D 40,
+  breadcrumbs 37, steppers 41–42, footer/admin links 27–30, admin nav 40). New coarse-pointer
+  rules raise them to 44 px; fine-pointer sizes stay as published (re-measured unchanged at 1440).
+  Remaining under 44 px on touch: catalog card titles (their stretched link covers the whole card).
+- [x] R26: one title and description per page from `title`/`description` blocks; canonical,
+  Open Graph (`og:type` product on detail pages) and Twitter card with absolute URLs (`APP_URL`
+  or request host); new original `og-habi.png` (1200×630, from repo artwork) and `/favicon.ico`
+  (the missing file caused Lighthouse console errors). Bag/checkout/order are `noindex`.
+  Titles with `&`, quotes and markup are escaped once (the first draft double-escaped `og:title`).
+  Logo link name now comes from its visible wordmark (fixes `label-content-name-mismatch`).
+- [x] Error pages: standalone Habi 404/405/500 pages with skip link, lockup, two recovery
+  actions and the demo notice. Found and fixed: with a failing database the page leaked a PHP
+  `mkdir()` warning with a server path and returned **HTTP 200**; `display_errors` is now off in
+  the front controller (warnings still reach the server log) → 500, no leak. 405 via `PUT /`.
+- [x] Content: seed names/descriptions remain fictional with "Illustrative materials" and
+  "origin unverified" labels; scan found no maker, region, handmade, certification or
+  sustainability claim. Public raster images are only the generated OG image and favicon; no
+  reference photograph is published. Demo, simulated-payment and "nothing charged" notices
+  are present on footer, checkout, review, confirmation and admin.
+- [x] Stock API (`GET /api/product/{slug}/stock`, all `no-store` JSON): active 200; sold out 200
+  with `stock: 0` (page shows Sold out); inactive, unknown, uppercase, NUL-encoded, SQL-like and
+  600-character slugs 404 JSON; POST is rejected by CSRF (403). Order numbers: real checkouts
+  produced `H-20261110-0001/0002`; another session's confirmation URL is 404.
+  `OrderServiceTest` already covers the sequence and `9999` overflow.
+- [x] Performance: listing LCP missed N1 (3.2 s). Dynamic responses were uncompressed; zlib
+  now negotiates gzip, and the first four listing images load eagerly with high priority.
+  Heading order on the listing was fixed with a visually hidden "Bags" heading.
+
+Lighthouse **13.6.0**, mobile defaults (simulated slow 4G, 4× CPU), isolated
+`PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8040 -t public` with temporary `DB_DSN`/admin hash
+(`bash /tmp/habi-m7/lh.sh gz`; checkout uses a session cookie with one bag item):
+
+| Page | Performance | Accessibility | SEO | Best practices | LCP | TBT |
+|---|---|---|---|---|---|---|
+| Home | 100 | 100 | 100 | 100 | 1.1 s | 0 ms |
+| Listing | 100 | 100 | 100 | 100 | 1.1 s | 0 ms |
+| Product | 82 | 100 | 100 | 100 | 1.1 s | 740 ms |
+| Checkout | 96 | 100 | 66 (intentional `noindex`) | 100 | 2.8 s | 0 ms |
+
+Before the fixes: listing performance 94 with LCP 3.2 s, accessibility 99, SEO 54–91. Product
+TBT is the Three.js parse/initialization under 4× CPU; the score stays above 80.
+
+N1 separately (cold cache, CDP 150 ms latency, 1.6 Mbps down / 750 Kbps up, 4× CPU,
+`node /tmp/habi-m7/n1.mjs`):
+
+| Page / viewport | LCP | Load | Viewer ready |
+|---|---|---|---|
+| Home 360 | 1.812 s | 2.092 s | — |
+| Listing 360 | 1.836 s | 2.153 s | — |
+| Product 1280 | 2.208 s | 2.819 s | **0.975 s after load** |
+| Product 360 | 2.200 s | 2.830 s | 0.857 s after the 3D toggle |
+| Checkout 360 | 1.604 s | 1.978 s | — |
+
+Commands and code checks:
+
+```sh
+vendor/bin/phpunit                      # 118 tests / 953 assertions, OK
+composer cs                             # PSR-12 clean
+composer lint                           # php -l clean
+node --check public/assets/js/*.js      # OK
+npx --no-install contextspine check     # 0 failures / 31 existing warnings
+```
+
+New test: `ErrorHandlerTest` (404/405/500 pages, no exception detail with display enabled).
+Throwaway audit scripts and Lighthouse reports: `/tmp/habi-m7/`.
+
+**Shared DoD blocker:** review by another track owner and merge (§2.5) are external and not
+complete. No real-device (physical phone/screen reader) pass was run; touch was emulated.
+An automated review agent found one bug, fixed before commit: the `X-Forwarded-Proto` check
+read the wrong `$_SERVER` key, so proxied HTTPS produced `http://` canonical/OG URLs; it now
+reads `HTTP_X_FORWARDED_PROTO` (and treats `APP_ENV=production` as HTTPS, like the session).
 
 ### M8 — Deploy & CI (D lead)
 - D: `Dockerfile` (php:8.2-cli, composer install --no-dev, `php -S 0.0.0.0:$PORT -t public`),

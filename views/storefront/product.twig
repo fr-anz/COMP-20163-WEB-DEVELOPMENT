@@ -8,9 +8,8 @@
 
 {% block title %}{{ product.name }} — {{ app_name }}{% endblock %}
 
-{% block meta %}
-<meta name="description" content="{{ product.description|striptags }}">
-{% endblock %}
+{% block description %}{{ product.description|striptags }}{% endblock %}
+{% block og_type %}product{% endblock %}
 
 {% block head %}
 <script type="importmap">
@@ -28,9 +27,9 @@
     <div class="mx-auto max-w-[1280px] px-4 py-6 @3xl:px-8 @3xl:py-10">
       <nav aria-label="Breadcrumb">
         <ol class="flex flex-wrap items-center gap-1 text-small text-ink-2">
-          <li class="flex items-center gap-1"><a class="link py-2" href="/">Home</a>{{ icons.icon('chevron-right', 16) }}</li>
-          <li class="flex items-center gap-1"><a class="link py-2" href="/products">Collection</a>{{ icons.icon('chevron-right', 16) }}</li>
-          <li class="flex items-center gap-1"><a class="link py-2" href="/products?category={{ product.category|url_encode }}">{{ product.category }}</a>{{ icons.icon('chevron-right', 16) }}</li>
+          <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/">Home</a>{{ icons.icon('chevron-right', 16) }}</li>
+          <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/products">Collection</a>{{ icons.icon('chevron-right', 16) }}</li>
+          <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/products?category={{ product.category|url_encode }}">{{ product.category }}</a>{{ icons.icon('chevron-right', 16) }}</li>
           <li class="flex items-center gap-1"><span class="font-medium text-ink" aria-current="page">{{ product.name }}</span></li>
         </ol>
       </nav>
@@ -39,8 +38,8 @@
         <div class="@min-[900px]:sticky @min-[900px]:top-24 @min-[900px]:self-start">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div role="group" aria-label="View mode" data-view-toggle hidden class="inline-flex rounded-control border-[1.5px] border-line-strong bg-raised p-0.5">
-              <button type="button" aria-pressed="true" data-mode="photos" class="flex h-10 items-center gap-1.5 rounded-[4px] px-3.5 text-small font-semibold transition-colors duration-[var(--duration-fast)] bg-ink text-inverse">{{ icons.icon('image', 18) }}Images</button>
-              <button type="button" aria-pressed="false" data-mode="3d" class="flex h-10 items-center gap-1.5 rounded-[4px] px-3.5 text-small font-semibold transition-colors duration-[var(--duration-fast)] text-ink hover:bg-inset">{{ icons.icon('cube', 18) }}3D<span data-viewer-expand hidden>{{ icons.icon('expand', 14) }}</span></button>
+              <button type="button" aria-pressed="true" data-mode="photos" class="touch-target flex h-10 items-center gap-1.5 rounded-[4px] px-3.5 text-small font-semibold transition-colors duration-[var(--duration-fast)] bg-ink text-inverse">{{ icons.icon('image', 18) }}Images</button>
+              <button type="button" aria-pressed="false" data-mode="3d" class="touch-target flex h-10 items-center gap-1.5 rounded-[4px] px-3.5 text-small font-semibold transition-colors duration-[var(--duration-fast)] text-ink hover:bg-inset">{{ icons.icon('cube', 18) }}3D<span data-viewer-expand hidden>{{ icons.icon('expand', 14) }}</span></button>
             </div>
           </div>
 
@@ -178,7 +177,7 @@
                 <input type="hidden" name="product_id" value="{{ product.id }}">
                 <div>
                   <label class="field-label" for="product-qty">Quantity</label>
-                  <div class="inline-flex h-11 items-stretch rounded-control border-[1.5px] border-line-strong bg-raised">
+                  <div class="touch-stepper inline-flex h-11 items-stretch rounded-control border-[1.5px] border-line-strong bg-raised">
                     <button type="button" class="relative grid w-11 place-items-center rounded-l-[4px] hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="Decrease quantity" data-cart-step="-1" hidden disabled>{{ icons.icon('minus', 18) }}</button>
                     <input id="product-qty" name="quantity" inputmode="numeric" value="1" min="1" max="{{ product.stock }}" data-cart-qty data-stock="{{ product.stock }}"
                            class="w-10 border-x border-line bg-transparent text-center font-semibold tabular-nums focus:outline-none focus-visible:bg-info-bg"

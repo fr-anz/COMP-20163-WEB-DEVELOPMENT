@@ -239,6 +239,9 @@ and checkout's alert. The reference's "Packing" label is shown as the stored sta
 | `views/admin/_dialog.twig` (`{% embed %}`) | Published dialog anatomy (brown/45 scrim, surface panel, header with Close, scrolling body, page-coloured footer) as a server-rendered overlay reached by URL; optional wrapping form. Import macros inside each embed body. |
 | `.btn--destructive` | Reference destructive action (Archive…, Cancel order) — white on status-error. |
 | `admin.js` | Dialog initial focus (first invalid field, first field, else Close), Tab containment, Esc to the close URL; filter auto-submit; password Show/Hide; chosen-file name and early 2 MB warning. Everything works without it. |
+| `.touch-target`, `.touch-link`, `.touch-stepper` (M7) | Coarse-pointer only: compact reference controls (`.btn--sm` too), inline text links and 44 px stepper buttons inside a 1.5 px border reach a 44 px touch target. Fine-pointer layouts keep the published sizes. Stretched card links already cover the whole card. |
+| `views/layouts/base.twig` head blocks (M7, R26) | `title`, `description` (text only), optional `robots` and `og_type`; base renders the meta description, canonical, Open Graph/Twitter card (absolute `site_url` ~ `canonical_path`, `/assets/img/og-habi.png`) and favicons once. Session pages (bag, checkout, order) set `noindex`. |
+| `ErrorHandler::page(status)` | Standalone 404/405/500 page with the storefront lockup, footer demo notice and two recovery actions; no Twig, session or database, so it renders after failed initialization. |
 
 Good navigation:
 

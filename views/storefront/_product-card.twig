@@ -1,7 +1,9 @@
 {#-
-  Habi product card, exact reference catalog card. Receives exactly:
-  product (one ProductService row) and csrf_token (string) — the include
-  sites pass both explicitly. Single stretched link on the title
+  Habi product card, exact reference catalog card. Receives product (one
+  ProductService row) and csrf_token (string) — the include sites pass both
+  explicitly — plus optional eager (bool): above-the-fold listing cards load
+  their image eagerly with high fetch priority (LCP, N1). Single stretched
+  link on the title
   (after:absolute overlay); the add-to-bag form sits above it as an
   independent visible control (relative z-10). Short material label derived
   from the seeded materials text; price in centavos, stock chip per state
@@ -15,7 +17,7 @@
     <div class="relative aspect-[4/5] overflow-hidden rounded-panel border border-line bg-[#F3EEE4]">
       <img src="{{ product.image_path }}"
            alt="{{ product.name }} — illustrative demo illustration"
-           class="block h-full w-full" width="480" height="600" loading="lazy" decoding="async">
+           class="block h-full w-full" width="480" height="600" {% if eager|default(false) %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
       {% if product.stock == 0 %}
         <span class="absolute top-3 left-3 rounded-sm bg-brown-900 px-2 py-1 text-caption font-semibold text-inverse">Sold out</span>
       {% endif %}

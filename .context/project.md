@@ -3,7 +3,7 @@
 Purpose/completion criteria: build **Habi** — educational PHP handbag storefront with
 craft-first discovery, 3D product viewer (rotate + peek inside), real SQLite demo inventory,
 simulated checkout and admin panel; deploy to Railway/Render via Docker. Completion =
-live URL + all PRD R#/N# acceptance criteria verified. M0–M6 are implemented locally; current verification/DoD status is in state.md and docs/BUILD.md.
+live URL + all PRD R#/N# acceptance criteria verified. M0–M7 are implemented locally; current verification/DoD status is in state.md and docs/BUILD.md.
 Constraints/conventions: PHP 8.2+ required (course), Composer allowed, PSR-12, no real
 payments, no secrets in repo; follow .context/rules.md; docs pipeline in docs/ (PRD owns R# IDs).
 Structure: PHP/Slim front controller in public/, PSR-4 src/, Twig views/, migrations/, seed/, tests/.
