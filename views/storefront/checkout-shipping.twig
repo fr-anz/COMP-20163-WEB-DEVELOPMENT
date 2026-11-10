@@ -1,0 +1,193 @@
+{#-
+  Habi checkout step 1 — shipping details (/checkout, POST /checkout/shipping),
+  matching the published Checkout application example 1:1: 1180px shell, back
+  link + "Demo checkout" tag, desktop stepper (compact "Step N of 4" below the
+  768px container breakpoint), collapsible order summary (sticky aside at
+  ≥896px container; native <details> below it so it stays reachable without
+  JavaScript) and the two-column field grid. Validation is server-side
+  (ShippingService); errors render inline with aria-invalid/aria-describedby
+  plus a linked summary above the fields. Works fully without JavaScript:
+  the form posts natively, redirects back and shows 422 inline errors on GET.
+  Receives exactly: app_name, app_env, cart, csrf_token, shipping (array),
+  regions (key => label), shipping_fee_centavos (int), total_centavos (int),
+  payment, idempotency_key, errors (field => message), message, step.
+-#}
+{% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% from 'storefront/_checkout-summary.twig' import disclosure as summary_disclosure, aside as summary_aside %}
+{% set active_nav = '' %}
+{% set region_label = regions[shipping.region]|default('') %}
+
+{% block title %}Checkout · Shipping — {{ app_name }}{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Habi checkout, step 1 of 4: shipping details. Educational demo — a clearly simulated order; nothing is charged or shipped.">
+{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-[1180px] px-4 py-6 @3xl:px-8 @3xl:py-10">
+    <div class="flex items-center justify-between gap-4">
+      <a href="/cart" class="btn btn--tertiary btn--sm">
+        {{ icons.icon('arrow-left', 18) }}
+        <span>Back to bag</span>
+      </a>
+      <span class="flex items-center gap-1.5 text-caption text-ink-2">
+        {{ icons.icon('lock', 16) }} Demo checkout
+      </span>
+    </div>
+
+    {% include 'storefront/_checkout-stepper.twig' with { step: 1 } only %}
+
+    {{ summary_disclosure(cart, 1, '', shipping_fee_centavos, total_centavos) }}
+
+    <div class="mt-6 grid gap-10 @4xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div class="max-w-[640px]">
+        <form method="post" action="/checkout/shipping" novalidate aria-labelledby="ship-h">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <h1 id="ship-h" tabindex="-1" class="mb-6 font-display text-h2 font-semibold focus:outline-none">Shipping details</h1>
+
+          {% if errors|length %}
+            <div class="mb-6 flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert">
+              {{ icons.icon('alert', 20, 'mt-0.5 flex-none') }}
+              <div class="min-w-0 flex-1">
+                <p class="text-[15px] font-semibold">Check the highlighted fields</p>
+                <ul class="mt-1 space-y-1 text-small">
+                  {% for field in ['name', 'email', 'phone', 'address1', 'address2', 'city', 'postal_code', 'region'] %}
+                    {% if errors[field] %}
+                      <li><a href="#s-{{ field }}" class="underline underline-offset-2">{{ errors[field] }}</a></li>
+                    {% endif %}
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          {% endif %}
+
+          <div class="grid gap-5 @2xl:grid-cols-2">
+            <div class="@2xl:col-span-2">
+              <label for="s-name" class="field-label">Full name<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <div class="relative">
+                <input id="s-name" name="name" autocomplete="name" required aria-required="true"
+                       class="input" value="{{ shipping.name|default('') }}"
+                       {% if errors.name %}aria-invalid="true" aria-describedby="s-name-err"{% endif %}>
+              </div>
+              {% if errors.name %}
+                <p id="s-name-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.name }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="">
+              <label for="s-email" class="field-label">Email<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <div class="relative">
+                <input id="s-email" name="email" autocomplete="email" required aria-required="true" type="email"
+                       class="input" value="{{ shipping.email|default('') }}"
+                       {% if errors.email %}aria-invalid="true" aria-describedby="s-email-hint s-email-err"{% else %}aria-describedby="s-email-hint"{% endif %}>
+              </div>
+              <p id="s-email-hint" class="field-hint">For the demo receipt only.</p>
+              {% if errors.email %}
+                <p id="s-email-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.email }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="">
+              <label for="s-phone" class="field-label">Mobile number<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <div class="relative">
+                <input id="s-phone" name="phone" autocomplete="tel" placeholder="0917 123 4567" required aria-required="true"
+                       class="input" type="tel" value="{{ shipping.phone|default('') }}"
+                       {% if errors.phone %}aria-invalid="true" aria-describedby="s-phone-err"{% endif %}>
+              </div>
+              {% if errors.phone %}
+                <p id="s-phone-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.phone }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="@2xl:col-span-2">
+              <label for="s-address1" class="field-label">Street address<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <div class="relative">
+                <input id="s-address1" name="address1" autocomplete="street-address" required aria-required="true"
+                       class="input" value="{{ shipping.address1|default('') }}"
+                       {% if errors.address1 %}aria-invalid="true" aria-describedby="s-address1-hint s-address1-err"{% else %}aria-describedby="s-address1-hint"{% endif %}>
+              </div>
+              <p id="s-address1-hint" class="field-hint">House no., street, barangay</p>
+              {% if errors.address1 %}
+                <p id="s-address1-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.address1 }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="@2xl:col-span-2">
+              <label for="s-address2" class="field-label">Address line 2</label>
+              <div class="relative">
+                <input id="s-address2" name="address2" autocomplete="address-line2"
+                       class="input" value="{{ shipping.address2|default('') }}"
+                       {% if errors.address2 %}aria-invalid="true" aria-describedby="s-address2-hint s-address2-err"{% else %}aria-describedby="s-address2-hint"{% endif %}>
+              </div>
+              <p id="s-address2-hint" class="field-hint">Unit, floor, landmark (optional)</p>
+              {% if errors.address2 %}
+                <p id="s-address2-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.address2 }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="">
+              <label for="s-city" class="field-label">City / municipality<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <div class="relative">
+                <input id="s-city" name="city" autocomplete="address-level2" required aria-required="true"
+                       class="input" value="{{ shipping.city|default('') }}"
+                       {% if errors.city %}aria-invalid="true" aria-describedby="s-city-err"{% endif %}>
+              </div>
+              {% if errors.city %}
+                <p id="s-city-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.city }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="">
+              <label for="s-postal_code" class="field-label">Postal code<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <div class="relative">
+                <input id="s-postal_code" name="postal_code" inputmode="numeric" maxlength="10" autocomplete="postal-code" required aria-required="true"
+                       class="input" value="{{ shipping.postal_code|default('') }}"
+                       {% if errors.postal_code %}aria-invalid="true" aria-describedby="s-postal_code-err"{% endif %}>
+              </div>
+              {% if errors.postal_code %}
+                <p id="s-postal_code-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.postal_code }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="@2xl:col-span-2">
+              <label for="s-region" class="field-label">Region<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <select id="s-region" name="region" required aria-required="true"
+                      class="input" {% if errors.region %}aria-invalid="true" aria-describedby="s-region-hint s-region-err"{% else %}aria-describedby="s-region-hint"{% endif %}>
+                <option value="">Choose a region</option>
+                {% for key, label in regions %}
+                  <option value="{{ key }}"{% if shipping.region|default('') == key %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <p id="s-region-hint" class="field-hint">Shipping is a flat rate per island group.</p>
+              {% if errors.region %}
+                <p id="s-region-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.region }}
+                </p>
+              {% endif %}
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--lg mt-6">
+            <span>Continue to payment</span>
+            {{ icons.icon('arrow-right', 20) }}
+          </button>
+        </form>
+      </div>
+
+      {{ summary_aside(cart, 1, '', shipping_fee_centavos, total_centavos) }}
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ parent() }}
+  <script src="/assets/js/checkout.js" defer></script>
+{% endblock %}

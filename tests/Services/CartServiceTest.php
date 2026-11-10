@@ -7,6 +7,7 @@ namespace Habi\Tests\Services;
 use Habi\Bootstrap\Initializer;
 use Habi\Services\CartService;
 use Habi\Support\SessionStore;
+use Habi\Support\Csrf;
 use Habi\Tests\TestSupport\IsolatedDatabaseTestCase;
 use PDO;
 
@@ -273,10 +274,11 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
         $token = $this->cart->csrfToken();
 
         self::assertSame($token, $this->cart->csrfToken());
-        self::assertTrue($this->cart->validateCsrf($token));
-        self::assertFalse($this->cart->validateCsrf('nope'));
-        self::assertFalse($this->cart->validateCsrf(null));
-        self::assertFalse($this->cart->validateCsrf(''));
+        $store = new SessionStore($this->session);
+        self::assertTrue(Csrf::validate($store, $token));
+        self::assertFalse(Csrf::validate($store, 'nope'));
+        self::assertFalse(Csrf::validate($store, null));
+        self::assertFalse(Csrf::validate($store, ''));
 
         $freshSession = [];
         $fresh = new CartService($this->database(), new SessionStore($freshSession));

@@ -576,14 +576,129 @@ tablet `/tmp/omp-sshots-15c820c9757b3138.webp`, narrow
 `/tmp/omp-sshots-15c82036453b3136.webp`.
 
 
-### M5 — Checkout, simulated payment, orders, inventory (A lead, C UI, D middleware)
+### M5 — Checkout, simulated payment, orders, inventory (A lead, C UI, D integration)
 - A: checkout step state machine (SDD §7), shipping validation (R11), region shipping fees (R12),
   `PaymentSimulator` (R13–R14, Luhn + test cards), `OrderService::placeOrder` atomic w/ idempotency +
   rollback (R15, SDD §8), confirmation (R16), out-of-stock at place-time handling (R17).
-- D: CSRF middleware on all POSTs, session hardening, admin auth skeleton (R19) so M6 is easy.
+- A: CSRF middleware on all POSTs, session hardening and admin-auth preparation (R19); D supports integration without editing A-owned `src/`.
 - C: stepper, shipping form, mock card form + processing spinner + result screens, review step,
   confirmation page w/ simulation banner (N3), order page.
 - **Done when:** approved card → paid order created, declined card → no order; zero oversell; R10–R17 green.
+
+M5 local implementation ([issue #6](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/6),
+branch `ac/m5-checkout-orders`, 2026-11-10). Two implementation agents owned the
+service/test and storefront/CSS/JS slices; the coordinator integrated controllers,
+middleware, session transitions and consumer verification.
+
+Implementation checklist:
+
+- [x] Server-enforced Shipping → Payment simulation → Review → Place → Confirmation;
+  approval is bound to reviewed quantities/prices. Shipping/bag changes revoke it.
+- [x] Shipping validation and the four R12 rates; strictly-above-₱5,000 free threshold.
+- [x] Luhn, future MM/YY and 3–4 digit CVC validation; three test-card outcomes and
+  real 1.5–2.5 s simulated processing. No gateway/network client or card persistence.
+- [x] Review/Place require approval. The Place form gets its key before rendering;
+  reload/transient retry reuse it; committed retries return the same order.
+- [x] SQLite `BEGIN IMMEDIATE`, prepared/guarded stock decrements, old/new audit,
+  paid order/item snapshots and explicit whole-transaction rollback.
+- [x] Every POST passes global CSRF; strict cookie-only sessions, HttpOnly/SameSite,
+  Secure on HTTPS/production, admin-path guard, accessible native checkout forms and
+  session-owned order access. Full administrator sign-in/throttling remains M6.
+- [x] Payment/confirmation simulation notices, `H-YYYYMMDD-NNNN` numbering, and the
+  same clearly simulated delivery estimate on Review and Confirmation.
+
+Acceptance evidence — actual HTTP on an isolated **four-worker PHP server**:
+
+- [x] Approved card: no order before Place; afterward exactly one paid order/item/audit,
+  Sinag stock **12→11**. Double submission returns `/order/H-20261110-0001` again.
+  Decline and insufficient-funds cards leave order count zero and stock 12 before
+  approval; bag count 1 and saved shipping remain intact.
+- [x] Invalid shipping/card submissions show inline errors on their own step.
+  After a browser-history defect was found, validation and declines use PRG:
+  **POST 303 → same-step GET 422**. Fresh final decline/funds scenarios took
+  **2322/2112 ms**, retained shipping/bag and changed neither orders nor stock.
+- [x] Independent approved sessions submitted Place concurrently for one Lupa:
+  exactly one successful order, stock **1→0**, loser redirected to the corrected bag
+  with an explanation. An aborting SQLite `order_items` trigger forced failure
+  after writes: stock/orders/items/audit all unchanged; removing it and retrying
+  the **same key** created one order.
+- [x] Review reload preserves the key. Stock-at-place failure explains correction;
+  changed reviewed price creates no order and returns to the bag. A later new bag
+  is not consumed by a committed old-key retry (controller boundary coverage).
+- [x] R10–R17 and relevant N2–N4 exercised through checkout. Every tested POST
+  (cart/checkout/admin/unknown paths) rejects wrong CSRF with JSON **403/no-store**.
+  A different session gets order **404**. Expiring the actual session makes the old
+  order 404, stale Place 403 and checkout return to the empty bag. Shipping, Review
+  and Confirmation escape injected markup. Final SQLite rows and **12 session files**
+  contain no submitted full PAN, expiry or CVC; server output contains none either.
+  Error-field names/messages, not entered card values, may be flashed for PRG.
+
+Exact commands and observed code checks:
+
+```sh
+vendor/bin/phpunit --filter '(ShippingServiceTest|PaymentSimulatorTest|OrderServiceTest)' tests/Services
+vendor/bin/phpunit tests/Services/CartServiceTest.php
+vendor/bin/phpunit tests/Services/CheckoutFlowTest.php
+vendor/bin/phpunit --filter testInvalidCardRetainsShippingAndCartWithoutPersistingCardData tests/Services/CheckoutFlowTest.php
+composer cs
+vendor/bin/phpcs --standard=PSR12 src/Services/OrderService.php
+composer lint
+vendor/bin/phpcs --standard=PSR12 src/Controllers/CheckoutController.php tests/Services/CheckoutFlowTest.php
+php -l src/Controllers/CheckoutController.php
+php -l tests/Services/CheckoutFlowTest.php
+node --check public/assets/js/checkout.js
+bun /tmp/habi-m5-KStxaz/http-smoke.mjs
+bun /tmp/habi-m5-KStxaz/security-smoke.mjs
+bun /tmp/habi-m5-KStxaz/prg-smoke.mjs
+```
+
+Service tests: **27 tests / 154 assertions**; cart: **17 / 120**. Initial checkout
+transition/ownership run: **3 / 20**, pass. After PRG, those three still passed;
+the new privacy test initially mistook safe error-field names for card data.
+Its corrected entered-value assertions pass in isolation: **1 / 9**. No failed
+assertion is waived. PHP lint passes. PHPCS initially reported one overlong
+OrderService docblock; it was wrapped and the affected check passes, as do final
+controller/test PSR-12 checks. JS syntax passes. No unrun whole-suite claim.
+
+Actual Chromium consumer checks:
+
+- Native **1440/768/360 px**: Shipping and Payment heading rectangles match the
+  published checkout at each width; Payment's simulation-banner rectangle also
+  matches exactly. All four real screens have no horizontal overflow; input height
+  is **44.39 px**. Sidebar becomes a keyboard/no-JS-operable summary disclosure.
+  Data differences: real products/totals, optional address line 2, read-only shipping
+  name on the card, no persistent-device checkbox, binding test-card/CVC copy and
+  no M6 Admin action. This is not a whole-page pixel-identity claim.
+- **360 px keyboard-only:** shipping → invalid card/expiry/CVC → first-error focus →
+  approved payment → Review → Place → `/order/H-20261110-0005`. Step headings receive
+  focus. Native no-JS add/shipping/payment/Place completes order **0006**, with Luzon
+  shipping ₱180 and total ₱1,830. Order summary expands natively.
+- Repaired processing status that remained hidden behind its CSS class; actual
+  in-flight UI now shows `aria-busy=true`, visible status and spinner. Reduced motion
+  disables both spinner and weave animations while the status remains visible.
+- Repaired native Back after an earlier POST-rendered error (`ERR_CACHE_MISS` with
+  no-store) using safe PRG feedback. Invalid → approved → Back now returns the payment
+  GET with all card inputs empty and Review order enabled.
+- Real sold-out Lupa has a disabled action; Gabi still shows “Only 3 left”.
+  Input focus uses the blue border and 3 px shadow. Actual contrast: input text
+  **14.23:1**, boundary **4.25:1**, simulation notice **5.94:1**, primary action
+  **5.73:1**. No JS errors observed during the normal checkout visits.
+
+Evidence: `/tmp/habi-m5-KStxaz/{http,security,prg,ui,contrast,admin-auth,log-privacy}-evidence.json`
+and `server-log.txt`. Representative captures: Shipping
+`/tmp/omp-sshots-15c8327a3a8eb793.webp`, narrow Payment
+`/tmp/omp-sshots-15c833ba894eb796.webp`, narrow Confirmation
+`/tmp/omp-sshots-15c833d62fceb797.webp`. Temporary smoke sources/server launcher were
+removed after verification; real `.env` and `data/app.sqlite` were never changed.
+No new dependency, migration or environment variable was needed.
+`npx --no-install contextspine check` → **0 failures / 31 existing warnings** for
+missing IDEA/RESEARCH/QAD documents and QAD requirement coverage; no files changed.
+
+**Shared DoD blocker:** another track owner's human PR review and merge to `main`
+(§2.5) remain external and **not complete**. Local implementation/acceptance,
+documentation and exercised checks above are complete; issue #6 is **not fully Done**
+until that review/merge occurs. No commit, push, merge or deployment was performed.
+
 
 ### M6 — Admin panel (D + A + C)
 - A: admin login (R19: password_hash, throttle, generic errors), product CRUD service (R20),

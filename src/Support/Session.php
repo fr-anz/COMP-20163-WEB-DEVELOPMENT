@@ -32,6 +32,8 @@ final class Session
 
         session_name(self::COOKIE_NAME);
         ini_set('session.use_strict_mode', '1');
+        ini_set('session.use_only_cookies', '1');
+        ini_set('session.use_trans_sid', '0');
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => '/',
@@ -47,6 +49,7 @@ final class Session
     {
         $https = $_SERVER['HTTPS'] ?? '';
 
-        return $https !== '' && $https !== 'off';
+        return Env::get('APP_ENV', 'local') === 'production'
+            || ($https !== '' && $https !== 'off');
     }
 }

@@ -229,10 +229,6 @@ final class CartService
         return Csrf::token($this->session);
     }
 
-    public function validateCsrf(?string $submitted): bool
-    {
-        return Csrf::validate($this->session, $submitted);
-    }
 
     /**
      * One-shot mutation feedback for native redirects; consumed on render.
@@ -442,6 +438,13 @@ final class CartService
      */
     private function writeQuantities(array $quantities): void
     {
+        if ($this->session->get(self::CART_KEY, []) !== $quantities) {
+            $checkout = $this->session->get('checkout', []);
+            if (is_array($checkout)) {
+                unset($checkout['payment'], $checkout['fingerprint'], $checkout['idempotency_key'], $checkout['lines']);
+                $this->session->set('checkout', $checkout);
+            }
+        }
         $this->session->set(self::CART_KEY, $quantities);
     }
 

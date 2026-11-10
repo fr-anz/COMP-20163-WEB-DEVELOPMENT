@@ -10,9 +10,8 @@
   (no surface wrapper) beside a 360px Summary column above the 896px
   breakpoint; drawer: same anatomy in a right-side panel. PRD R12 rates and
   the strictly-above ₱5,000 free threshold prevail over the reference's
-  sample shipping figures. Shipping is an estimate computed from the
-  authoritative subtotal; checkout stays disabled until M5 with an explicit
-  reason instead of a fake success. Persistent stock notices are icon+text.
+  sample shipping figures. Checkout links to the real M5 flow (/checkout);
+  the bag itself stays session-only. Persistent stock notices are icon+text.
   No-JS: the update/remove forms post natively (303 back to /cart), the
   region estimate form reloads the page with ?region=, and the drawer is
   simply unreachable — the header bag link navigates to /cart.
@@ -87,11 +86,10 @@
     <p class="mt-2 text-caption text-ink-2">Prices include VAT. No discount codes &mdash; Habi prices are fixed.</p>
     <p class="mt-1 text-caption text-ink-2">Your bag is stored only in this demo session.</p>
     <div class="mt-4 grid gap-2">
-      <button type="button" class="btn btn--primary btn--lg w-full" disabled>
+      <a href="/checkout" class="btn btn--primary btn--lg w-full" data-cart-checkout>
         <span>Checkout</span>
         {{ icons.icon('arrow-right', 20) }}
-      </button>
-      <p class="text-caption text-ink-2">Checkout arrives in a later milestone &mdash; nothing is charged and no order is placed.</p>
+      </a>
       <a href="/cart" class="btn btn--secondary w-full" data-cart-view-bag>
         <span>View full bag</span>
       </a>
@@ -154,11 +152,10 @@
           <p class="mt-1 text-caption text-ink-2">Your bag is stored only in this demo session.</p>
         </div>
         <div class="mt-5">
-          <button type="button" class="btn btn--primary btn--lg w-full" disabled>
+          <a href="/checkout" class="btn btn--primary btn--lg w-full" data-cart-checkout>
             <span>Checkout</span>
             {{ icons.icon('arrow-right', 20) }}
-          </button>
-          <p class="mt-2 text-caption text-ink-2">Checkout arrives in a later milestone &mdash; your bag stays saved in this demo session, nothing is charged.</p>
+          </a>
         </div>
       </aside>
     </div>

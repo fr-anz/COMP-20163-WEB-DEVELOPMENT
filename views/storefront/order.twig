@@ -1,0 +1,102 @@
+{#-
+  Habi order confirmation (/order/{orderNumber}, M5), matching the published
+  Checkout example's confirmation step 1:1: centred card with the woven
+  selvedge strip, completed compact stepper, success mark, thank-you heading
+  with the real order number (H-YYYYMMDD-NNNN per PRD R10 — this format
+  prevails over the reference's shorter sample numbers), summary grid with
+  the paid snapshot and the verbatim simulated-payment banner. The order
+  figures come from the OrderService snapshot (authoritative PHP values);
+  the delivery window is the controller's clearly simulated estimate.
+  "See it in Admin" awaits M6 and is intentionally absent.
+  Receives exactly: app_name, app_env, cart, csrf_token, shipping, regions,
+  shipping_fee_centavos, total_centavos, payment, idempotency_key, errors,
+  message, step, order (OrderService array incl. items), delivery_estimate.
+-#}
+{% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% set active_nav = '' %}
+
+{% block title %}Order {{ order.order_number }} — {{ app_name }}{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Your Habi demo order is placed. Educational demo — nothing was charged and nothing will ship.">
+{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-[720px] px-4 py-10 @3xl:py-16">
+    <div class="overflow-hidden rounded-panel border border-line bg-surface">
+      <div class="h-3" aria-hidden="true">
+        <img src="/assets/img/reference/footer-selvedge.svg" alt="" class="block h-full w-full">
+      </div>
+      <div class="p-6 @3xl:p-10">
+        <div aria-label="Checkout progress">
+          <p class="text-small font-semibold">Step 4 of 4 · <span class="font-normal text-ink-2">Confirmation</span></p>
+          <div class="mt-2 grid grid-cols-4 gap-1" aria-hidden="true">
+            <span class="h-1.5 rounded-sm bg-action"></span>
+            <span class="h-1.5 rounded-sm bg-action"></span>
+            <span class="h-1.5 rounded-sm bg-action"></span>
+            <span class="h-1.5 rounded-sm bg-action"></span>
+          </div>
+        </div>
+
+        <div class="mt-8 grid h-12 w-12 place-items-center rounded-control bg-success-bg text-success">
+          {{ icons.icon('check', 28) }}
+        </div>
+        <h1 tabindex="-1" class="mt-4 font-display text-[30px] font-bold focus:outline-none @3xl:text-h1">Thank you &mdash; your demo order is placed</h1>
+        <p class="mt-2 text-ink-2">Order number <strong class="font-mono text-ink">{{ order.order_number }}</strong>. No payment was taken and nothing will ship.</p>
+
+        {% set ship_lines = [
+          order.customer_name,
+          order.shipping_address1 ~ (order.shipping_address2 ? ', ' ~ order.shipping_address2 : ''),
+          order.shipping_city ~ ' ' ~ order.shipping_postal_code,
+          regions[order.shipping_region]|default(order.shipping_region),
+        ] %}
+        {% set item_parts = [] %}
+        {% for item in order.items %}
+          {% set item_parts = item_parts|merge([item.qty ~ ' × ' ~ item.name_snapshot]) %}
+        {% endfor %}
+        {% set total_cent = order.total_centavos % 100 %}
+        <dl class="mt-6 grid gap-3 rounded-control bg-page p-4 text-[15px] @3xl:grid-cols-2">
+          <div>
+            <dt class="text-caption text-ink-2">Items</dt>
+            <dd>{{ item_parts|join(', ') }}</dd>
+          </div>
+          <div>
+            <dt class="text-caption text-ink-2">Shipping to</dt>
+            <dd class="whitespace-pre-line">{{ ship_lines|join("\n") }}</dd>
+          </div>
+          <div>
+            <dt class="text-caption text-ink-2">Total (simulated)</dt>
+            <dd class="font-semibold tabular-nums">&#8369;{{ (order.total_centavos / 100)|number_format(total_cent == 0 ? 0 : 2, '.', ',') }}</dd>
+          </div>
+          <div>
+            <dt class="text-caption text-ink-2">Status</dt>
+            <dd>Paid (simulated)</dd>
+          </div>
+          <div class="@3xl:col-span-2">
+            <dt class="text-caption text-ink-2">Delivery</dt>
+            <dd>{{ delivery_estimate }}</dd>
+          </div>
+        </dl>
+
+        <div class="mt-6">
+          <div class="flex items-center gap-3 rounded-control border-[1.5px] border-dashed border-info bg-info-bg px-4 py-3 text-info">
+            {{ icons.icon('lock', 20, 'flex-none') }}
+            <p class="text-small font-bold tracking-wide">SIMULATED PAYMENT &mdash; no real transaction occurs</p>
+          </div>
+        </div>
+
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="/products" class="btn btn--primary">
+            <span>Continue browsing</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ parent() }}
+  <script src="/assets/js/checkout.js" defer></script>
+{% endblock %}
