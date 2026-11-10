@@ -1788,3 +1788,15 @@ dialog:not([open]) { display: none; }
   .\@5xl\:grid-cols-\[minmax\(0\,1fr\)_minmax\(0\,1\.4fr\)\] { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
   .\@5xl\:grid-cols-\[minmax\(0\,1\.4fr\)_minmax\(0\,1fr\)\] { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
 }
+
+/* M7 (R25): on touch (coarse-pointer) devices compact reference controls
+ * grow to a 44 px target; fine-pointer layouts keep the published sizes.
+ * .touch-link does the same for inline text links without changing their
+ * fine-pointer line layout. .touch-stepper wraps 44 px stepper buttons
+ * inside a 1.5 px border. */
+@media (pointer: coarse) {
+  .btn--sm, .touch-target { min-height: 44px; }
+  .touch-target { min-width: 44px; }
+  .touch-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .touch-stepper { min-height: 47px; }
+}

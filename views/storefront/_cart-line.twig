@@ -19,7 +19,7 @@
   <div class="flex min-w-0 flex-1 flex-col">
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
-        <p class="leading-snug font-semibold"><a href="/product/{{ line.slug }}" class="decoration-action decoration-2 underline-offset-4 hover:underline">{{ line.name }}</a></p>
+        <p class="leading-snug font-semibold"><a href="/product/{{ line.slug }}" class="touch-link decoration-action decoration-2 underline-offset-4 hover:underline">{{ line.name }}</a></p>
         <p class="text-small text-ink-2">{{ line_material }}</p>
       </div>
       <p class="font-semibold tabular-nums"><span class="sr-only">Line total: </span>&#8369;{{ (line.line_total_centavos / 100)|number_format(line_cent == 0 ? 0 : 2, '.', ',') }}</p>
@@ -37,7 +37,7 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="product_id" value="{{ line.product_id }}">
         <label class="sr-only" for="{{ cart_mode }}-qty-{{ line.product_id }}">Quantity for {{ line.name }}</label>
-        <div class="inline-flex h-10 items-stretch rounded-control border-[1.5px] border-line-strong bg-raised">
+        <div class="touch-stepper inline-flex h-10 items-stretch rounded-control border-[1.5px] border-line-strong bg-raised">
           <button type="button" hidden class="relative grid w-10 place-items-center rounded-l-[4px] hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="Decrease quantity for {{ line.name }}" data-cart-step="-1"{{ line.quantity <= 1 ? ' disabled' }}>{{ icons.icon('minus', 18) }}</button>
           <input id="{{ cart_mode }}-qty-{{ line.product_id }}" name="quantity" inputmode="numeric" value="{{ line.quantity }}" data-cart-qty data-stock="{{ line.stock }}"
                  class="w-10 border-x border-line bg-transparent text-center font-semibold tabular-nums focus:outline-none focus-visible:bg-info-bg"

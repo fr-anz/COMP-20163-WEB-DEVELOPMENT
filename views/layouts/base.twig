@@ -10,6 +10,9 @@
   JavaScript (footer links); the mobile dialog and material tabs enhance.
   storefront.js is loaded on every page; child templates overriding the
   scripts block must keep it via {{ parent() }}.
+  The <head> renders per-page SEO from the title, description, robots,
+  og_type and head blocks plus the site_url and canonical_path globals:
+  meta description, canonical link, Open Graph, Twitter card, theme-color.
 -#}
 {% import "macros/icons.twig" as icons %}
 <!doctype html>
@@ -17,10 +20,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ app_name }} — woven bags, woven with care{% endblock %}</title>
-  {% block meta %}
-  <meta name="description" content="Explore Habi's fictional handwoven-style bags, inspect their 3D details, and try a clearly simulated guest checkout. An educational demo: nothing is charged or shipped.">
-  {% endblock %}
+  {% set page_title %}{% block title %}{{ app_name }} — woven bags, woven with care{% endblock %}{% endset %}
+  <title>{{ page_title|trim }}</title>
+  {% block robots %}{% endblock %}
+  {% set page_description %}{% block description %}Explore Habi's fictional handwoven-style bags, inspect their 3D details, and try a clearly simulated guest checkout. An educational demo: nothing is charged or shipped.{% endblock %}{% endset %}
+  <meta name="description" content="{{ page_description|trim }}">
+  <meta name="theme-color" content="#f8f4ea">
+  <link rel="canonical" href="{{ site_url ~ canonical_path }}">
+  <meta property="og:site_name" content="{{ app_name }}">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title" content="{{ page_title|trim }}">
+  <meta property="og:description" content="{{ page_description|trim }}">
+  <meta property="og:url" content="{{ site_url ~ canonical_path }}">
+  <meta property="og:image" content="{{ site_url }}/assets/img/og-habi.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="{{ app_name }} — woven bags, woven with care">
+  <meta name="twitter:card" content="summary_large_image">
   {% block head %}{% endblock %}
   <link rel="stylesheet" href="/assets/css/app.css">
   <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
@@ -35,7 +51,7 @@
               class="icon-btn relative -ml-2 @3xl:hidden">
         {{ icons.icon('menu') }}
       </button>
-      <a href="/" class="flex items-center gap-2 rounded-sm py-1" aria-label="{{ app_name }} home">
+      <a href="/" class="touch-target flex items-center gap-2 rounded-sm py-1">
         <img src="/assets/img/reference/brand-mark.svg" width="26" height="26" alt="">
         <span class="relative inline-flex items-baseline font-display font-bold leading-none" role="img" aria-label="{{ app_name }}"
               style="font-size: 26px; color: var(--color-text-primary); letter-spacing: -0.035em; font-variation-settings: 'opsz' 96;">
@@ -122,9 +138,9 @@
       <nav aria-label="Footer">
         <p class="text-caption font-semibold tracking-wider text-inverse/60 uppercase">Explore</p>
         <ul class="mt-2 space-y-0.5 text-small">
-          <li><a href="/#craft" class="inline-block py-1.5 underline-offset-4 hover:underline">Discover the weave</a></li>
-          <li><a href="/products" class="inline-block py-1.5 underline-offset-4 hover:underline">The collection</a></li>
-          <li><a href="/cart" class="inline-block py-1.5 underline-offset-4 hover:underline">Your bag</a></li>
+          <li><a href="/#craft" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Discover the weave</a></li>
+          <li><a href="/products" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">The collection</a></li>
+          <li><a href="/cart" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Your bag</a></li>
         </ul>
       </nav>
       <div>

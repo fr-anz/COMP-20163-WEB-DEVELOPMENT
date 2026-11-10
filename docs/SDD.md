@@ -289,7 +289,7 @@ On failure:
 - Uploads (R23): type detected from bytes (`getimagesizefromstring`), allowlist JPEG/PNG/WebP,
   ≤2 MB and ≤6000 px, random 32-hex name with the detected extension, stored in `data/uploads/`
   outside the document root, served only by `/uploads/{name}` with the mapped MIME and `nosniff`.
-- Secrets: `.env` (gitignored) → `APP_ENV`, `DB_DSN`, `SESSION_SECRET`, `ADMIN_SEED_*`. `.env.example` committed.
+- Secrets: `.env` (gitignored) → `APP_ENV`, `DB_DSN`, `SESSION_SECRET`, `ADMIN_SEED_*`, optional `APP_URL` (absolute public base URL for canonical/Open Graph links; derived from the request scheme/host when blank). `.env.example` committed.
 - Headers: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, basic CSP
   (`default-src 'self'`; inline styles allowed for Twig; no external scripts except fonts).
 

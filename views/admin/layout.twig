@@ -1,7 +1,7 @@
 {#-
   Habi admin shell, matching the published Admin application example:
   232px surface sidebar above the 896px container breakpoint (woven mark,
-  22px wordmark, Admin tag, 40px nav items, Log out pinned last), a
+  22px wordmark, Admin tag, 40px nav items (44px on touch), Log out pinned last), a
   horizontally scrolling nav row below it, dashed demo-data notice and
   14px-dense content. No storefront header/footer or woven textures.
   Receives: app_name, admin_email, csrf_token, flash, active_nav.
@@ -46,13 +46,13 @@
           {key: 'audit', href: '/admin/audit', label: 'Stock audit', icon: 'history'},
         ] %}
           <a href="{{ item.href }}"{% if active_nav|default('') == item.key %} aria-current="page"{% endif %}
-             class="flex h-10 flex-none items-center gap-2.5 rounded-control px-3 text-small font-medium whitespace-nowrap {% if active_nav|default('') == item.key %}bg-ink text-inverse{% else %}text-ink hover:bg-inset{% endif %}">
+             class="touch-target flex h-10 flex-none items-center gap-2.5 rounded-control px-3 text-small font-medium whitespace-nowrap {% if active_nav|default('') == item.key %}bg-ink text-inverse{% else %}text-ink hover:bg-inset{% endif %}">
             {{- icons.icon(item.icon, 18) }}{{ item.label -}}
           </a>
         {% endfor %}
         <form method="post" action="/admin/logout" class="flex flex-none @4xl:mt-auto">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button type="submit" class="flex h-10 w-full flex-none items-center gap-2.5 rounded-control px-3 text-small font-medium whitespace-nowrap text-ink-2 hover:bg-inset">
+          <button type="submit" class="touch-target flex h-10 w-full flex-none items-center gap-2.5 rounded-control px-3 text-small font-medium whitespace-nowrap text-ink-2 hover:bg-inset">
             {{- icons.icon('logout', 18) }} Log out<span class="sr-only"> {{ admin_email }}</span>
           </button>
         </form>

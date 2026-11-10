@@ -67,7 +67,7 @@
           <tbody>
             {% for order in summary.recent %}
               <tr>
-                <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="inline-block py-1 underline-offset-4 hover:underline" href="/admin/orders/{{ order.order_number|url_encode }}">{{ order.order_number }}</a></td>
+                <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="touch-link inline-block py-1 underline-offset-4 hover:underline" href="/admin/orders/{{ order.order_number|url_encode }}">{{ order.order_number }}</a></td>
                 <td class="border-b border-line px-3 py-2.5 align-middle">{{ regions[order.shipping_region]|default(order.shipping_region) }}</td>
                 <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(order.total_centavos) }}</td>
                 <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.status_chip(order.status) }}</td>

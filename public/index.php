@@ -35,6 +35,15 @@ use Twig\Loader\FilesystemLoader;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+// PHP diagnostics go to the server log only: a displayed warning would leak
+// paths and, by starting output early, turn error pages into HTTP 200.
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+
+// The PHP server sends dynamic HTML/JSON uncompressed; let zlib negotiate
+// gzip (Vary: Accept-Encoding) so documents meet the N1 LCP budget on 4G.
+ini_set('zlib.output_compression', '1');
+
 $repoRoot = dirname(__DIR__);
 Env::load($repoRoot . '/.env');
 
@@ -45,6 +54,24 @@ $twig = new TwigEnvironment(
     new FilesystemLoader($repoRoot . '/views'),
     ['autoescape' => 'html']
 );
+
+// Absolute base URL for canonical and Open Graph links: APP_URL when
+// configured (trailing slash trimmed), otherwise derived from the request
+// host with https for HTTPS, a TLS-terminating proxy or APP_ENV=production
+// (the same rule as the session Secure flag), falling back to localhost.
+$appUrl = rtrim((string) Env::get('APP_URL', ''), '/');
+if ($appUrl === '') {
+    $isHttps = (($_SERVER['HTTPS'] ?? '') !== '' && $_SERVER['HTTPS'] !== 'off')
+        || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
+        || Env::get('APP_ENV', 'local') === 'production';
+    $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+    $appUrl = ($isHttps ? 'https' : 'http') . '://' . ($host !== '' ? $host : 'localhost');
+}
+// Canonical path is the request path without its query string; listing
+// filters in the query are intentionally dropped from canonical/og:url.
+$canonicalPath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
+$twig->addGlobal('site_url', $appUrl);
+$twig->addGlobal('canonical_path', $canonicalPath);
 
 
 // The controller is built inside each route handler so the database
