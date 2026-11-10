@@ -40,7 +40,11 @@ final class CsrfMiddleware implements MiddlewareInterface
         if (in_array($request->getUri()->getPath(), ['/cart/add', '/cart/update', '/cart/remove'], true)) {
             return ($this->cartFailure)($request, $response);
         }
-        $message = 'Your session expired or this form is stale. Reload the page and try again; no order was placed.';
+        $path = $request->getUri()->getPath();
+        $admin = $path === '/admin' || str_starts_with($path, '/admin/');
+        $message = $admin
+            ? 'Your session expired or this form is stale. Reload the page and try again; nothing was changed.'
+            : 'Your session expired or this form is stale. Reload the page and try again; no order was placed.';
         if (str_contains($request->getHeaderLine('Accept'), 'application/json')) {
             $response->getBody()->write(json_encode([
                 'error' => $message,
@@ -52,7 +56,9 @@ final class CsrfMiddleware implements MiddlewareInterface
         $response->getBody()->write('<!doctype html><html lang="en"><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>Session expired — Habi</title><main><h1>Reload this form</h1><p>' . $message
-            . '</p><a href="/cart">Review your bag</a></main></html>');
+            . '</p>'
+            . ($admin ? '<a href="/admin">Return to the admin panel</a>' : '<a href="/cart">Review your bag</a>')
+            . '</main></html>');
 
         return $response->withHeader('Content-Type', 'text/html; charset=UTF-8');
     }

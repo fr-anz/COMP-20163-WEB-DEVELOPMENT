@@ -1,0 +1,120 @@
+{#-
+  Admin order detail (R22). Composed from the published admin pieces (data
+  table, status chip, surface panels, destructive dialog); the reference has
+  no detail screen. Shows item snapshots and totals, customer, shipping
+  address and the simulated payment. Fulfilment moves one step forward at
+  a time; Cancel order… (paid/packed only) opens a server-rendered
+  confirmation that restores stock with an audit row per item.
+  Receives: order (with items), next_status, cancellable, confirm_cancel,
+  regions.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'orders' %}
+{% set dialog_open = confirm_cancel %}
+{% set detail_href = '/admin/orders/' ~ order.order_number|url_encode %}
+
+{% block title %}Order {{ order.order_number }}{% endblock %}
+
+{% block content %}
+  <a href="/admin/orders" class="btn btn--tertiary btn--sm">{{ icons.icon('arrow-left', 18) }}<span>All orders</span></a>
+  <div class="mt-2 mb-4">
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="text-h2 font-semibold">Order <span class="font-mono">{{ order.order_number }}</span></h1>
+      {{ ui.status_chip(order.status) }}
+    </div>
+    <p class="mt-1 text-small text-ink-2">Placed {{ order.created_at|slice(0, 16) }} UTC · last updated {{ order.updated_at|slice(0, 16) }} UTC</p>
+  </div>
+
+  <div class="grid gap-6 @5xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+    <section aria-labelledby="items-h" class="min-w-0">
+      <h2 id="items-h" class="mb-2 text-body font-semibold">Items</h2>
+      <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+        <table class="w-full min-w-[420px] text-left text-small">
+          <caption class="sr-only">Items in order {{ order.order_number }}</caption>
+          <thead>
+            <tr>
+              {% for heading in ['Product', 'Price', 'Qty', 'Line total'] %}
+                <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase{% if not loop.first %} text-right{% endif %}">{{ heading }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in order.items %}
+              <tr>
+                <td class="border-b border-line px-3 py-2.5 align-middle font-semibold">{{ item.name_snapshot }}</td>
+                <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ ui.money(item.price_centavos) }}</td>
+                <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ item.qty }}</td>
+                <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ ui.money(item.line_total_centavos) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="tabular-nums">
+            <tr><th scope="row" colspan="3" class="px-3 pt-3 text-right font-medium text-ink-2">Subtotal</th><td class="px-3 pt-3 text-right">{{ ui.money(order.subtotal_centavos) }}</td></tr>
+            <tr><th scope="row" colspan="3" class="px-3 pt-1 text-right font-medium text-ink-2">Shipping ({{ regions[order.shipping_region]|default(order.shipping_region) }})</th><td class="px-3 pt-1 text-right">{{ order.shipping_fee_centavos == 0 ? 'Free' : ui.money(order.shipping_fee_centavos) }}</td></tr>
+            <tr><th scope="row" colspan="3" class="px-3 pt-1 pb-3 text-right font-semibold">Total</th><td class="px-3 pt-1 pb-3 text-right font-semibold">{{ ui.money(order.total_centavos) }}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <div class="grid h-fit gap-4">
+      <section aria-labelledby="fulfil-h" class="rounded-control border border-line bg-surface p-4">
+        <h2 id="fulfil-h" class="text-body font-semibold">Fulfilment</h2>
+        {% if next_status %}
+          <p class="mt-1 text-small text-ink-2">Next step: mark it {{ ui.status_label(next_status)|lower }}.</p>
+          <form method="post" action="{{ detail_href }}/status" class="mt-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="status" value="{{ next_status }}">
+            <button type="submit" class="btn btn--primary btn--sm">Mark as {{ ui.status_label(next_status)|lower }}</button>
+          </form>
+        {% else %}
+          <p class="mt-1 text-small text-ink-2">{{ order.status == 'cancelled' ? 'This order was cancelled and its stock restored.' : 'This order is complete.' }}</p>
+        {% endif %}
+        {% if cancellable %}
+          <div class="mt-4 border-t border-line pt-3">
+            <a class="btn btn--destructive btn--sm" href="{{ detail_href }}/cancel">Cancel order…</a>
+            <p class="mt-2 text-caption text-ink-2">Only before shipping. Every item goes back into stock and the change is audited.</p>
+          </div>
+        {% endif %}
+      </section>
+      <section aria-labelledby="customer-h" class="rounded-control border border-line bg-surface p-4 text-small">
+        <h2 id="customer-h" class="mb-2 text-body font-semibold">Customer</h2>
+        <p>{{ order.customer_name }}</p>
+        <p class="break-words text-ink-2">{{ order.customer_email }}</p>
+        {% if order.customer_phone %}<p class="text-ink-2">{{ order.customer_phone }}</p>{% endif %}
+      </section>
+      <section aria-labelledby="ship-h" class="rounded-control border border-line bg-surface p-4 text-small">
+        <h2 id="ship-h" class="mb-2 text-body font-semibold">Shipping address</h2>
+        <p>{{ order.shipping_address1 }}</p>
+        {% if order.shipping_address2 %}<p>{{ order.shipping_address2 }}</p>{% endif %}
+        <p>{{ order.shipping_city }} {{ order.shipping_postal_code }}</p>
+        <p>{{ regions[order.shipping_region]|default(order.shipping_region) }}</p>
+      </section>
+      <section aria-labelledby="pay-h" class="rounded-control border border-line bg-surface p-4 text-small">
+        <h2 id="pay-h" class="mb-2 text-body font-semibold">Payment</h2>
+        <p class="flex items-center gap-2">{{ icons.icon('lock', 16, 'flex-none text-info') }}Simulated · {{ order.payment_brand|default('Card') }} ending {{ order.payment_last4|default('––––') }}</p>
+        <p class="mt-1 text-caption text-ink-2">No real payment was taken, so cancelling refunds nothing.</p>
+      </section>
+    </div>
+  </div>
+{% endblock %}
+
+{% block dialog %}
+  {% if confirm_cancel %}
+    {% set units = order.items|reduce((sum, item) => sum + item.qty, 0) %}
+    {% embed 'admin/_dialog.twig' with {
+      dialog_id: 'cancel-dialog',
+      title: 'Cancel order ' ~ order.order_number ~ '?',
+      description: units ~ (units == 1 ? ' unit goes' : ' units go') ~ ' back into stock and each change is recorded in the stock audit. This cannot be undone.',
+      close_href: detail_href,
+      form_action: detail_href ~ '/cancel',
+    } %}
+      {% block footer %}
+        <a class="btn btn--secondary" href="{{ close_href }}"><span>Keep order</span></a>
+        <button type="submit" class="btn btn--destructive"><span>Cancel order</span></button>
+      {% endblock %}
+    {% endembed %}
+  {% endif %}
+{% endblock %}

@@ -706,6 +706,92 @@ until that review/merge occurs. No commit, push, merge or deployment was perform
 - D/C: admin layout + pages (dashboard w/ low-stock alerts R18, products table/form, orders table/detail, audit log).
 - **Done when:** R18–R23 pass; non-admin gets redirected from `/admin/*`; CSRF enforced.
 
+M6 local implementation ([issue #7](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/7),
+branch `acd/m6-admin-management`, 2026-11-10). One test-writing agent owned the new service
+tests; the coordinator wrote services, controllers, templates, CSS/JS and ran consumer checks.
+An independent code review agent's six findings were all fixed and re-verified (below).
+
+Implementation checklist:
+
+- [x] Email/password sign-in and logout: `password_verify`, one generic error, 5 failures per
+  email+IP → 60 s lockout (`login_attempts`, upgrade migration `002`), session ID and CSRF
+  token rotated on sign-in/out.
+- [x] Product create/edit/archive/restore: centavo prices without floats, demonstration
+  material/place-of-make labels, dimensions, threshold, procedural 3D config limited to
+  shape/handle combinations the viewer builds, content-validated JPEG/PNG/WebP ≤2 MB upload
+  or a seeded demo illustration. Stock is set only on creation (audited `initial_stock`).
+- [x] Dashboard metrics, low-stock alerts and recent orders; two-step stock adjustment with an
+  allowlisted reason (+ note) applied only against the reviewed stock; audit log view.
+- [x] Order list (status/date filters), detail, one-step fulfilment, cancel (paid/packed only)
+  restoring every item's stock with audit rows in one transaction; shopper confirmation
+  shows the current status.
+- [x] Admin shell/tables/forms/dialogs from the published Admin example (DSD §4 Admin, §5).
+
+Acceptance evidence — actual HTTP on an isolated **four-worker PHP server**
+(`PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8016 -t public`, temporary `DB_DSN` and admin
+hash; real `.env`/`data/app.sqlite` untouched). Three real simulated checkouts created
+`H-20261110-0001…0003` before the admin script ran (`bash /tmp/habi-m6-run/admin-smoke.sh`):
+**64 / 64 checks pass**.
+
+- [x] R19/N2: 10 admin GET paths redirect 303 to `/admin/login` signed out; a signed-out POST
+  with a valid anonymous CSRF token also redirects. Review found percent-encoded paths
+  (`/%61dmin/orders`, `/admin%2Forders`) bypassed the gate (200); the middleware now
+  normalizes exactly like Slim's router → 303, with regression tests.
+- [x] Lockout: failures 1–4 → 422 generic "Invalid email or password."; 5th → 429 "Wait 60
+  seconds"; correct password during lock refused; unknown email same message; after expiry
+  the correct password signs in. Eight **parallel** wrong attempts lock the key and a correct
+  password is then refused. The pre-login session ID no longer works after sign-in and the old
+  CSRF token is rejected (403).
+- [x] CSRF: wrong or missing token → 403 on all 8 admin POST routes; nothing changed.
+- [x] R20/R23: create with real PNG → `₱2,150.50` stored as `215050`, `initial_stock` audit,
+  upload served `200 image/png`, shown on the storefront product page, 3D JSON from the form.
+  Text file named `.png` and a 2.2 MB file are rejected with nothing created/stored;
+  `/uploads/..%2f..%2f.env` → 404. Edit changes price but ignores a submitted stock. Archive
+  → storefront 404; restore → 200. A tote with `top_handle` is rejected. Markup in names is
+  escaped.
+- [x] R21/R18: result below zero and a stale `expected_stock` are not applied; a valid −2 writes
+  `15>13 | Damaged in storage — water | admin 1`. Audit page lists checkout (`by system`),
+  adjustments, initial stock and cancellations with UTC times.
+- [x] R22: paid→shipped rejected; paid→packed applied; cancel restores stock and writes
+  `order_cancelled: H-20261110-0001` by admin 1; a repeat cancel does not restore twice;
+  a shipped order cannot be cancelled; status/date filters work. A shopper's confirmation
+  changes from "Paid (simulated)" to "Cancelled — nothing was charged".
+- [ ] **Task timing (PRD §7) — goal not human-measured.** A scripted Chromium run with simulated
+  human pacing (250 ms per keystroke, 1.5 s before each field/action) took **28.6 s** to add
+  a product with an image and **8.4 s** to adjust stock (both < 2 min / < 30 s). This is a
+  pacing model, not a measurement with a real administrator.
+
+Actual Chromium consumer checks (1440 / 768 / 360 px): login, dashboard, products, add/edit/
+archive dialogs, inventory, adjust/confirm dialogs, orders, order detail + cancel dialog and
+audit render with the published anatomy (sidebar ≥896 px, scrolling nav row below, tables
+scroll inside their frame). Initial review found 360 px page overflow (absolutely positioned
+`sr-only` text escaping scrollers, unconstrained grid columns), a missing `@4xl:flex`
+utility hiding the sidebar lockup and dialog macros not rendering inside `{% embed %}`; all
+fixed. Final: **no horizontal overflow** on all 12 screens at all three widths. Dialogs focus
+the first field (or Close), Tab/Shift+Tab wrap, Esc returns to the list. JavaScript disabled:
+sign-in, Apply-button filters, adjust → confirm and order cancel all complete. Contrast:
+destructive action **7.30:1**, active nav **13.9:1**, success notice **5.78:1**, warning chip
+**6.18:1**, info chip **5.94:1**, secondary text **6.38:1**. Reference captures were taken
+from the published Admin example; differences are the real-data adaptations listed in DSD §4.
+
+Commands and code checks:
+
+```sh
+vendor/bin/phpunit                      # 112 tests / 916 assertions, OK
+composer cs                             # PSR-12 clean
+composer lint                           # php -l clean
+node --check public/assets/js/admin.js  # OK
+npx --no-install contextspine check     # 0 failures / 31 existing warnings
+```
+
+New tests: AuthService (6), StockService (6), AdminOrderService (7), AdminProductService (7),
+ImageUploadService (5, checked-in image fixtures), UpgradeMigration (1), AdminAuthMiddleware
+(encoded paths). Evidence: `/tmp/habi-m6-run/{smoke-result.txt,server-log.txt}`.
+
+**Shared DoD blocker:** review by another track owner and merge to `main` (§2.5) are external
+and **not complete**; the automated review agent does not replace it. The human timing
+measurement above is also open.
+
 ### M7 — Polish: responsive, a11y, SEO, content (all)
 - C: 360 px pass (R24), keyboard-only checkout test (R25), focus rings, aria-live toasts,
   reduced-motion, per-page meta/OG/favicon (R26), final seed content (names, descriptions, materials/origin).

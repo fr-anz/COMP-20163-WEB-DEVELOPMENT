@@ -30,6 +30,18 @@ final class Csrf
     }
 
     /**
+     * Replaces the token after a privilege change (admin sign-in/out), so
+     * forms rendered before it can no longer submit.
+     */
+    public static function rotate(SessionStore $session): string
+    {
+        $token = bin2hex(random_bytes(32));
+        $session->set(self::SESSION_KEY, $token);
+
+        return $token;
+    }
+
+    /**
      * Constant-time comparison of the submitted token against the session's.
      */
     public static function validate(SessionStore $session, ?string $submitted): bool

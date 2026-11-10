@@ -1721,3 +1721,70 @@ dialog:not([open]) { display: none; }
 @media (prefers-reduced-motion: reduce) {
   [data-checkout-processing] [style] { animation: none !important; }
 }
+
+/* M6 admin: published Admin application example (dashboard, products,
+ * inventory, orders, stock audit, dialogs) and the exact reference
+ * utilities it consumes (fit-igloo-66636772.figma.site). */
+
+.btn--destructive { background: var(--color-status-error); color: #fff; }
+.btn--destructive:hover:not(:disabled), .btn--destructive[data-force="hover"] { background: #7f2414; }
+.btn--destructive:active:not(:disabled), .btn--destructive[data-force="active"] { background: #651c10; }
+/* File inputs live inside a labelled .btn; show the keyboard focus on it. */
+.btn:has(> input:focus-visible) { outline: 3px solid var(--color-focus-ring); outline-offset: 2px; }
+
+.fixed { position: fixed; }
+.z-50 { z-index: 50; }
+.align-middle { vertical-align: middle; }
+.col-start-2 { grid-column-start: 2; }
+.gap-x-3 { column-gap: calc(var(--spacing) * 3); }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-cols-\[auto_1fr\] { grid-template-columns: auto 1fr; }
+.justify-end { justify-content: flex-end; }
+.justify-self-start { justify-self: start; }
+.max-w-\[420px\] { max-width: 420px; }
+.max-w-\[520px\] { max-width: 520px; }
+.min-h-0 { min-height: 0; }
+.min-h-dvh { min-height: 100dvh; }
+.min-w-\[420px\] { min-width: 420px; }
+.min-w-\[640px\] { min-width: 640px; }
+.mb-5 { margin-bottom: calc(var(--spacing) * 5); }
+.ml-1\.5 { margin-left: calc(var(--spacing) * 1.5); }
+.mr-auto { margin-right: auto; }
+.p-3 { padding: calc(var(--spacing) * 3); }
+.pb-3 { padding-bottom: calc(var(--spacing) * 3); }
+.pr-20 { padding-right: calc(var(--spacing) * 20); }
+.pt-1 { padding-top: calc(var(--spacing) * 1); }
+.px-1\.5 { padding-inline: calc(var(--spacing) * 1.5); }
+.w-6 { width: calc(var(--spacing) * 6); }
+.w-44 { width: calc(var(--spacing) * 44); }
+.w-52 { width: calc(var(--spacing) * 52); }
+.text-\[26px\] { font-size: 26px; }
+.bg-success { background-color: var(--color-status-success); }
+.bg-warning { background-color: var(--color-status-warning); }
+.break-words { overflow-wrap: break-word; }
+.border-success\/30 { border-color: var(--color-status-success); }
+@supports (color:color-mix(in lab, red, red)) {
+  .border-success\/30 { border-color: color-mix(in oklab, var(--color-status-success) 30%, transparent); }
+}
+
+@container (width >= 42rem) {
+  .\@2xl\:col-start-3 { grid-column-start: 3; }
+  .\@2xl\:grid-cols-\[auto_1fr_auto\] { grid-template-columns: auto 1fr auto; }
+  .\@2xl\:grid-cols-\[minmax\(0\,1fr\)_200px\] { grid-template-columns: minmax(0, 1fr) 200px; }
+  .\@2xl\:items-end { align-items: flex-end; }
+}
+@container (width >= 48rem) {
+  .\@3xl\:p-6 { padding: calc(var(--spacing) * 6); }
+}
+@container (width >= 56rem) {
+  .\@4xl\:flex { display: flex; }
+  .\@4xl\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .\@4xl\:grid-cols-\[232px_1fr\] { grid-template-columns: 232px 1fr; }
+  .\@4xl\:h-full { height: 100%; }
+  .\@4xl\:mt-auto { margin-top: auto; }
+  .\@4xl\:p-3 { padding: calc(var(--spacing) * 3); }
+}
+@container (width >= 64rem) {
+  .\@5xl\:grid-cols-\[minmax\(0\,1fr\)_minmax\(0\,1\.4fr\)\] { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
+  .\@5xl\:grid-cols-\[minmax\(0\,1\.4fr\)_minmax\(0\,1fr\)\] { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+}

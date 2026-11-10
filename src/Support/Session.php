@@ -45,6 +45,16 @@ final class Session
         session_start();
     }
 
+    /**
+     * New session ID for privilege changes (admin sign-in/out, SDD §10);
+     * the old ID is destroyed so a fixated or leaked one stops working.
+     */
+    public static function regenerate(): void
+    {
+        self::start();
+        session_regenerate_id(true);
+    }
+
     private static function isHttps(): bool
     {
         $https = $_SERVER['HTTPS'] ?? '';

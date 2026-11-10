@@ -34,6 +34,17 @@ final class OrderService
     /** Highest daily sequence the H-YYYYMMDD-NNNN format can hold. */
     private const MAX_DAILY_SEQUENCE = 9999;
 
+    /** Forward fulfilment steps an administrator may apply (PRD R22). */
+    public const NEXT_STATUS = ['paid' => 'packed', 'packed' => 'shipped', 'shipped' => 'delivered'];
+
+    /** Statuses that can still be cancelled: the bags have not left. */
+    public const CANCELLABLE = ['paid', 'packed'];
+
+    /** Statuses shown in admin filters; checkout only ever creates paid orders. */
+    public const ADMIN_STATUSES = ['paid', 'packed', 'shipped', 'delivered', 'cancelled'];
+
+    public const ADMIN_PER_PAGE = 25;
+
     private const MAX_BRAND_LENGTH = 30;
 
     public function __construct(private readonly PDO $pdo)
@@ -194,6 +205,220 @@ final class OrderService
     public function findByKey(string $idempotencyKey): ?array
     {
         return $this->fetchOrder('idempotency_key', $idempotencyKey);
+    }
+
+    /**
+     * Orders for the admin list, newest first, filtered by status and an
+     * inclusive created_at date range (YYYY-MM-DD, UTC as stored).
+     *
+     * @param array<string, mixed> $filters status, from, to, page
+     *
+     * @return array{orders: list<array<string, mixed>>, status: string, from: string, to: string,
+     *     page: int, pages: int, total: int}
+     */
+    public function listForAdmin(array $filters): array
+    {
+        $status = is_string($filters['status'] ?? null) && in_array($filters['status'], self::ADMIN_STATUSES, true)
+            ? $filters['status'] : '';
+        $from = self::dateFilter($filters['from'] ?? null);
+        $to = self::dateFilter($filters['to'] ?? null);
+        $conditions = [];
+        $parameters = [];
+        if ($status !== '') {
+            $conditions[] = 'o.status = :status';
+            $parameters['status'] = $status;
+        }
+        if ($from !== '') {
+            $conditions[] = 'o.created_at >= :from';
+            $parameters['from'] = $from;
+        }
+        if ($to !== '') {
+            $conditions[] = "o.created_at < date(:to, '+1 day')";
+            $parameters['to'] = $to;
+        }
+        $where = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
+
+        $count = $this->pdo->prepare('SELECT COUNT(*) FROM orders o' . $where);
+        $count->execute($parameters);
+        $total = (int) $count->fetchColumn();
+        $pages = max(1, (int) ceil($total / self::ADMIN_PER_PAGE));
+        $page = is_string($filters['page'] ?? null) && ctype_digit($filters['page']) ? (int) $filters['page'] : 1;
+        $page = min(max(1, $page), $pages);
+
+        $statement = $this->pdo->prepare(
+            'SELECT o.id, o.order_number, o.status, o.customer_name, o.shipping_region,
+                    o.total_centavos, o.created_at,
+                    (SELECT COALESCE(SUM(i.qty), 0) FROM order_items i WHERE i.order_id = o.id) AS items
+             FROM orders o' . $where . '
+             ORDER BY o.created_at DESC, o.id DESC
+             LIMIT :limit OFFSET :offset'
+        );
+        foreach ($parameters as $name => $value) {
+            $statement->bindValue(':' . $name, $value);
+        }
+        $statement->bindValue(':limit', self::ADMIN_PER_PAGE, PDO::PARAM_INT);
+        $statement->bindValue(':offset', ($page - 1) * self::ADMIN_PER_PAGE, PDO::PARAM_INT);
+        $statement->execute();
+
+        return [
+            'orders' => $statement->fetchAll(),
+            'status' => $status,
+            'from' => $from,
+            'to' => $to,
+            'page' => $page,
+            'pages' => $pages,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * Dashboard counts and the five most recent orders.
+     *
+     * @return array{to_fulfil: int, today: int, recent: list<array<string, mixed>>}
+     */
+    public function adminSummary(): array
+    {
+        $counts = $this->pdo->query(
+            "SELECT COALESCE(SUM(status IN ('paid', 'packed')), 0) AS to_fulfil,
+                    COALESCE(SUM(date(created_at) = date('now')), 0) AS today
+             FROM orders"
+        )->fetch();
+        $recent = $this->pdo->query(
+            'SELECT order_number, status, shipping_region, total_centavos, created_at
+             FROM orders ORDER BY created_at DESC, id DESC LIMIT 5'
+        )->fetchAll();
+
+        return ['to_fulfil' => (int) $counts['to_fulfil'], 'today' => (int) $counts['today'], 'recent' => $recent];
+    }
+
+    /**
+     * Moves an order one fulfilment step forward (paid → packed → shipped
+     * → delivered). The guarded UPDATE rejects a stale form.
+     *
+     * @throws AdminActionException
+     */
+    public function advanceStatus(string $orderNumber, string $target): void
+    {
+        $this->pdo->exec('BEGIN IMMEDIATE');
+        try {
+            $order = $this->lockedOrder($orderNumber);
+            if ((self::NEXT_STATUS[$order['status']] ?? null) !== $target) {
+                throw new AdminActionException(sprintf(
+                    'Order %s is %s, so it cannot be marked %s. Reload to see its current status.',
+                    $orderNumber,
+                    $order['status'],
+                    $target
+                ));
+            }
+            $update = $this->pdo->prepare(
+                "UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = ?"
+            );
+            $update->execute([$target, $order['id'], $order['status']]);
+            if ($update->rowCount() !== 1) {
+                throw new AdminActionException('The order changed during the update. Reload and try again.');
+            }
+            $this->pdo->exec('COMMIT');
+        } catch (Throwable $exception) {
+            $this->rollBackQuietly();
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * Cancels a paid or packed order and restores every item's stock in the
+     * same transaction, with one stock_audit row per item
+     * (reason "order_cancelled: H-…", acting administrator). Any failure
+     * leaves the order and stock untouched.
+     *
+     * @throws AdminActionException
+     */
+    public function cancel(string $orderNumber, int $adminId): void
+    {
+        $this->pdo->exec('BEGIN IMMEDIATE');
+        try {
+            $order = $this->lockedOrder($orderNumber);
+            if (!in_array($order['status'], self::CANCELLABLE, true)) {
+                throw new AdminActionException(sprintf(
+                    'Order %s is %s and can no longer be cancelled.',
+                    $orderNumber,
+                    $order['status']
+                ));
+            }
+
+            $items = $this->pdo->prepare(
+                'SELECT i.product_id, i.qty, p.stock FROM order_items i
+                 JOIN products p ON p.id = i.product_id WHERE i.order_id = ? ORDER BY i.id'
+            );
+            $items->execute([$order['id']]);
+            $restore = $this->pdo->prepare(
+                "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ? AND stock = ?"
+            );
+            $audit = $this->pdo->prepare(
+                'INSERT INTO stock_audit (product_id, admin_id, old_stock, new_stock, reason) VALUES (?, ?, ?, ?, ?)'
+            );
+            foreach ($items->fetchAll() as $item) {
+                $old = (int) $item['stock'];
+                $restore->execute([(int) $item['qty'], (int) $item['product_id'], $old]);
+                if ($restore->rowCount() !== 1) {
+                    throw new RuntimeException('Stock changed while restoring a cancelled order.');
+                }
+                $audit->execute([
+                    (int) $item['product_id'],
+                    $adminId,
+                    $old,
+                    $old + (int) $item['qty'],
+                    'order_cancelled: ' . $orderNumber,
+                ]);
+            }
+
+            $update = $this->pdo->prepare(
+                "UPDATE orders SET status = 'cancelled', updated_at = datetime('now') WHERE id = ? AND status = ?"
+            );
+            $update->execute([$order['id'], $order['status']]);
+            if ($update->rowCount() !== 1) {
+                throw new RuntimeException('The order changed while it was being cancelled.');
+            }
+            $this->pdo->exec('COMMIT');
+        } catch (Throwable $exception) {
+            $this->rollBackQuietly();
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * @return array{id: int, status: string}
+     */
+    private function lockedOrder(string $orderNumber): array
+    {
+        $statement = $this->pdo->prepare('SELECT id, status FROM orders WHERE order_number = ?');
+        $statement->execute([$orderNumber]);
+        $row = $statement->fetch();
+        if ($row === false) {
+            throw new AdminActionException('That order does not exist.');
+        }
+
+        return ['id' => (int) $row['id'], 'status' => (string) $row['status']];
+    }
+
+    private function rollBackQuietly(): void
+    {
+        try {
+            $this->pdo->exec('ROLLBACK');
+        } catch (Throwable) {
+            // Already clean or broken; the original failure matters.
+        }
+    }
+
+    private static function dateFilter(mixed $value): string
+    {
+        if (!is_string($value) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
+            return '';
+        }
+        [$year, $month, $day] = array_map('intval', explode('-', $value));
+
+        return checkdate($month, $day, $year) ? $value : '';
     }
 
     /**

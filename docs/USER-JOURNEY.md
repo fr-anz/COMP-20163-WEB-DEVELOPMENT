@@ -1,6 +1,6 @@
 # USER-JOURNEY — Habi
 
-> **Status:** Journeys describe target behavior. M0–M5 implement discovery, catalog, reversible exterior/interior inspection, the session cart and simulated guest checkout with atomic orders; admin remains M6. Local verification and outstanding review/merge requirements are recorded in BUILD. The published UI/design system remains authoritative 1:1. Real inventory, routes and truthful unavailable states remain binding; no fake cart/order data.
+> **Status:** Journeys describe target behavior. M0–M6 implement discovery, catalog, reversible exterior/interior inspection, the session cart, simulated guest checkout with atomic orders and the admin panel (J3). Local verification and outstanding review/merge requirements are recorded in BUILD. The published UI/design system remains authoritative 1:1. Real inventory, routes and truthful unavailable states remain binding; no fake cart/order data.
 
 | | |
 |---|---|
@@ -53,10 +53,10 @@
 | # | Step | Screen | Action | Req |
 |---|---|---|---|---|
 | 1 | Login | `/admin/login` | Email + password; 5 fails → 60 s lockout; generic error | R19 |
-| 2 | Morning check | Dashboard | Low-stock alerts (≤3), today's orders count, recent orders | R18 |
-| 3 | Restock | Products → row → Stock | +20 with reason (e.g., "demo restock") → audit row written | R21, R18 |
-| 4 | New product | Products → New | Name, price ₱, category, description, materials, place-of-make, dimensions, stock, 3D config (shape/colors/pockets), image upload | R20, R23, R6 |
-| 5 | Ship orders | Orders → filter "paid" | Open order → set "shipped"; cancel path restores stock w/ audit | R22 |
+| 2 | Morning check | Dashboard | Low-stock alerts (at or below each bag's threshold, default 3), orders to fulfil with today's count, recent orders | R18 |
+| 3 | Restock | Inventory → Adjust stock (or dashboard Adjust) | +20 with a reason (e.g. "Restock received") and optional note → confirm current → new → audit row written | R21, R18 |
+| 4 | New product | Products → Add product | Name, SKU, price ₱, category, description, materials/place-of-make labels, dimensions, starting stock, threshold, 3D config (shape/handles/surface/lining/colors/pockets), image upload or demo illustration | R20, R23, R6 |
+| 5 | Ship orders | Orders → filter "Paid (simulated)" | Open order → Mark as packed → shipped → delivered (one step each); cancel before shipping restores stock w/ audit | R22 |
 | 6 | Audit | Stock audit | Who changed what stock, when, why | R18 |
 
 ## 5. Flow Diagrams

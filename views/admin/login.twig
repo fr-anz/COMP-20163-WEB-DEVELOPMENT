@@ -1,0 +1,66 @@
+{#-
+  Admin sign-in (R19). Not part of the published examples, so it composes
+  the reference's own pieces: admin lockup, surface panel, persistent
+  labels, the Password field with Show toggle (enhanced by admin.js; hidden
+  without JavaScript) and checkout's alert treatment. One generic message
+  for any failure; lockout explains the wait without revealing accounts.
+  Receives: app_name, csrf_token, flash, email, message.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+
+{% block title %}Sign in{% endblock %}
+
+{% block shell %}
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <main id="main-content" tabindex="-1" class="mx-auto flex min-h-dvh max-w-[420px] flex-col justify-center px-4 py-10">
+    <div class="rounded-panel border border-line bg-surface">
+      <div class="border-b border-line px-5 py-4">
+        <div class="flex items-center gap-2">
+          <img src="/assets/img/reference/brand-mark.svg" width="22" height="22" alt="">
+          <span class="relative inline-flex items-baseline font-display font-bold leading-none" role="img" aria-label="{{ app_name }}"
+                style="font-size: 22px; color: var(--color-text-primary); letter-spacing: -0.035em; font-variation-settings: 'opsz' 96;">
+            <span aria-hidden="true">hab</span>
+            <span aria-hidden="true" class="relative">ı<img src="/assets/img/reference/wordmark-tittle.svg" alt=""
+                 class="absolute left-1/2 -translate-x-1/2 max-w-none" style="width: .2em; height: .2em; top: -.02em;"></span>
+          </span>
+          <span class="ml-1 rounded-sm bg-inset px-1.5 py-0.5 text-caption font-semibold text-ink-2">Admin</span>
+        </div>
+        <h1 class="mt-4 text-h2 font-semibold">Sign in</h1>
+        <p class="mt-1 text-small text-ink-2">For the demo administrator configured on this server.</p>
+      </div>
+      <form method="post" action="/admin/login" class="grid gap-4 px-5 py-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if message %}
+          <div class="flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert">
+            {{ icons.icon('alert', 20, 'mt-0.5 flex-none') }}<p class="text-small font-medium">{{ message }}</p>
+          </div>
+        {% endif %}
+        {{ ui.flash(flash) }}
+        <div>
+          <label for="login-email" class="field-label">Email<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+          <input id="login-email" name="email" type="email" class="input" autocomplete="username" required aria-required="true"
+                 value="{{ email }}"{% if message %} aria-invalid="true"{% endif %}{% if not email %} autofocus{% endif %}>
+        </div>
+        <div>
+          <label for="login-password" class="field-label">Password<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+          <div class="relative">
+            <input id="login-password" name="password" type="password" class="input pr-20" autocomplete="current-password"
+                   required aria-required="true"{% if message %} aria-invalid="true"{% endif %}{% if email %} autofocus{% endif %}>
+            <button type="button" hidden data-password-toggle aria-controls="login-password" aria-pressed="false"
+                    class="absolute top-1/2 right-1 h-9 -translate-y-1/2 rounded-sm px-3 text-[13px] font-semibold text-ink underline underline-offset-2">Show<span class="sr-only"> password</span></button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn--primary w-full">Sign in</button>
+      </form>
+      <div class="border-t border-line bg-page px-5 py-3">
+        <p class="flex items-start gap-2 text-caption text-ink-2">
+          {{ icons.icon('info', 16, 'mt-0.5 flex-none') }}
+          <span>Educational demo. After five failed attempts, sign-in pauses for 60 seconds.</span>
+        </p>
+      </div>
+    </div>
+    <a href="/" class="btn btn--tertiary btn--sm mt-4 self-start">{{ icons.icon('arrow-left', 18) }}<span>Back to the storefront</span></a>
+  </main>
+{% endblock %}

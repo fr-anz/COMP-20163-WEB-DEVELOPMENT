@@ -71,7 +71,7 @@
           </div>
           <div>
             <dt class="text-caption text-ink-2">Status</dt>
-            <dd>Paid (simulated)</dd>
+            <dd>{{ {paid: 'Paid (simulated)', packed: 'Packed (simulated)', shipped: 'Shipped (simulated)', delivered: 'Delivered (simulated)', cancelled: 'Cancelled — nothing was charged'}[order.status]|default(order.status) }}</dd>
           </div>
           <div class="@3xl:col-span-2">
             <dt class="text-caption text-ink-2">Delivery</dt>

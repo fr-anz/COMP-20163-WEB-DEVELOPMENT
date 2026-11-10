@@ -1,0 +1,76 @@
+{#-
+  Habi admin shell, matching the published Admin application example:
+  232px surface sidebar above the 896px container breakpoint (woven mark,
+  22px wordmark, Admin tag, 40px nav items, Log out pinned last), a
+  horizontally scrolling nav row below it, dashed demo-data notice and
+  14px-dense content. No storefront header/footer or woven textures.
+  Receives: app_name, admin_email, csrf_token, flash, active_nav.
+  Children may set `dialog_open` (true when a server-rendered dialog is
+  shown): the shell becomes inert and the `dialog` block renders above it.
+  Every nav item is a real link; Log out is a CSRF-protected POST.
+-#}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Admin{% endblock %} — {{ app_name }} admin</title>
+  <meta name="description" content="Habi demo administration: products, stock and simulated orders. Educational demo data only.">
+  <link rel="stylesheet" href="/assets/css/app.css">
+  <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+</head>
+<body class="@container bg-page">
+{% block shell %}
+  <div{% if dialog_open|default(false) %} inert{% endif %}>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="grid min-h-dvh bg-page @4xl:grid-cols-[232px_1fr]">
+      <nav aria-label="Admin" class="relative flex gap-1 bg-surface overflow-x-auto border-b border-line p-2 @4xl:h-full @4xl:flex-col @4xl:border-r @4xl:border-b-0 @4xl:p-3">
+        <div class="items-center gap-2 px-2 pt-1 pb-4 hidden @4xl:flex">
+          <img src="/assets/img/reference/brand-mark.svg" width="22" height="22" alt="">
+          <span class="relative inline-flex items-baseline font-display font-bold leading-none" role="img" aria-label="{{ app_name }}"
+                style="font-size: 22px; color: var(--color-text-primary); letter-spacing: -0.035em; font-variation-settings: 'opsz' 96;">
+            <span aria-hidden="true">hab</span>
+            <span aria-hidden="true" class="relative">ı<img src="/assets/img/reference/wordmark-tittle.svg" alt=""
+                 class="absolute left-1/2 -translate-x-1/2 max-w-none" style="width: .2em; height: .2em; top: -.02em;"></span>
+          </span>
+          <span class="ml-1 rounded-sm bg-inset px-1.5 py-0.5 text-caption font-semibold text-ink-2">Admin</span>
+        </div>
+        {% for item in [
+          {key: 'dashboard', href: '/admin', label: 'Dashboard', icon: 'grid'},
+          {key: 'products', href: '/admin/products', label: 'Products', icon: 'bag'},
+          {key: 'inventory', href: '/admin/inventory', label: 'Inventory', icon: 'box'},
+          {key: 'orders', href: '/admin/orders', label: 'Orders', icon: 'orders'},
+          {key: 'audit', href: '/admin/audit', label: 'Stock audit', icon: 'history'},
+        ] %}
+          <a href="{{ item.href }}"{% if active_nav|default('') == item.key %} aria-current="page"{% endif %}
+             class="flex h-10 flex-none items-center gap-2.5 rounded-control px-3 text-small font-medium whitespace-nowrap {% if active_nav|default('') == item.key %}bg-ink text-inverse{% else %}text-ink hover:bg-inset{% endif %}">
+            {{- icons.icon(item.icon, 18) }}{{ item.label -}}
+          </a>
+        {% endfor %}
+        <form method="post" action="/admin/logout" class="flex flex-none @4xl:mt-auto">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="flex h-10 w-full flex-none items-center gap-2.5 rounded-control px-3 text-small font-medium whitespace-nowrap text-ink-2 hover:bg-inset">
+            {{- icons.icon('logout', 18) }} Log out<span class="sr-only"> {{ admin_email }}</span>
+          </button>
+        </form>
+      </nav>
+      <main id="main-content" tabindex="-1" class="min-w-0 p-4 @3xl:p-6">
+        <div class="mb-5 flex items-center gap-2 rounded-control border border-dashed border-line-strong px-3 py-2 text-caption text-ink-2">
+          {{ icons.icon('info', 16, 'flex-none') }}
+          <span><strong class="text-ink">Educational demo data.</strong> Products, stock and orders are fictional; orders come from the simulated checkout and nothing is sold, shipped or charged. Signed in as {{ admin_email }}.</span>
+        </div>
+        {% if not dialog_open|default(false) %}{{ ui.flash(flash) }}{% endif %}
+        <div class="anim-fade">
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+    </div>
+  </div>
+  {% block dialog %}{% endblock %}
+{% endblock %}
+  <script src="/assets/js/admin.js" defer></script>
+</body>
+</html>

@@ -1,8 +1,8 @@
 # State
 
 Updated: 2026-11-10.
-Objective: issue #6 M5 implemented locally on `ac/m5-checkout-orders` from clean `main`.
-Progress: simulated checkout, atomic orders/audit, idempotency, CSRF/session/admin-path preparation and session-owned confirmation complete. DSD records reference/data adaptations.
-Checks: services 27/154, cart 17/120, checkout transitions 3/20 and privacy 1/9 pass; PHP/JS syntax and PSR-12 pass. Actual HTTP/browser: three cards, concurrency, rollback/retry, fees, privacy, expiry, keyboard/no-JS, reduced motion and responsive layouts pass. ContextSpine: 0 failures/31 existing warnings.
-Evidence: BUILD M5; `/tmp/habi-m5-KStxaz`. Verification scaffolds removed/server stopped.
-Blocker/next: external track-owner PR review and merge; issue not fully Done. No commit/push/deploy. Inventory/.env and prior context stash preserved.
+Objective: issue #7 M6 admin panel on `acd/m6-admin-management` from `main` (M5 merged).
+Progress: sign-in/throttle, product CRUD/uploads, audited stock adjustments, orders/cancel-restores-stock and published Admin UI implemented; review-agent findings (encoded-path auth bypass, lock contention, timing, handle combos, confirmation status, GD tests) fixed.
+Checks: PHPUnit 112/916, PSR-12, lint, JS syntax pass; HTTP smoke 64/64; Chromium 1440/768/360, keyboard, no-JS pass. ContextSpine 0 failures/31 existing warnings.
+Evidence: BUILD M6; `/tmp/habi-m6-run/`.
+Blocker/next: human track-owner PR review/merge and a real human task-timing measurement remain open. Inventory/.env untouched; prior stash preserved.

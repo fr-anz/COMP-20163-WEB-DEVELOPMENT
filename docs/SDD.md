@@ -92,7 +92,7 @@ M1 implements home, catalog and stock JSON through `Controllers/StorefrontContro
 and `Services/ProductService`, registered in `public/index.php`. M2 extends detail with
 ordered gallery images and adds the active-only procedural config endpoint.
 `src/Bootstrap/` handles initialization/catalog seeding, `src/Support/` environment/PDO
-helpers, and `src/Console/` the explicit reset command. M4 adds native session cart support, `CartService` and `CartController`; M5 adds `CheckoutController`, `ShippingService`, `PaymentSimulator`, atomic `OrderService` and global CSRF/admin-path middleware. Administrator sign-in remains M6.
+helpers, and `src/Console/` the explicit reset command. M4 adds native session cart support, `CartService` and `CartController`; M5 adds `CheckoutController`, `ShippingService`, `PaymentSimulator`, atomic `OrderService` and global CSRF/admin-path middleware. M6 adds `AdminController` (sign-in, dashboard, audit), `AdminProductController` (products, inventory, stock), `AdminOrderController`, `UploadController`, the shared `AdminResponder`, and `AuthService`, `AdminProductService`, `StockService`, `ImageUploadService` plus admin methods on `OrderService`. No `Models/` layer was introduced: services return plain arrays, as in M1–M5. Admin views live in `views/admin/`; enhancement is `admin.js`.
 
 Canonical CSS is `public/assets/css/app.css`, using the exact published semantic roles
 and consumed component/utility rules (DSD §2). Actual modules are `storefront.js`
@@ -119,6 +119,12 @@ orders        *───*  order_statuses (enum values: pending_payment/paid/pac
 | `orders` | id, order_number UNIQUE (e.g. `H-20261105-0042`), status (`pending_payment`/`paid`/`packed`/`shipped`/`delivered`/`cancelled`/`failed`), customer name/email/phone, shipping address fields, shipping_region, shipping_fee_centavos, subtotal_centavos, total_centavos, payment_last4 NULL, payment_brand NULL, payment_result NULL, idempotency_key UNIQUE, created_at, updated_at |
 | `order_items` | id, order_id FK, product_id FK, name_snapshot, price_centavos, qty, line_total_centavos |
 | `stock_audit` | id, product_id FK, admin_id NULL, old_stock, new_stock, reason, created_at (R18) |
+| `login_attempts` (M6, `002_login_attempts.sql`) | throttle_key PK (SHA-256 of lower-cased email + client IP), failures, locked_until (Unix seconds) |
+
+Migrations: `001_schema.sql` runs once on an empty database together with the seed. Later
+files are idempotent upgrades (`CREATE … IF NOT EXISTS`); `Initializer` applies them inside
+the same `BEGIN IMMEDIATE` guard when a database already holding products lacks a required
+table, preserving all inventory, orders and the administrator.
 
 Indexes: `products(slug)`, `products(category,is_active)`, `orders(order_number)`, `orders(status,created_at)`, `order_items(order_id)`.
 
@@ -164,7 +170,25 @@ JSON 404 as stock. Sold-out products remain inspectable. Detail gallery images a
 ordered primary-first, then `sort_order` and ID; catalog queries do not load galleries
 or model configs. M4 enables stock-validated purchase controls.
 
-M5 moves POST CSRF enforcement into `CsrfMiddleware`, including future/unregistered POST paths; cart failures retain the authoritative fragment/recovery contract. `AdminAuthMiddleware` gates `/admin` and descendants except the future `/admin/login` route. Sign-in, throttling and login-time session/token rotation remain M6. Templates use Twig auto-escape (N2).
+M5 moves POST CSRF enforcement into `CsrfMiddleware`, including future/unregistered POST paths; cart failures retain the authoritative fragment/recovery contract. `AdminAuthMiddleware` redirects `/admin` and descendants except `/admin/login` to sign-in (303). Templates use Twig auto-escape (N2).
+
+M6 admin routes (all GET pages are `no-store`; every POST needs CSRF and, except sign-in, an administrator):
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET/POST | `/admin/login`; POST `/admin/logout` | Sign-in (PRG; 422 invalid, 429 locked) / sign-out |
+| GET | `/admin`, `/admin/audit?product=&page=` | Dashboard; stock audit (50 per page, newest first) |
+| GET | `/admin/products?q=&stock=`, `/new`, `/{id}/edit`, `/{id}/archive` | List plus server-rendered dialogs |
+| POST | `/admin/products`, `/admin/products/{id}`, `/{id}/archive`, `/{id}/restore` | Create (multipart), update, archive, restore |
+| GET | `/admin/inventory?q=&stock=`, `/admin/inventory/{id}/adjust`, `/{id}/review?change=&reason=&note=` | Adjust form and non-mutating preview |
+| POST | `/admin/products/{id}/stock` | `expected_stock`, `change`, `reason`, `note`; applied only if stock still equals `expected_stock` |
+| GET | `/admin/orders?status=&from=&to=&page=`, `/admin/orders/{number}`, `/{number}/cancel` | List (25 per page), detail, cancel confirmation |
+| POST | `/admin/orders/{number}/status`, `/admin/orders/{number}/cancel` | One forward step (`status`); cancel |
+| GET | `/uploads/{32-hex}.{jpg,png,webp}` | Public uploaded image with its MIME type |
+
+Validation failures use POST/Redirect/GET with flashed values and field errors (never
+passwords) shown once with 422. Dialog URLs carry the list's `q`/`stock` filters so closing
+or saving returns to the same list.
 
 ## 7. Cart & Checkout Flow (state machine)
 
@@ -224,7 +248,15 @@ On failure:
 
 - Guarded `UPDATE … WHERE stock >= ?` + affected-rows check = no oversell even under
   concurrent requests.
-- Admin cancel (R22) runs the reverse in a transaction and writes `stock_audit` reason `order_cancelled`.
+- Admin cancel (R22) runs the reverse in one `BEGIN IMMEDIATE` transaction, only from `paid`
+  or `packed`: each item's stock is restored with a guarded update and a `stock_audit` row
+  (reason `order_cancelled: <order number>`, acting admin), then the status changes with a
+  guarded `WHERE status = ?`. Any failure rolls everything back; a repeat cancel is rejected.
+- Admin adjustments (R21) are previewed, then applied in `BEGIN IMMEDIATE` only when stock
+  still equals the reviewed `expected_stock`; otherwise the administrator re-reviews the new
+  numbers. Results below zero are rejected. Reasons: Restock received, Damaged in storage,
+  Count correction, Returned item (+ optional note). New products audit `initial_stock`.
+  Fulfilment moves `paid → packed → shipped → delivered` one step at a time.
 - SQLite tuning: `PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;`.
 
 ## 9. Simulated Payment (R13, R14, N3, N4)
@@ -245,13 +277,18 @@ On failure:
 - SQL: PDO prepared statements exclusively; no string interpolation into SQL.
 - XSS: Twig auto-escape on; `|raw` forbidden in product/admin content (admin-entered HTML is
   plain text or sanitized allowlist if rich text is added later).
-- CSRF: per-session token, hidden field on every POST, `hash_equals` check, regenerate on login.
-- Sessions: strict mode, cookie-only IDs, no URL propagation, custom cookie name, lifetime zero, `HttpOnly`, `SameSite=Lax`. Secure on HTTPS or `APP_ENV=production` (including TLS-terminating deployments). Admin login-time session regeneration/token rotation is M6.
-- Passwords: `password_hash(PASSWORD_DEFAULT)` / `password_verify`.
-- Admin throttle: after 5 failed attempts, 60 s lockout per email+IP (in-memory/SQLite table),
-  generic "Invalid credentials" error, no user enumeration.
-- Uploads (R23): allowlist `jpg/png/webp`, ≤2 MB, random filename, stored outside executable
-  paths, served with correct MIME.
+- CSRF: per-session token, hidden field on every POST, `hash_equals` check, rotated on admin sign-in and sign-out.
+- Sessions: strict mode, cookie-only IDs, no URL propagation, custom cookie name, lifetime zero, `HttpOnly`, `SameSite=Lax`. Secure on HTTPS or `APP_ENV=production` (including TLS-terminating deployments). Admin sign-in and sign-out call `session_regenerate_id(true)`.
+- Passwords: `password_hash(PASSWORD_DEFAULT)` / `password_verify`; unknown emails are verified
+  against a fixed dummy hash so timing and the message match; hashes are rehashed when needed.
+- Admin throttle (`login_attempts`, SQLite): the 5th consecutive failure per email+IP
+  (`REMOTE_ADDR`; proxy headers are not trusted) locks that key for 60 s; during the lock even a
+  correct password is not checked. Generic "Invalid email or password." for every failure;
+  the lockout message names only the wait. Success clears the key. Behind one shared proxy IP
+  the key is effectively per email.
+- Uploads (R23): type detected from bytes (`getimagesizefromstring`), allowlist JPEG/PNG/WebP,
+  ≤2 MB and ≤6000 px, random 32-hex name with the detected extension, stored in `data/uploads/`
+  outside the document root, served only by `/uploads/{name}` with the mapped MIME and `nosniff`.
 - Secrets: `.env` (gitignored) → `APP_ENV`, `DB_DSN`, `SESSION_SECRET`, `ADMIN_SEED_*`. `.env.example` committed.
 - Headers: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, basic CSP
   (`default-src 'self'`; inline styles allowed for Twig; no external scripts except fonts).
@@ -316,7 +353,10 @@ On failure:
   and session-isolation transitions, and `CartService` clamping (R9).
 - **Consumer smoke (BUILD M5):** actual checkout with each test card, stock/price conflict,
   injected database failure/retry, session-owned confirmation, mobile and keyboard/no-JS.
-  Admin CRUD and hosted/browser-family certification remain later milestones.
+  Admin service boundaries (M6): throttle/lockout expiry, stale/negative adjustments and audit
+  rows, fulfilment/cancel transitions and atomic cancel rollback, peso parsing, uploads by
+  content, pre-M6 database upgrade. Admin HTTP/browser acceptance is recorded in BUILD M6.
+  Hosted/browser-family certification remains M7/M8.
 - **Concurrency:** script that fires N parallel `place` requests for the last item → exactly
   one succeeds (§8).
 
@@ -336,6 +376,7 @@ SQLite remains the current target; no migration implementation requested.
 > remain inspiration/modeling references only, never publication assets or proof of
 > provenance. Original SVG illustrations are the seed image format. M3 adds reversible
 > interior cutaways and configured pockets. M4 adds the session cart and real R3/R7
-> purchase actions; M5 adds simulated guest checkout and atomic paid orders. Admin and
-> deployment remain later milestones. Review/merge status is tracked separately in BUILD.
+> purchase actions; M5 adds simulated guest checkout and atomic paid orders; M6 adds the
+> administrator panel (sign-in/throttle, product CRUD/uploads, audited stock, order
+> fulfilment/cancel). Deployment remains M8. Review/merge status is tracked separately in BUILD.
 > PRD R1–R28, N1–N8 remain the target traceability baseline.

@@ -1,6 +1,6 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M5 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart and simulated guest checkout with atomic inventory. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Admin and deployment remain later [milestones](docs/BUILD.md). Local implementation is separate from the review/merge requirements recorded in BUILD.
+Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M6 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Deployment remains a later [milestone](docs/BUILD.md). Local implementation is separate from the review/merge requirements recorded in BUILD.
 
 ## Local setup — three steps
 
@@ -20,19 +20,19 @@ Requires PHP **8.2+**, Composer 2, and PHP extensions `pdo_sqlite`, `mbstring`, 
    ```sh
    php -S localhost:8000 -t public
    ```
-   Open <http://localhost:8000>. The first request initializes `data/app.sqlite` and seeds 10 fictional bags across four categories plus your configured administrator. Later requests/restarts preserve data and do not reset credentials. Admin login is not implemented until M6.
+   Open <http://localhost:8000>. The first request initializes `data/app.sqlite` and seeds 10 fictional bags across four categories plus your configured administrator. Later requests/restarts preserve data and do not reset credentials. Sign in at <http://localhost:8000/admin> with `ADMIN_SEED_EMAIL` and the password you hashed. A database created before M6 is upgraded in place on the next request (the `login_attempts` table is added; no data is reset).
 
 `DB_DSN=sqlite:data/app.sqlite` resolves relative to the repository root; an absolute SQLite path is also supported. The database directory must be writable. Missing/invalid first-boot admin settings prevent initialization rather than creating a default password. Fix `.env` and request the page again. No credentials or internal errors are shown in the browser; inspect server stderr for local diagnosis.
 
 ## Data and intentional reset
 
-Money is integer centavos (₱1 = 100). Product images use the published reference's SVG illustration family; each product has a procedural `three_config` consumed by the real viewer, including lining and authored pocket details. Asset/font provenance: [DSD §6](docs/DSD.md#6-assets-fonts-and-provenance). Schema: [`migrations/001_schema.sql`](migrations/001_schema.sql), seed: [`seed/`](seed/). No inventory reset is needed for interior inspection.
+Money is integer centavos (₱1 = 100). Product images use the published reference's SVG illustration family; each product has a procedural `three_config` consumed by the real viewer, including lining and authored pocket details. Administrator uploads are stored in `data/uploads/` (gitignored, outside the web root). Asset/font provenance: [DSD §6](docs/DSD.md#6-assets-fonts-and-provenance). Schema: [`migrations/`](migrations/) (`001_schema.sql` base; later files are idempotent upgrades), seed: [`seed/`](seed/). No inventory reset is needed for interior inspection.
 
 ```sh
 php seed/seed.php --force
 ```
 
-**Destructive:** this explicitly resets demo data, including orders, inventory and administrator, using current environment settings. Do not run against data you need. Running without `--force` refuses the reset.
+**Destructive:** this explicitly resets demo data, including orders, inventory, administrator and sign-in throttle records, using current environment settings. Uploaded files in `data/uploads/` are not deleted. Do not run against data you need. Running without `--force` refuses the reset.
 
 ## Checks
 
@@ -45,11 +45,13 @@ find src public seed tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
 PHPUnit uses isolated databases, not your local demo inventory. Catalog coverage includes filters/order/pagination and active/sold-out visibility; inspection coverage includes active-only configs and ordered galleries. Cart boundary coverage includes cumulative stock caps, persistent corrections/removals, malformed quantities, session isolation and CSRF rejection. Inspect the actual changed surface at 360 px and wide widths with keyboard navigation; PHP checks do not establish visual accessibility. On product pages, also exercise viewer loading/retry, WebGL fallback, pause/reduced motion and mobile dialog close/Esc/focus return. Exact observed scenarios and commands are recorded in [BUILD](docs/BUILD.md).
 
+Admin coverage includes the sign-in throttle and lockout expiry, stale/negative stock adjustments and their audit rows, one-step fulfilment, atomic cancel-and-restore, exact peso parsing, content-checked uploads and in-place upgrade of pre-M6 databases.
+
 Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD — Exact published-reference cutover](docs/BUILD.md#exact-published-reference-cutover-2026-11-10); earlier reconciliation and performance measurements remain historical.
 
 ## Architecture and scope
 
-`public/index.php` → Slim 4 → storefront/cart/checkout controllers → services/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with first-boot transactional initialization. Templates autoescape HTML. Global middleware protects every POST with a per-session CSRF token and gates admin paths in preparation for M6. Native PHP session cookies are session-only, HttpOnly and SameSite=Lax; Secure is set for HTTPS or `APP_ENV=production`. Responses are `no-store`.
+`public/index.php` → Slim 4 → storefront/cart/checkout/admin controllers → services/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with transactional initialization and idempotent upgrades. Templates autoescape HTML. Global middleware protects every POST with a per-session CSRF token and redirects every `/admin` path except `/admin/login` to sign-in. Native PHP session cookies are session-only, HttpOnly and SameSite=Lax; Secure is set for HTTPS or `APP_ENV=production`. Admin sign-in regenerates the session ID and CSRF token. Responses are `no-store`.
 
 | Route | Available behavior |
 |---|---|
@@ -64,6 +66,13 @@ Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD
 | `/checkout/payment`, `POST /api/payment/simulate` | Mock card validation and 1.5–2.5 s simulated processing; no real gateway |
 | `/checkout/review`, `POST /checkout/place` | Approved-payment-only review, preissued retry key and atomic stock/order/audit transaction |
 | `/order/{orderNumber}` | Session-owned confirmation with immutable item/address/price snapshots and simulated delivery estimate |
+| `/uploads/{name}` | Validated administrator product images served with their detected MIME type; any other name is 404 |
+| `/admin/login`, `POST /admin/logout` | Administrator sign-in with generic errors; five failures per email+IP lock sign-in for 60 s |
+| `/admin` | Dashboard: active products, units, low/sold-out count, orders to fulfil, low-stock alerts, recent orders |
+| `/admin/products…` | Create/edit/archive/restore products (centavo prices, labels, dimensions, threshold, 3D config, image upload or demo illustration) |
+| `/admin/inventory…`, `POST /admin/products/{id}/stock` | Two-step stock adjustment with reason; stale reviews are re-shown instead of applied |
+| `/admin/orders…` | Status/date filters, detail, one-step fulfilment, cancel-before-shipping that restores stock |
+| `/admin/audit` | Stock audit log: product, old → new, reason, actor, UTC time |
 
 Search and category combine; pagination retains those filters and sorting. Out-of-range pages use the nearest available page. Sold-out products remain visible unless “Hide sold-out bags” is selected; inactive products do not. A missing/inactive product detail returns 404.
 
@@ -124,8 +133,21 @@ serializes placement; guarded decrements, stock audit, order and item snapshots 
 or roll back together. Stock/price conflicts explain the correction on the bag page.
 Transient failures retain the key for an explicit safe retry. Confirmation is visible
 only to the originating session; expiry also loses access. Delivery is explicitly
-simulated: nothing will be charged or shipped. M6 implements administrator sign-in;
-the M5 authorization guard does not expose an admin dashboard.
+simulated: nothing will be charged or shipped. Administrators can advance and cancel
+these orders in `/admin/orders` (see below).
+
+### Admin panel
+
+Products, inventory, orders and the stock audit follow the published Admin example;
+dialogs are real URLs, so every flow works without JavaScript (`admin.js` adds focus
+containment, Esc and filter auto-submit). Stock is set once when a product is added
+and afterwards changes only through **Inventory → Adjust stock** (change, reason,
+optional note → confirm). Checkout decrements, adjustments, initial stock and
+cancellations each write a `stock_audit` row. Products are archived, never deleted,
+so order history stays intact. Fulfilment moves paid → packed → shipped → delivered
+one step at a time; only paid or packed orders can be cancelled, which restores
+every item's stock in one transaction. Images must be real JPEG, PNG or WebP files
+up to 2 MB (checked by content); otherwise choose a seeded demo illustration.
 
 ### Viewer dependencies
 
