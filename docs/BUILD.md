@@ -1016,6 +1016,25 @@ Acceptance status:
 - [ ] Cross-track PR review (§2.5): pending.
 - [ ] Real-device/screen-reader pass: not run (emulated touch only, as in M7).
 
+### Cinematic discovery story + real-store copy (D7, 2026-11-10)
+
+- [x] Home rebuilt as five scenes (DSD §4): opening strands, sticky weave build (`data-step` 0→2),
+  four material scenes linking real products, featured bag, dark finale into `/products`.
+  Material tabs and their JS removed; `form_count` no longer passed.
+- [x] Eyebrows/filler removed site-wide (cards, product, catalog, cart, checkout, order, error page,
+  footer); all educational/demo/simulated notices removed from storefront and admin; seed copy
+  rewritten (`php seed/seed.php --force` needed on existing databases).
+- [x] Checked in headless Chromium: 1440 and 360 px story scenes (no horizontal scroll at 360),
+  weave steps 0/1/2 by scroll, reveals, reduced motion (no `story-motion`, final state, no sticky
+  height), catalog, product, cart, shipping, 404 render with no demo wording.
+- [x] PHPUnit 118 tests pass (one `Error {status}` wording assertion deleted); `composer cs`/`lint` clean.
+- [ ] Not run: no-JS home visual pass, real devices, Lighthouse.
+- [x] Continuity pass: one `.story` backdrop fading between scene tones, a scroll-drawn yellow thread
+  from the Scroll cue through the loom (as its lead warp), material/bag gutters and into the finale
+  pattern, opening title/strands drifting out. Materials removed from header and mobile nav.
+  Checked at 1440/360 px (no horizontal scroll; thread lane at 8 px on mobile) and reduced motion
+  (thread hidden, per-scene backgrounds).
+
 ## 2. Definition of Done (per milestone)
 
 1. All cited R#s manually verified against PRD acceptance criteria.

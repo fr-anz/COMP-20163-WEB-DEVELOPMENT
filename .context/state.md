@@ -1,8 +1,7 @@
 # State
 
 Updated: 2026-11-10.
-Objective: issue #9 M8 deploy & CI on `ad/m8-deploy` (from `main` after PR #18 merge).
-Progress: M8 image/CI/router fix done; Google Cloud e2-micro stack `deploy/gce/` (Caddy, setup/update, SSH deploy job) replaces Railway (D6); docs updated.
-Checks: PHPUnit 118/953 (8.2 + 8.5), PSR-12, lint, actionlint; container: health, 3 cards, 8-way race → 1 order, persistence across restart/recreate/rebuild, a11y 100 ×4.
-Evidence: BUILD M8; `/tmp/habi-m8/`.
-Blocker/next: PR #19 open; owner runs README Google Cloud runbook (VM, DNS A record, deploy key, `gh` secret/vars) → verify live HTTPS + reboot/redeploy persistence; review/merge → CI + deploy green on main.
+Objective: D7 UI redesign + D8 (one bag per category; 3D models match product illustrations) — uncommitted, on top of `main` after PR #19.
+Progress: D7 done. D8: catalog = Sinag Tote, Lupa Satchel, Tala Sling, Maya Clutch (6 SVGs removed); tests use fixture rows for pagination. bagFactory.js rebuilt from SVGs via optional `three_config.pattern` (checker/stripes/pixel) + `colors.handle*`; tala handle_style → top_handle (sling now allows it); admin update keeps unmanaged config keys (new test). viewer3d.js: PMREM studio env, retuned lights. Docs: PRD N7, SDD (catalog + pattern key), USER-JOURNEY, README.
+Checks: PHPUnit 119 pass, cs clean; browser screenshots of all 4 bags exterior + Peek after Sol 6.1 rebuild (Peek keeps shell; tote handles fold outward; clutch flap hinged), no console errors.
+Blocker/next: Tala listed dims now 30×22×8, Maya 26×16×3 (match models + illustrations). Product descriptions still describe old looks. code subagent override → openai-codex/gpt-6.1-sol:high is session-only (unsaved). User review; commit/PR. M8 runbook pending.

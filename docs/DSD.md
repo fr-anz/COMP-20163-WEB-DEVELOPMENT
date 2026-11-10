@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Version | 2.0 · 2026-11-10 |
-| Authority | [Published Habi UI and design system](https://fit-igloo-66636772.figma.site/) |
-| User decision | **Follow the published UI and design system 1:1. Replace the current and previous visual direction; do not blend or reinterpret them.** |
+| Version | 2.1 · 2026-11-10 |
+| Authority | [Published Habi UI and design system](https://fit-igloo-66636772.figma.site/) for tokens, type, components and inner screens; this document for the cinematic discovery story and copy rules (D7) |
+| User decision | **D7 (2026-11-10):** cinematic, sequential discovery that tells a story at every scroll until the catalog; no eyebrows, no filler text beside/under headings; no educational/demo/simulated notices — the storefront reads as a real shop. Supersedes the earlier 1:1 rule where they conflict. |
 | Implementation | PHP/Twig, canonical `public/assets/css/app.css`, native JavaScript and the real Three.js viewer |
 | Requirements | [PRD](PRD.md) owns R#/N# and business rules; [BUILD](BUILD.md) records exercised checks and shipped scope |
 
@@ -19,7 +19,14 @@ not storefront chrome.
 
 The earlier cream footer, wrapped mobile navigation, permanently visible header search
 field, custom three-bag hero, two material disclosures and uniform featured-product grid
-are superseded. They are not permitted alternatives to the reference.
+are superseded. The published mosaic hero, process cards, material tab explorer and
+asymmetric featured editorial are in turn superseded by the D7 story (§4 Discovery).
+
+Copy rules (D7): headings stand alone — no uppercase category eyebrows, kicker lines or
+explanatory subtitles. Keep only text that carries data or a decision (prices, stock,
+field labels/requirements, errors, statuses). No "educational", "demo", "fictional",
+"illustrative" or "simulated" wording in customer- or admin-visible UI; the simulation
+stays a backend fact (PRD N3).
 
 Adaptation is limited to real application state and PHP integration: existing product
 IDs, stock, prices and routes remain data-driven; reference sample cart counts/orders
@@ -96,28 +103,41 @@ into competing primary actions. Status uses icon + text, never color alone.
 ### Shell
 
 Sticky translucent cream header: mobile menu button, woven mark + wordmark, desktop
-Discover / Collection / Materials links, search icon and bag icon. Search navigates to
+Discover / Collection links (no Materials entry), search icon and bag icon. Search navigates to
 the actual catalog search, not a permanently expanded header field. The mobile menu is
 a real accessible drawer/dialog, not wrapped desktop links. No fake sample bag count.
-The footer is **dark brown**, inverse wordmark, Explore links and the educational-demo
-notice with its info icon, preceded by the colored checker selvedge.
+The footer is **dark brown**: colored checker selvedge, inverse wordmark and one row of
+links (The weave / Collection / Your bag). No demo notice, tagline or column captions.
 
 ### Discovery (`/`, R1)
 
-1. Exact split hero: original strand headline/copy/actions and the **six-column,
-   six-row mosaic**. A framed bucket illustration sits beside textile swatches; yellow,
-   green and blue strands pass over/under the panels at the reference's z-order. Desktop
-   split starts at 1024 px; mosaic height 340→480 px. No explanatory caption below it.
-2. Fiber inset introduction: heading/copy split, followed by three adjoining cream
-   process cards with the exact Strand / Over & under / Pattern diagrams and numbering.
-3. Four-way material explorer: Natural fiber / Flat strip / Yarn inlay / Loom cloth;
-   swatch, pinned label, description, characteristics and links. Vertical tab rail above
-   896 px, horizontal rail below it. Arrow/Home/End keyboard support and selected state;
-   usable material content without JavaScript. No substitution with two disclosures.
-4. Knot divider and asymmetric featured editorial: one large framed product/material
-   presentation plus two smaller cards. Real product links/data; not a uniform three-card grid.
-5. Full-width **dark brown CTA**, inverse headline/copy, cream action and bounded textile
-   strip; continue into the matching dark footer.
+One continuous story, one idea per scroll, ending at the catalog (D7). Copy is the
+heading only, plus one sentence per material. Scenes (`.story-*` in `app.css`):
+
+1. **Opening** — full-height dark brown stage; "Every bag begins as a single strand."
+   in display type (44→128 px); yellow, blue and green strands draw across behind it;
+   a "Scroll" cue links to `#craft`.
+2. **The weave** (`#craft`) — sticky stage: "One strand." → "Over, then under." →
+   "Row by row, a pattern." while one inline loom SVG builds (lead warp strand, plain
+   weave, then diagonal accent pattern). Scroll progress sets `data-step`.
+3. **Materials** (`#materials`) — "Four materials." then Natural fiber / Flat strip /
+   Yarn inlay / Loom cloth as alternating swatch + name scenes; each links to one real
+   product using that material.
+4. **The bag** — "Then, a bag." on fiber inset: first featured product large (name,
+   price, View bag), next two as image/name/price links.
+5. **Finale** — dark brown "{N} bags. Find yours." with cream Shop the collection action
+   and textile pattern, continuing into the footer.
+
+Continuity (motion only): all scenes sit in one `.story` wrapper whose background and
+text colour fade to the `data-tone` of the scene at mid-viewport (dark → page → inset →
+dark), so there are no hard section edges. One 6 px yellow thread, laid by
+`storefront.js` through `[data-thread]` anchors, starts at the Scroll cue, feeds behind
+the loom as its yellow lead warp, weaves through each material's and bag's gutter (a
+left-edge lane below 768 px) and ends in the finale pattern; it draws to 75% of the
+viewport as you scroll. The opening title rises and fades as it leaves (`--exit`).
+`[data-reveal]` fades in and `[data-reveal="wipe"]` wipes its image. Without JavaScript
+or with reduced motion, every scene keeps its own background, the thread is hidden and
+every scene and weave step renders in its final state in reading order.
 
 ### Catalog (`/products`, R2)
 
@@ -127,21 +147,21 @@ Hide sold-out bags checkbox share the next row. Native GET values/pagination rem
 shareable; JavaScript enhances submission without making no-JS browsing unusable.
 
 Eight rows per page, with 2/3/4 card columns at <768 / ≥768 / ≥1024 px. Cards use
-neutral 4:5 reference illustrations, caption category, semibold DM Sans name, a quiet
-material/variant line, then price + stock chip. No sun/moon poster illustrations,
-verbose provenance paragraphs on cards, rounded filter-panel redesign or hover-only actions.
+neutral 4:5 reference illustrations, semibold DM Sans name, then price, a stock chip
+only when low or sold out, and Add to bag. No category eyebrow, material line, "In
+stock" chip, poster illustrations or hover-only actions.
 
 ### Product (`/product/{slug}`, R3 inspection, R4–R6/R27)
 
 Breadcrumb chevrons; gallery/viewer on the left and information on the right in a
 1.15:1 split at 900 px. Desktop media is square and sticky; narrow media is 4:5 and
 3D opens fullscreen. Match the Images / 3D segmented control, gallery frame/thumbnails,
-Bricolage title, material line, price + status row and bordered purchase panel.
+Bricolage title, price + status row and bordered purchase panel. No category eyebrow or
+material line under the title.
 
-Materials/provenance and dimensions are **open sections**, not the previous accordions.
-Use the reference's icon headings, labeled data rows, inset provenance notice and
-measurement diagram. Shipping-estimate cards use PRD R12's values and are identified as
-planned estimates, not a claim that shipping/checkout already works.
+Materials and dimensions are **open sections**, not the previous accordions: icon
+headings, labeled data rows and the measurement diagram. Shipping cards use PRD R12's
+values. No provenance notice, "planned estimate" note or viewer-behaviour hint text.
 
 Keep real loading, failure/retry, WebGL image fallback, rotation/tilt/reset/pause,
 reduced-motion behavior and mobile focus containment. No “Demo state” select or CSS model
@@ -168,12 +188,13 @@ PRD R12 rates replace prototype sample values. Persistent stock corrections are
 icon+text notices, not disappearing toast-only explanations. Add confirmation and
 the header badge reflect real session state. Native `/cart` forms remain available
 without JavaScript; dialog enhancement contains focus and returns it on close/Esc.
-Session lifetime is explained without saved-cart promises; Proceed to checkout opens the real guest flow.
+Proceed to checkout opens the real guest flow; no session-lifetime or pricing-policy notes.
 
 ### Checkout and confirmation (R10–R17)
 
 Follow the published Checkout/Confirmation examples: responsive stepper, shipping
-form and summary, clearly simulated card form, review and received-order composition.
+form and summary, card form, review and received-order composition. "Secure checkout"
+replaces the demo tag; no SIMULATED banners or fictional-order confirmations (D7).
 Native forms enforce Shipping → Payment → Review → Place → Confirmation without
 JavaScript; enhancement adds processing status rather than a second checkout state.
 Use server totals and PRD R12 fees, not the prototype's sample rates.
@@ -181,15 +202,15 @@ Use server totals and PRD R12 fees, not the prototype's sample rates.
 Show inline field errors with persistent labels and text/icon feedback. Declines
 preserve shipping and bag contents. Review includes the already-issued retry key;
 stock/price conflicts return to the corrected bag with an explanation. Confirmation
-uses session-owned order snapshots, `H-YYYYMMDD-NNNN`, a clearly simulated delivery
-estimate and the simulation notice. Never fabricate a successful order to match the
+uses session-owned order snapshots, `H-YYYYMMDD-NNNN` and the delivery estimate.
+Never fabricate a successful order to match the
 reference or retain entered card details in browser storage.
 
 The name-on-card field reflects the already validated shipping name read-only;
 Back to Shipping edits it, with no second stored identity. Optional address line 2
 comes from the order schema. No “remember on this device” checkbox is offered:
 shipping already lasts only for this session, with no persistent-device feature.
-These data/privacy adaptations and binding Luhn/CVC/test-card text are not permission
+These data/privacy adaptations and binding Luhn/CVC rules are not permission
 to change the reference's component styling.
 
 ### Admin (`/admin`, R18–R23)
@@ -198,9 +219,8 @@ Follow the published Admin application example and Admin components: no storefro
 header/footer and no woven textures behind data. A 232 px surface sidebar (woven mark,
 22 px wordmark, Admin tag, 40 px items with icon + label, inverted current item, Log out
 pinned last) appears from the 896 px container breakpoint; below it the same items form a
-horizontally scrolling row and tables scroll inside their bordered frame. A dashed
-demo-data notice heads every page; its wording states the real situation (fictional
-products, simulated orders) instead of the reference's "Planned feature" sample text.
+horizontally scrolling row and tables scroll inside their bordered frame. No demo-data
+notice (D7).
 
 Dashboard: four metric cards (Active products, Units in stock, Low or sold out with the
 threshold caption, Orders to fulfil), low-stock alerts with Adjust and the recent-orders
@@ -208,11 +228,11 @@ table. Products and Inventory: "Filter by name" + Stock status filters, the publ
 (thumbnail/name/category/price/status/edit; on-hand count + stock bar/status/Adjust stock),
 the Edit product dialog and the two-step Adjust stock → Confirm stock change dialog. Orders:
 Status filter and table; Stock audit: direction-icon rows with signed change, old → new,
-reason · actor and time. Order status chips are icon + label; paid reads "Paid (simulated)".
+reason · actor and time. Order status chips are icon + label; paid reads "Paid".
 
 Real-data adaptations, not visual changes: Add product (primary small action beside the
-heading) and every R20 field in the 520 px product dialog (SKU, threshold, demonstration
-material/place-of-make labels, dimensions, 3D model, demo illustration); "Archived" filter
+heading) and every R20 field in the 520 px product dialog (SKU, threshold, material and
+place-of-make labels, dimensions, 3D model, existing illustration); "Archived" filter
 and chip; From/To date filters; data-driven captions ("N placed today"); an order detail
 page composed from the same panels/table/chips with one-step fulfilment and the destructive
 cancel dialog; the sign-in panel composed from the admin lockup, Password field with Show
@@ -227,26 +247,26 @@ and checkout's alert. The reference's "Packing" label is shown as the stored sta
 | `.icon-btn` | 44 px named icon action; keep the label accessible and glyph decorative. |
 | `.input`, `.field-label`, `.field-hint`, `.check` | Reference persistent labels, native field semantics, strong boundaries and focus treatment. |
 | `.chip` + status roles | Stock icon + words; success, warning and sold-out/error pairs. No ratings or New badges. |
-| `.link`, `.eyebrow` | Reference low-emphasis navigation and category labels. |
+| `.link`, `.story-link` | Low-emphasis navigation; `.story-link` is the discovery story's underlined arrow link. |
 | `icons.icon(name, size = 24, class = '')` in `views/macros/icons.twig` | Shared 1.75 px round-stroke family, with the reference's per-control sizes and optional utility classes. Only names defined in the macro are supported. |
-| `_product-card.twig` | Repeated on catalog and discovery; escaped ProductService data, exact price formatting, separate product destination and native Add to bag form with no nested controls. |
-| `data-*` storefront controls | Progressive mobile navigation, material tabs and catalog GET submission; no framework or fake application state. |
+| `_product-card.twig` | Catalog card; escaped ProductService data, exact price formatting, separate product destination and native Add to bag form with no nested controls. |
+| `data-*` storefront controls | Progressive mobile navigation, home story motion (`data-reveal`, `data-story-weave`) and catalog GET submission; no framework or fake application state. |
 | `product.js` + `BagViewer` | One real renderer, gallery/mode switching, persistent Peek inside / Back outside controls, live status, retry/fallback and native narrow-screen dialog. `setInside(inside, {animate})` emits `viewchange`; reset stays in the current inspection mode. |
 | `cart.js` + `_cart-content.twig` | Native cart forms enhanced with authoritative server fragments; synchronized header count, drawer/page lines and totals, persistent stock notices, add feedback, named quantity/remove controls and accessible native dialog. |
 | `checkout.js` + `checkout-{shipping,payment,review}.twig` | Native PRG forms, server-owned progress/totals, inline errors, first-error/step focus, visible busy status/spinner, reduced motion and card clearing on pagehide/pageshow. `_checkout-stepper.twig` and `_checkout-summary.twig` share responsive progress and native summary disclosure. |
-| `order.twig` | Session-owned order snapshots, simulated status/ETA and payment disclaimer; no gateway or shipping action is fabricated. |
-| `views/admin/layout.twig` + `_macros.twig` | Admin shell (sidebar/scroll nav, demo notice, flash) and helpers: `money`, `stock_chip`, `status_chip`, `status_label`, `input`, `select`, `field_error`, `pagination`, `flash`. Templates set `dialog_open` to make the shell `inert` behind a dialog. |
+| `order.twig` | Session-owned order snapshots, status and delivery estimate; no gateway or shipping action is fabricated. |
+| `views/admin/layout.twig` + `_macros.twig` | Admin shell (sidebar/scroll nav, flash) and helpers: `money`, `stock_chip`, `status_chip`, `status_label`, `input`, `select`, `field_error`, `pagination`, `flash`. Templates set `dialog_open` to make the shell `inert` behind a dialog. |
 | `views/admin/_dialog.twig` (`{% embed %}`) | Published dialog anatomy (brown/45 scrim, surface panel, header with Close, scrolling body, page-coloured footer) as a server-rendered overlay reached by URL; optional wrapping form. Import macros inside each embed body. |
 | `.btn--destructive` | Reference destructive action (Archive…, Cancel order) — white on status-error. |
 | `admin.js` | Dialog initial focus (first invalid field, first field, else Close), Tab containment, Esc to the close URL; filter auto-submit; password Show/Hide; chosen-file name and early 2 MB warning. Everything works without it. |
 | `.touch-target`, `.touch-link`, `.touch-stepper` (M7) | Coarse-pointer only: compact reference controls (`.btn--sm` too), inline text links and 44 px stepper buttons inside a 1.5 px border reach a 44 px touch target. Fine-pointer layouts keep the published sizes. Stretched card links already cover the whole card. |
 | `views/layouts/base.twig` head blocks (M7, R26) | `title`, `description` (text only), optional `robots` and `og_type`; base renders the meta description, canonical, Open Graph/Twitter card (absolute `site_url` ~ `canonical_path`, `/assets/img/og-habi.png`) and favicons once. Session pages (bag, checkout, order) set `noindex`. |
-| `ErrorHandler::page(status)` | Standalone 404/405/500 page with the storefront lockup, footer demo notice and two recovery actions; no Twig, session or database, so it renders after failed initialization. |
+| `ErrorHandler::page(status)` | Standalone 404/405/500 page with the storefront lockup, footer links and two recovery actions; no Twig, session or database, so it renders after failed initialization. |
 
 Good navigation:
 
 ```html
-<a class="btn btn--primary btn--lg" href="#craft">Discover the weave</a>
+<a class="btn btn--lg story-finale__action" href="/products">Shop the collection</a>
 ```
 
 Bad: `href="#"` labeled Add to bag suggests an unavailable mutation; decorative textile
@@ -283,9 +303,9 @@ or component sets; do not claim those were created.
 ## 7. Verification and future changes
 
 Follow [the screen review guide](../design-system/skills/review-screen/SKILL.md). Compare
-actual native-width app screens against the published components at 1440, 768 and 360 px,
-including mobile menu, selected material, catalog filters/empty state and product modes.
-A successful compile or token match does not establish 1:1 visual fidelity.
+actual native-width app screens at 1440, 768 and 360 px against the published components
+for inner screens and against §4 for the discovery story, including reduced motion and
+no-JS final states. A successful compile or token match does not establish fidelity.
 
 Maintain keyboard access, visible focus, relevant 44 px icon targets, text/status cues,
 reduced motion and WCAG AA contrast. Preserve original data/security requirements. Measure
@@ -295,5 +315,5 @@ the real UI. Current results and any precise differences belong in BUILD, not an
 pixel-perfect claim.
 
 Later changes must update the canonical source and affected consumers together. Do not
-add old-token aliases, alternate mobile navigation, local color guesses or visual “improvements”
-that depart from the approved reference.
+add old-token aliases, alternate mobile navigation, local color guesses, eyebrows, filler
+subtitles or demo notices.

@@ -54,7 +54,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
 
     public function testRepeatedAddCapsExistingPlusRequestedAtStock(): void
     {
-        $id = $this->productId('alon-tote');
+        $id = $this->productId('tala-sling');
         $this->setStock($id, 4);
 
         self::assertTrue($this->cart->add($id, 2)['ok']);
@@ -90,7 +90,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
 
     public function testAddOfUnknownInactiveOrSoldOutProductFails(): void
     {
-        $soldOut = $this->productId('gabi-clutch');
+        $soldOut = $this->productId('maya-clutch');
         $this->setStock($soldOut, 0);
 
         $soldOutResult = $this->cart->add($soldOut, 1);
@@ -112,7 +112,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
 
     public function testHugeRequestedQuantityIsClampedWithoutOverflow(): void
     {
-        $id = $this->productId('ulap-sling');
+        $id = $this->productId('tala-sling');
         $this->setStock($id, 2);
 
         self::assertTrue($this->cart->add($id, CartService::parseQuantity('999999999'))['ok']);
@@ -148,7 +148,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
         $id = $this->productId('lupa-satchel');
         $this->cart->add($id, 1);
 
-        $missing = $this->cart->remove($this->productId('sierra-satchel'));
+        $missing = $this->cart->remove($this->productId('tala-sling'));
         self::assertFalse($missing['ok']);
         self::assertSame(404, $missing['status']);
 
@@ -159,7 +159,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
 
     public function testStockDropClampsQuantityWithPersistentNotice(): void
     {
-        $id = $this->productId('dahon-sling');
+        $id = $this->productId('tala-sling');
         $this->setStock($id, 5);
         $this->cart->add($id, 4);
 
@@ -178,7 +178,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
 
     public function testOverstockAddLeavesAPersistentClampNotice(): void
     {
-        $id = $this->productId('sierra-satchel');
+        $id = $this->productId('lupa-satchel');
         $this->setStock($id, 3);
 
         self::assertTrue($this->cart->add($id, 5)['ok']);
@@ -195,7 +195,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
     public function testSoldOutInactiveAndDeletedProductsAreRemovedWithNotices(): void
     {
         $soldOut = $this->productId('sinag-tote');
-        $inactive = $this->productId('alon-tote');
+        $inactive = $this->productId('tala-sling');
         $deleted = $this->productId('lupa-satchel');
         $healthy = $this->productId('maya-clutch');
         $this->cart->add($soldOut, 1);
@@ -228,7 +228,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
 
     public function testCartStatePersistsAcrossServiceInstancesOnTheSameSession(): void
     {
-        $id = $this->productId('araw-tote');
+        $id = $this->productId('sinag-tote');
         $this->cart->add($id, 2);
 
         $sameSession = new CartService($this->database(), new SessionStore($this->session));
@@ -240,7 +240,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
 
     public function testCartStateDoesNotLeakIntoAFreshSession(): void
     {
-        $id = $this->productId('araw-tote');
+        $id = $this->productId('sinag-tote');
         $this->cart->add($id, 2);
 
         $freshSession = [];

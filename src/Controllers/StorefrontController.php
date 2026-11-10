@@ -21,9 +21,8 @@ use Twig\Environment as TwigEnvironment;
 final class StorefrontController
 {
     /**
-     * Home "Seen in" chips per material tab: SQL LIKE patterns matched against
-     * the seeded (illustrative) material text, so the chips always link to
-     * real catalog products in deterministic id order.
+     * Home material scenes link to one real product each: SQL LIKE patterns
+     * matched against the seeded material text, first match in id order.
      *
      * @var array<string, list<string>>
      */
@@ -47,18 +46,16 @@ final class StorefrontController
         array $args = []
     ): ResponseInterface {
         $listing = $this->products->list(['sort' => 'featured']);
-        $categories = $this->products->categories();
 
         $materialsSeen = [];
         foreach (self::MATERIAL_SEEN_IN as $materialId => $patterns) {
-            $materialsSeen[$materialId] = $this->products->byMaterials($patterns, 3);
+            $materialsSeen[$materialId] = $this->products->byMaterials($patterns, 1);
         }
 
         return $this->render($response, 'storefront/home.twig', [
             'featured_products' => array_slice($listing['products'], 0, 3),
             'materials_seen' => $materialsSeen,
             'total' => $listing['total'],
-            'form_count' => count($categories),
         ]);
     }
 

@@ -4,7 +4,6 @@
 {% set primary_image = (product.images[0].path ?? product.image_path) %}
 {% set centavos = product.price_centavos % 100 %}
 {% set price = (product.price_centavos / 100)|number_format(centavos == 0 ? 0 : 2, '.', ',') %}
-{% set material_label = product.materials|replace({'Illustrative materials: ': ''})|split(',')|first|trim %}
 
 {% block title %}{{ product.name }} — {{ app_name }}{% endblock %}
 
@@ -47,7 +46,7 @@
             <div class="aspect-[4/5] overflow-hidden rounded-panel border border-line bg-[#F3EEE4] @min-[900px]:aspect-[5/5]">
               <img data-gallery-image
                    src="{{ primary_image }}"
-                   alt="{{ product.name }} — illustrative demo illustration"
+                   alt="{{ product.name }}"
                    width="480" height="600"
                    class="block h-full w-full object-contain">
             </div>
@@ -60,7 +59,7 @@
                         data-gallery-thumb
                         data-src="{{ image.path }}"
                         aria-label="View {{ loop.index }} of {{ product.images|length }}"
-                        data-alt="{{ product.name }} — illustrative demo illustration, view {{ loop.index }} of {{ product.images|length }}"
+                        data-alt="{{ product.name }}, view {{ loop.index }} of {{ product.images|length }}"
                         aria-pressed="{{ loop.first ? 'true' : 'false' }}"
                         class="block h-[72px] w-[60px] overflow-hidden rounded-control border-2 {{ loop.first ? 'border-ink' : 'border-transparent opacity-80 hover:opacity-100' }}">
                   <img src="{{ image.path }}" alt="" width="64" height="80" loading="lazy" class="block h-full w-full object-contain">
@@ -77,10 +76,9 @@
             <div class="viewer relative" data-viewer hidden>
               <div class="relative aspect-[4/5] select-none overflow-hidden rounded-panel border border-line @min-[900px]:aspect-[5/5]" style="background: radial-gradient(120% 80% at 50% 30%, #FFFCF6 0%, #F3ECDF 60%, #E8DECC 100%);">
                 <div class="absolute top-3 left-3 z-10 flex flex-wrap gap-1.5">
-                  <span class="chip border border-line bg-surface/90 text-ink">{{ icons.icon('cube', 14) }}3D · procedural model</span>
                   {# Truthful interior marker (reference chip row); shown only
                      while the ready viewer is in the interior view. #}
-                  <span class="chip bg-info-bg text-info" data-viewer-interior-chip hidden>Interior cutaway</span>
+                  <span class="chip bg-info-bg text-info" data-viewer-interior-chip hidden>Interior view</span>
                 </div>
                 <p class="viewer__status sr-only" data-viewer-status role="status" aria-live="polite"></p>
 
@@ -144,13 +142,10 @@
             </div>
           </div>
 
-          <p class="mt-2 text-caption text-ink-2" data-viewer-below-hint>Below 900px the 3D viewer opens fullscreen, so the page keeps scrolling normally.</p>
         </div>
 
         <div>
-          <p class="text-caption font-medium tracking-wide text-ink-2 uppercase">{{ product.category }}</p>
           <h1 class="mt-1 font-display text-[30px] font-bold @3xl:text-h1">{{ product.name }}</h1>
-          <p class="mt-1 text-ink-2">{{ material_label }}</p>
           <div class="mt-4 flex flex-wrap items-center gap-3">
             <span class="text-h3 font-semibold tabular-nums"><span class="sr-only">Price: </span>&#8369;{{ price }}</span>
             {% if product.stock == 0 %}
@@ -166,7 +161,6 @@
           <div class="mt-6 rounded-panel border border-line bg-surface p-5">
             {% if product.stock == 0 %}
               <p class="font-semibold">This bag is sold out</p>
-              <p class="mt-1 text-small text-ink-2">Demo inventory isn't restocked automatically. Explore similar weaves in the collection.</p>
               <a class="btn btn--secondary mt-4" href="/products">Browse the collection</a>
             {% else %}
               {# R7: native POST /cart/add; cart.js intercepts for JSON and
@@ -201,10 +195,6 @@
                 <dt class="text-ink-2">Place of make</dt>
                 <dd>{{ product.place_of_make }}</dd>
               </dl>
-              <p class="mt-3 flex items-start gap-2 rounded-control bg-inset px-3 py-2 text-caption text-ink">
-                <span class="mt-px flex-none">{{ icons.icon('info', 16) }}</span>
-                <span><strong>Illustrative provenance label.</strong> Habi is a demo &mdash; no maker, region of origin or certification is claimed for this product.</span>
-              </p>
             </section>
 
             <section class="py-5" aria-labelledby="dim">
@@ -226,7 +216,7 @@
             </section>
 
             <section class="py-5" aria-labelledby="ship">
-              <h2 id="ship" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('truck', 20) }} Shipping estimate</h2>
+              <h2 id="ship" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('truck', 20) }} Shipping</h2>
               <ul class="mt-3 grid grid-cols-2 gap-2 text-small">
                 <li class="rounded-control border border-line px-3 py-2"><span class="block font-semibold">Metro Manila</span><span class="text-ink-2">&#8369;120 &middot; 1&ndash;3 days</span></li>
                 <li class="rounded-control border border-line px-3 py-2"><span class="block font-semibold">Luzon</span><span class="text-ink-2">&#8369;180 &middot; 3&ndash;5 days</span></li>
@@ -234,10 +224,6 @@
                 <li class="rounded-control border border-line px-3 py-2"><span class="block font-semibold">Mindanao</span><span class="text-ink-2">&#8369;250 &middot; 5&ndash;8 days</span></li>
               </ul>
               <p class="mt-2 text-small text-ink-2">Free above &#8369;5,000.</p>
-              <p class="mt-1 flex items-start gap-2 text-caption text-ink-2">
-                <span class="mt-px flex-none">{{ icons.icon('info') }}</span>
-                <span>Planned commerce &mdash; an estimate, not a functional promise.</span>
-              </p>
             </section>
           </div>
         </div>
@@ -250,7 +236,6 @@
     <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
       <div>
         <h2 class="text-h3 font-semibold" id="viewer-dialog-title">{{ product.name }} in 3D</h2>
-        <p class="mt-1 text-small text-ink-2">Drag to rotate</p>
       </div>
       <button type="button" class="icon-btn relative -mt-1.5 -mr-2" data-viewer-close aria-label="Close dialog" autofocus>{{ icons.icon('close') }}</button>
     </div>

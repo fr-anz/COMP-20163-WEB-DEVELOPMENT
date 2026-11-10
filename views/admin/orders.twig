@@ -59,7 +59,7 @@
           </tr>
         {% else %}
           <tr><td colspan="7" class="px-3 py-2.5 text-ink-2">
-            {% if status or from or to %}No orders match these filters. <a class="link" href="/admin/orders">Show all orders</a>{% else %}No orders yet. Orders appear here after a simulated checkout.{% endif %}
+            {% if status or from or to %}No orders match these filters. <a class="link" href="/admin/orders">Show all orders</a>{% else %}No orders yet. Orders appear here once customers check out.{% endif %}
           </td></tr>
         {% endfor %}
       </tbody>

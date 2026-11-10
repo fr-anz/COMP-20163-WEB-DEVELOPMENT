@@ -21,6 +21,8 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
 
     public function testFeaturedIsTheDefaultSortInDeterministicIdOrderWithEightPerPage(): void
     {
+        $this->addFixtureBags(6);
+
         $first = $this->products->list();
         $last = $this->products->list(['page' => 2]);
 
@@ -30,13 +32,13 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
         self::assertSame('featured', $first['sort']);
         self::assertSame(
             [
-                'sinag-tote', 'alon-tote', 'lupa-satchel', 'sierra-satchel',
-                'tala-sling', 'ulap-sling', 'maya-clutch', 'gabi-clutch',
+                'sinag-tote', 'lupa-satchel', 'tala-sling', 'maya-clutch',
+                'fixture-1', 'fixture-2', 'fixture-3', 'fixture-4',
             ],
             array_column($first['products'], 'slug')
         );
         self::assertSame(
-            ['araw-tote', 'dahon-sling'],
+            ['fixture-5', 'fixture-6'],
             array_column($last['products'], 'slug')
         );
         self::assertSame(
@@ -50,39 +52,35 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
         $this->database()->prepare('UPDATE products SET created_at = ? WHERE slug = ?')
             ->execute(['2099-01-01 00:00:00', 'sinag-tote']);
 
-        $first = $this->products->list(['sort' => 'newest']);
-        $last = $this->products->list(['sort' => 'newest', 'page' => 2]);
+        $result = $this->products->list(['sort' => 'newest']);
 
-        self::assertSame('newest', $first['sort']);
+        self::assertSame('newest', $result['sort']);
         self::assertSame(
-            [
-                'sinag-tote', 'dahon-sling', 'araw-tote', 'gabi-clutch',
-                'maya-clutch', 'ulap-sling', 'tala-sling', 'sierra-satchel',
-            ],
-            array_column($first['products'], 'slug')
-        );
-        self::assertSame(
-            ['lupa-satchel', 'alon-tote'],
-            array_column($last['products'], 'slug')
+            ['sinag-tote', 'maya-clutch', 'tala-sling', 'lupa-satchel'],
+            array_column($result['products'], 'slug')
         );
     }
 
     public function testSearchAndCategoryCombineIncludingMaterialDescriptions(): void
     {
-        $result = $this->products->list(['q' => 'canvas', 'category' => 'Tote']);
+        $result = $this->products->list(['q' => 'leather']);
+        self::assertEqualsCanonicalizing(['sinag-tote', 'lupa-satchel'], array_column($result['products'], 'slug'));
+
+        $result = $this->products->list(['q' => 'leather', 'category' => 'Satchel']);
         self::assertSame(1, $result['total']);
-        self::assertSame(['alon-tote'], array_column($result['products'], 'slug'));
+        self::assertSame(['lupa-satchel'], array_column($result['products'], 'slug'));
 
         $result = $this->products->list(['q' => 'GEOMETRIC']);
-        self::assertEqualsCanonicalizing(['araw-tote', 'sinag-tote'], array_column($result['products'], 'slug'));
+        self::assertSame(['sinag-tote'], array_column($result['products'], 'slug'));
         self::assertSame(['Clutch', 'Satchel', 'Sling', 'Tote'], $this->products->categories());
     }
 
     public function testBothPriceSortsRemainOrderedAcrossPages(): void
     {
+        $this->addFixtureBags(6);
         $ascending = [
-            'maya-clutch', 'gabi-clutch', 'tala-sling', 'ulap-sling', 'alon-tote',
-            'dahon-sling', 'sinag-tote', 'araw-tote', 'lupa-satchel', 'sierra-satchel',
+            'maya-clutch', 'tala-sling', 'sinag-tote', 'fixture-1', 'fixture-2',
+            'fixture-3', 'fixture-4', 'fixture-5', 'fixture-6', 'lupa-satchel',
         ];
 
         foreach (['price_asc' => $ascending, 'price_desc' => array_reverse($ascending)] as $sort => $expected) {
@@ -97,37 +95,41 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
 
     public function testHideSoldOutFlagExcludesSoldOutStockFromListingAndCount(): void
     {
-        $this->database()->prepare('UPDATE products SET stock = 0 WHERE slug = ?')->execute(['gabi-clutch']);
+        $this->addFixtureBags(6);
+        $this->database()->prepare('UPDATE products SET stock = 0 WHERE slug = ?')->execute(['maya-clutch']);
 
         $default = $this->products->list();
         self::assertSame(10, $default['total']);
         self::assertFalse($default['hide_soldout']);
-        self::assertContains('gabi-clutch', array_column($default['products'], 'slug'));
+        self::assertContains('maya-clutch', array_column($default['products'], 'slug'));
 
         $hidden = $this->products->list(['hide_soldout' => true]);
         self::assertSame(9, $hidden['total']);
         self::assertTrue($hidden['hide_soldout']);
-        self::assertNotContains('gabi-clutch', array_column(array_merge(
+        self::assertNotContains('maya-clutch', array_column(array_merge(
             $hidden['products'],
             $this->products->list(['hide_soldout' => true, 'page' => 2])['products']
         ), 'slug'));
         self::assertSame(
-            ['dahon-sling'],
+            ['fixture-6'],
             array_column($this->products->list(['hide_soldout' => true, 'page' => 2])['products'], 'slug')
         );
 
         $combined = $this->products->list(['category' => 'Clutch', 'hide_soldout' => true]);
+        self::assertSame([], array_column($combined['products'], 'slug'));
+        $combined = $this->products->list(['category' => 'Clutch']);
         self::assertSame(['maya-clutch'], array_column($combined['products'], 'slug'));
     }
 
     public function testInactiveProductsAreHiddenButSoldOutProductsStayBrowsable(): void
     {
         $this->database()->prepare('UPDATE products SET is_active = 0 WHERE slug = ?')->execute(['maya-clutch']);
-        $this->database()->prepare('UPDATE products SET stock = 0 WHERE slug = ?')->execute(['gabi-clutch']);
+        $this->database()->prepare('UPDATE products SET stock = 0 WHERE slug = ?')->execute(['tala-sling']);
 
-        $result = $this->products->list(['category' => 'Clutch']);
-        self::assertSame(['gabi-clutch'], array_column($result['products'], 'slug'));
-        self::assertSame(0, $this->products->getBySlug('gabi-clutch')['stock']);
+        $result = $this->products->list();
+        self::assertSame(['sinag-tote', 'lupa-satchel', 'tala-sling'], array_column($result['products'], 'slug'));
+        self::assertSame([], $this->products->list(['category' => 'Clutch'])['products']);
+        self::assertSame(0, $this->products->getBySlug('tala-sling')['stock']);
         self::assertNull($this->products->getBySlug('maya-clutch'));
         self::assertNull($this->products->getBySlug('missing-bag'));
     }
@@ -145,8 +147,10 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
 
     public function testByMaterialsReturnsActiveProductsInIdOrderUpToTheLimit(): void
     {
+        $this->addFixtureBags(1, 'Rattan-style weave');
+
         self::assertSame(
-            ['sinag-tote', 'maya-clutch', 'araw-tote'],
+            ['sinag-tote', 'maya-clutch', 'fixture-1'],
             array_column($this->products->byMaterials(['%straw%', '%raffia%', '%rattan%']), 'slug')
         );
         self::assertSame(
@@ -156,7 +160,7 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
 
         $this->database()->prepare('UPDATE products SET is_active = 0 WHERE slug = ?')->execute(['maya-clutch']);
         self::assertSame(
-            ['sinag-tote', 'araw-tote', 'dahon-sling'],
+            ['sinag-tote', 'fixture-1'],
             array_column($this->products->byMaterials(['%straw%', '%raffia%', '%rattan%']), 'slug')
         );
 
@@ -192,5 +196,17 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
             ],
             $this->products->getBySlug('sinag-tote')['images']
         );
+    }
+
+    /** Extra active Tote rows priced ₱2,010…, so listings span more than one page. */
+    private function addFixtureBags(int $count, string $materials = ''): void
+    {
+        $insert = $this->database()->prepare(
+            'INSERT INTO products (sku, slug, name, category, materials, price_centavos, stock)'
+            . " VALUES (?, ?, ?, 'Tote', ?, ?, 5)"
+        );
+        for ($n = 1; $n <= $count; $n++) {
+            $insert->execute(["FIX-$n", "fixture-$n", "Fixture $n", $materials, 200000 + $n * 1000]);
+        }
     }
 }

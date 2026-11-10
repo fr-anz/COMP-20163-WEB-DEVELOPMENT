@@ -34,3 +34,14 @@
 - **Reason:** user chose the Always Free VM and own domain. External IPv4 is billed (~$3.65/month); the user's $10 credit covers it for about 2.7 months.
 - **Alternatives rejected:** IPv6-only + Cloudflare ($0 but fragile, GitHub lacks IPv6); manual-only updates.
 - **Source:** issue #9; README Deploy; docs/SDD.md §12.
+
+## D7 — 2026-11-10 — requested by user — Cinematic discovery story; real-store copy
+- **Decision:** home becomes a sequential scroll story (opening strands → sticky weave build → four material scenes → featured bag → dark finale into the catalog). Site-wide: no eyebrows or filler text beside/under headings; no educational/demo/fictional/simulated notices (footer, checkout banners, admin notice, seed copy).
+- **Reason:** user found the 1:1 reference UI "slop" and wants it to read as a real e-commerce site.
+- **Consequences:** supersedes the preferences.md/DSD 1:1 rule where they conflict (reference still governs tokens/components/inner screens); PRD R1/R13/N3 and DSD updated; payment remains simulated server-side, test cards stay in README only. Existing databases keep old seed copy until `php seed/seed.php --force`.
+- **Source:** user request 2026-11-10; docs/DSD.md §1, §4.
+
+## D8 — 2026-11-10 — requested by user — One bag per category; detailed 3D models
+- **Decision:** seed catalog trimmed to 4 bags, one per category (Sinag Tote, Lupa Satchel, Tala Sling, Maya Clutch); the six other bags and their SVGs removed. PRD N7 changed from 10 to 4. Procedural 3D bags upgraded for detail/quality.
+- **Consequences:** pagination tests insert fixture rows instead of relying on seed size. Existing databases keep old rows until `php seed/seed.php --force`.
+- **Source:** user request 2026-11-10.

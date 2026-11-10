@@ -57,7 +57,7 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
 ## 5. Functional Requirements
 
 ### 5.1 Catalog & discovery
-- **R1** Home page with short, skippable craft-first intro; free material/bag exploration section; optional shopping path. Hero, featured products, and expressive craft sections with quiet inspection focus.
+- **R1** Home page as one cinematic, sequential craft story (strand → weave → materials → bag) that ends at the catalog; every scene links forward to real products or the collection (DSD §4, D7).
 - **R2** Catalog page: grid of active products with search, category filter, featured/newest/price sorting, optional Hide sold-out bags, and eight-item pagination. Show price and icon+text availability per item. Match the published catalog component and responsive card layout (DSD §4).
 - **R3** Product detail page: gallery images, name, price (₱), description, materials / place-of-make, dimensions, stock indicator, quantity selector, Add-to-Cart, and the 3D viewer.
 
@@ -84,7 +84,7 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
   free threshold are binding; the approved visual reference's sample cart figures
   (₱150/₱220/₱280/₱320) are prototype content, not requirements.
 - **R13** Payment step is a **mock card form**: card number validated with Luhn, expiry
-  MM/YY future-dated, CVC 3–4 digits. Clearly labeled "SIMULATED — no real payment is processed."
+  MM/YY future-dated, CVC 3–4 digits. Per D7 the storefront shows no simulation label; the test cards are documented in README.
 - **R14** Fake gateway: "processing" state (spinner, 1.5–2.5 s), then success or decline. Test cards: `4242 4242 4242 4242` → success; `4000 0000 0000 0002` → card declined; `4000 0000 0000 9995` → insufficient funds. Any other Luhn-valid number → success. **Declined payments do not create orders; no order on decline.**
 - **R15** On Place (after successful simulation and review), an order is created and stock is decremented **atomically** (DB transaction; rollback + friendly error on failure or insufficient stock at that moment).
 - **R16** Confirmation page: order number (H- prefix), summary, shipping address, estimated delivery window; "order received" state. Failed payments show the reason and keep the cart intact.
@@ -116,12 +116,12 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
 - **N2** Security: PDO prepared statements everywhere; all output escaped (XSS); CSRF tokens
   on every POST; `HttpOnly`/`SameSite` session cookies; admin routes behind auth check;
   no secrets in repo (`.env`, `.env.example` only).
-- **N3** Payment simulation must never call a real gateway and must display the simulation
-  disclaimer on the payment step and confirmation page.
+- **N3** Payment simulation must never call a real gateway or charge anything. Per D7
+  (2026-11-10) the UI shows no simulation/educational disclaimer; this stays a documented backend fact.
 - **N4** Privacy: store only order-necessary data; card numbers are **never stored** (only last4 + brand for display, or nothing at all — see SDD §9-10).
 - **N5** Browser support: last 2 versions of Chrome, Firefox, Safari, Edge.
 - **N6** Runs identically via `php -S localhost:8000 -t public public/index.php` (dev) and in the production Docker image (Google Cloud VM / Render — see SDD §12).
-- **N7** Data: seeded demo catalog of **10 products** across ≥4 categories; prices in PHP pesos. **Demo origin labels are not factual.**
+- **N7** Data: seeded demo catalog of **4 products**, one per category (Tote, Satchel, Sling, Clutch); prices in PHP pesos. **Demo origin labels are not factual.**
 - **N8** Code quality: PSR-12, `php -l` clean, Composer autoload (PSR-4), no committed vendor dir.
 
 ## 7. Success Metrics

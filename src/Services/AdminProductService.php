@@ -27,7 +27,7 @@ final class AdminProductService
     public const SHAPE_HANDLES = [
         'tote' => ['double_handles', 'none'],
         'satchel' => ['top_handle', 'none'],
-        'sling' => ['crossbody_strap', 'none'],
+        'sling' => ['top_handle', 'crossbody_strap', 'none'],
         'clutch' => ['none'],
     ];
     public const HANDLE_STYLES = [
@@ -50,8 +50,8 @@ final class AdminProductService
         'exterior_zip' => 'Exterior zip (outside, not modeled inside)',
     ];
     public const STOCK_FILTERS = ['all', 'in', 'low', 'out', 'archived'];
-    public const DEFAULT_ORIGIN = 'Illustrative sample — origin unverified.';
-    public const DEFAULT_MATERIALS = 'Illustrative materials: ';
+    public const DEFAULT_ORIGIN = 'Handwoven in the Philippines';
+    public const DEFAULT_MATERIALS = '';
     public const MAX_PRICE_CENTAVOS = 99_999_999;
     public const MAX_STOCK = 9999;
 
@@ -204,7 +204,7 @@ final class AdminProductService
         $demo = $this->demoImages();
         if ($product === null) {
             return [
-                'name' => '', 'sku' => '', 'category' => 'Tote', 'description' => 'Fictional demo: ',
+                'name' => '', 'sku' => '', 'category' => 'Tote', 'description' => '',
                 'materials' => self::DEFAULT_MATERIALS, 'place_of_make' => self::DEFAULT_ORIGIN,
                 'price' => '', 'stock' => '0', 'low_stock_threshold' => '3',
                 'width' => '', 'height' => '', 'depth' => '',
@@ -346,7 +346,7 @@ final class AdminProductService
 
         $values['demo_image'] = $text('demo_image');
         if ($values['demo_image'] !== '' && !in_array($values['demo_image'], $this->demoImages(), true)) {
-            $errors['demo_image'] = 'Choose one of the demo illustrations.';
+            $errors['demo_image'] = 'Choose one of the existing illustrations.';
         }
 
         return ['values' => $values, 'errors' => $errors];
@@ -395,6 +395,9 @@ final class AdminProductService
     public function update(int $id, array $values, ?string $newImagePath): void
     {
         $this->transaction(function () use ($id, $values, $newImagePath): void {
+            $current = $this->pdo->prepare('SELECT three_config FROM products WHERE id = ?');
+            $current->execute([$id]);
+            $existing = json_decode((string) $current->fetchColumn(), true);
             $update = $this->pdo->prepare(
                 "UPDATE products SET sku = ?, name = ?, category = ?, description = ?, materials = ?,
                      place_of_make = ?, price_centavos = ?, low_stock_threshold = ?, dimensions = ?,
@@ -405,7 +408,7 @@ final class AdminProductService
                 $values['sku'], $values['name'], $values['category'], $values['description'],
                 $values['materials'], $values['place_of_make'], $values['price_centavos'],
                 (int) $values['low_stock_threshold'], $this->dimensionsJson($values),
-                $this->configJson($values), $id,
+                $this->configJson($values, is_array($existing) ? $existing : []), $id,
             ]);
             if ($update->rowCount() !== 1) {
                 throw new AdminActionException('That product no longer exists.');
@@ -506,26 +509,34 @@ final class AdminProductService
         ], JSON_THROW_ON_ERROR);
     }
 
-    /** @param array<string, mixed> $values */
-    private function configJson(array $values): string
+    /**
+     * Form-managed fields replace their stored values; keys the form does not
+     * edit (pattern, extra colors such as handle) survive from $existing.
+     *
+     * @param array<string, mixed> $values
+     * @param array<string, mixed> $existing
+     */
+    private function configJson(array $values, array $existing = []): string
     {
-        return json_encode([
+        $colors = is_array($existing['colors'] ?? null) ? $existing['colors'] : [];
+
+        return json_encode(array_merge($existing, [
             'shape' => $values['shape'],
             'dimensions' => [
                 'width' => (int) $values['width'],
                 'height' => (int) $values['height'],
                 'depth' => (int) $values['depth'],
             ],
-            'colors' => [
+            'colors' => array_merge($colors, [
                 'body' => $values['color_body'],
                 'trim' => $values['color_trim'],
                 'lining' => $values['color_lining'],
-            ],
+            ]),
             'handle_style' => $values['handle_style'],
             'material' => $values['material'],
             'lining' => $values['lining'],
             'pockets' => $values['pockets'],
-        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        ]), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
 
     /**

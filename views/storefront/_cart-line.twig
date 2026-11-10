@@ -8,7 +8,7 @@
   target (app.css [data-cart-step]::after).
 -#}
 {% import "macros/icons.twig" as icons %}
-{% set line_material = line.materials|replace({'Illustrative materials: ': ''})|split(',')|first|trim %}
+{% set line_material = line.materials|split(',')|first|trim %}
 {% set unit_cent = line.price_centavos % 100 %}
 {% set unit_price = (line.price_centavos / 100)|number_format(unit_cent == 0 ? 0 : 2, '.', ',') %}
 {% set line_cent = line.line_total_centavos % 100 %}
