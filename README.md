@@ -1,6 +1,6 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M3 provide discovery, searchable SQLite inventory and real procedural exterior/interior 3D inspection. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Cart, checkout, admin and deployment remain later [milestones](docs/BUILD.md). Local implementation is separate from the review/merge requirements recorded in BUILD.
+Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M4 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection and a session-only cart with live stock limits. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Checkout, admin and deployment remain later [milestones](docs/BUILD.md). Local implementation is separate from the review/merge requirements recorded in BUILD.
 
 ## Local setup — three steps
 
@@ -43,21 +43,23 @@ vendor/bin/phpcs --standard=PSR12 src public/index.php seed tests
 find src public seed tests -name '*.php' -print0 | xargs -0 -n1 php -l
 ```
 
-PHPUnit uses isolated databases, not your local demo inventory. Catalog coverage includes search/category combinations, price/newest order, pagination, inactive products, sold-out visibility and empty results; inspection coverage includes active-only configs and ordered galleries. Inspect the actual changed surface at 360 px and wide widths with keyboard navigation; PHP checks do not establish visual accessibility. On product pages, also exercise viewer loading/retry, WebGL fallback, pause/reduced motion and mobile dialog close/Esc/focus return. Exact observed scenarios/timings are recorded in [BUILD M2](docs/BUILD.md#m2--product-detail--3d-viewer-mvp-a--b--c).
+PHPUnit uses isolated databases, not your local demo inventory. Catalog coverage includes filters/order/pagination and active/sold-out visibility; inspection coverage includes active-only configs and ordered galleries. Cart boundary coverage includes cumulative stock caps, persistent corrections/removals, malformed quantities, session isolation and CSRF rejection. Inspect the actual changed surface at 360 px and wide widths with keyboard navigation; PHP checks do not establish visual accessibility. On product pages, also exercise viewer loading/retry, WebGL fallback, pause/reduced motion and mobile dialog close/Esc/focus return. Exact observed scenarios and commands are recorded in [BUILD](docs/BUILD.md).
 
 Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD — Exact published-reference cutover](docs/BUILD.md#exact-published-reference-cutover-2026-11-10); earlier reconciliation and performance measurements remain historical.
 
 ## Architecture and scope
 
-`public/index.php` → Slim 4 → `StorefrontController` → `ProductService`/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with first-boot transactional initialization. Templates autoescape HTML. Later milestones add commerce mutations, sessions and CSRF.
+`public/index.php` → Slim 4 → storefront/cart controllers → services/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with first-boot transactional initialization. Templates autoescape HTML. Cart mutations require a per-session CSRF token; native PHP session cookies are session-only, HttpOnly and SameSite=Lax.
 
 | Route | Available behavior |
 |---|---|
 | `/` | Short skippable introduction, material/bag exploration without purchase, optional featured collection |
 | `/products?q=&category=&sort=&hide_sold_out=&page=` | Active products; literal name/description/material search; category; `featured`/`newest`/`price_asc`/`price_desc`; Hide sold-out bags; eight products per page |
-| `/product/{slug}` | Original-image gallery, details/stock, illustrative labels, exterior/interior 3D; quantity/Add to bag visibly disabled until M4 |
+| `/product/{slug}` | Original-image gallery, details/stock, illustrative labels, exterior/interior 3D; stock-bounded quantity and Add to bag |
 | `/api/product/{slug}/stock` | Uncached JSON `{slug, stock, low_stock_threshold}`; missing/inactive products return JSON 404 |
 | `/api/product/{slug}/3d` | Uncached per-product procedural JSON config; missing/inactive products return JSON 404; sold-out products remain inspectable |
+| `/cart` | Full bag page; JSON with authoritative cart/count/totals and rendered fragments when requested via `Accept: application/json` |
+| `POST /cart/add`, `/cart/update`, `/cart/remove` | Session cart mutations with CSRF and live-stock reconciliation; native forms redirect to `/cart`, enhanced forms update the drawer and badge |
 
 Search and category combine; pagination retains those filters and sorting. Out-of-range pages use the nearest available page. Sold-out products remain visible unless “Hide sold-out bags” is selected; inactive products do not. A missing/inactive product detail returns 404.
 
@@ -77,7 +79,22 @@ Idle rotation has pause/resume outside and is suspended inside. Reduced motion
 disables camera/flap tweens, automatic rotation and inertia; keyboard toggles also
 switch immediately. Photos remain available without JavaScript. If WebGL is
 unavailable, the original illustration remains with an explanatory note;
-fetch/module failures offer retry. No Add-to-Cart behavior is implemented.
+fetch/module failures offer retry.
+
+### Session bag
+
+Add from the collection or a product page. The header bag opens an accessible drawer
+with a full-page alternative at `/cart`; native forms and that page work without
+JavaScript. Quantities and totals use current inventory/prices, not a client snapshot.
+Stock reductions clamp quantities or remove unavailable lines and leave explanatory
+notices visible across reloads. Adding to the bag does not reserve or decrement stock.
+
+The bag lasts only for the native PHP session: there is no saved cart after expiry.
+An expired form requires a fresh session token before adding again. Shipping estimates
+use PRD R12 rates and are free only **above** ₱5,000. Checkout is visibly unavailable
+until M5; no order/payment flow is simulated by this milestone.
+
+### Viewer dependencies
 
 Three.js **0.160.1 / r160**, MIT, is vendored locally: official
 [`three.module.min.js`](https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.min.js)

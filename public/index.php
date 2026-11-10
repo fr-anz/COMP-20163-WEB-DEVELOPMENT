@@ -3,11 +3,14 @@
 declare(strict_types=1);
 
 use Habi\Bootstrap\Initializer;
+use Habi\Controllers\CartController;
 use Habi\Controllers\StorefrontController;
 use Habi\Middleware\ErrorHandler;
+use Habi\Services\CartService;
 use Habi\Services\ProductService;
 use Habi\Support\Database;
 use Habi\Support\Env;
+use Habi\Support\Session;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -57,10 +60,32 @@ $app->add(function (
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(new ErrorHandler($psr17Factory));
 
+// Every storefront/cart route is session-backed, so responses must never be
+// cached by browsers or shared caches.
+$app->add(function (
+    ServerRequestInterface $request,
+    RequestHandlerInterface $handler
+): ResponseInterface {
+    $response = $handler->handle($request);
+
+    return $response->withHeader('Cache-Control', 'no-store');
+});
+
 // The controller is built inside each route handler so the database
 // connection is only opened after the first-boot middleware has run.
 $storefront = static function () use ($twig): StorefrontController {
-    return new StorefrontController($twig, new ProductService(Database::connection()));
+    return new StorefrontController(
+        $twig,
+        new ProductService(Database::connection()),
+        new CartService(Database::connection(), Session::store())
+    );
+};
+
+$cart = static function () use ($twig): CartController {
+    return new CartController(
+        $twig,
+        new CartService(Database::connection(), Session::store())
+    );
 };
 
 $app->get('/', fn (
@@ -78,6 +103,26 @@ $app->get('/product/{slug}', fn (
     ResponseInterface $response,
     array $args
 ): ResponseInterface => $storefront()->product($request, $response, $args));
+
+$app->get('/cart', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $cart()->show($request, $response));
+
+$app->post('/cart/add', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $cart()->add($request, $response));
+
+$app->post('/cart/update', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $cart()->update($request, $response));
+
+$app->post('/cart/remove', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $cart()->remove($request, $response));
 
 $app->get('/api/product/{slug}/stock', fn (
     ServerRequestInterface $request,

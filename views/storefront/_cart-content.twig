@@ -1,0 +1,178 @@
+{#-
+  Habi cart content, shared by the /cart page and the cart drawer. Receives
+  exactly: cart (CartService::cart()), csrf_token (string), cart_mode
+  ('drawer' | 'page'), and optionally region (shipping-region key from the
+  no-JS estimate form). The backend renders it twice (drawer_html/page_html);
+  every id is scoped by cart_mode so both fragments can coexist in the DOM.
+
+  Visual source: published Application Examples "Cart" and "Cart drawer"
+  (fit-igloo-66636772.figma.site) — page: line list with divide/border rules
+  (no surface wrapper) beside a 360px Summary column above the 896px
+  breakpoint; drawer: same anatomy in a right-side panel. PRD R12 rates and
+  the strictly-above ₱5,000 free threshold prevail over the reference's
+  sample shipping figures. Shipping is an estimate computed from the
+  authoritative subtotal; checkout stays disabled until M5 with an explicit
+  reason instead of a fake success. Persistent stock notices are icon+text.
+  No-JS: the update/remove forms post natively (303 back to /cart), the
+  region estimate form reloads the page with ?region=, and the drawer is
+  simply unreachable — the header bag link navigates to /cart.
+-#}
+{% import "macros/icons.twig" as icons %}
+
+{# PRD R12 — binding rates and free-shipping threshold (strictly above). #}
+{% set rates = {
+  'metro_manila': { label: 'Metro Manila', centavos: 12000, days: '1–3 days' },
+  'luzon': { label: 'Luzon', centavos: 18000, days: '3–5 days' },
+  'visayas': { label: 'Visayas', centavos: 22000, days: '4–7 days' },
+  'mindanao': { label: 'Mindanao', centavos: 25000, days: '5–8 days' },
+} %}
+{% set free_above = 500000 %}
+{% set lowest_rate = rates['metro_manila'].centavos %}
+{% set region = region|default('') %}
+{% set free_shipping = cart.subtotal_centavos > free_above %}
+{% set selected_rate = rates[region]|default(null) %}
+{% set shipping_centavos = free_shipping ? 0 : (selected_rate ? selected_rate.centavos : lowest_rate) %}
+{% set item_word = cart.count == 1 ? 'item' : 'items' %}
+{% set shipping_label = free_shipping ? 'Free' : (selected_rate ? '₱' ~ (shipping_centavos / 100)|number_format(2, '.', ',') : 'From ₱' ~ (lowest_rate / 100)|number_format(0, '.', ',')) %}
+
+{% macro money(centavos) %}{% set cent = centavos % 100 %}&#8369;{{ (centavos / 100)|number_format(cent == 0 ? 0 : 2, '.', ',') }}{% endmacro %}
+{% import _self as fmt %}
+
+{% if cart_mode == 'drawer' %}
+  <div class="flex items-center justify-between border-b border-line py-3 pr-3 pl-5">
+    <h2 id="cart-drawer-title" tabindex="-1" class="text-h3 font-semibold">Your bag <span class="font-normal text-ink-2">({{ cart.count }})</span></h2>
+    <button type="button" aria-label="Close" title="Close" data-cart-close class="icon-btn relative">
+      {{ icons.icon('close') }}
+    </button>
+  </div>
+  <div class="flex-1 overflow-auto overscroll-contain" data-cart-scroll>
+    <div class="px-5">
+      <div class="pt-4" aria-hidden="true"></div>
+      {% if cart.notices|length %}
+        <ul class="space-y-2" data-cart-notices>
+          {% for notice in cart.notices %}
+            <li class="flex items-start gap-2 rounded-control bg-warning-bg px-3 py-2 text-small font-medium text-warning">
+              {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}
+              <span>{{ notice }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% if cart.lines|length %}
+        <ul class="divide-y divide-line" data-cart-lines>
+          {% for line in cart.lines %}
+            {% include 'storefront/_cart-line.twig' %}
+          {% endfor %}
+        </ul>
+      {% else %}
+        {% include 'storefront/_cart-empty.twig' %}
+      {% endif %}
+    </div>
+  </div>
+  <div class="border-t border-line bg-page p-5" data-cart-summary data-cart-subtotal="{{ cart.subtotal_centavos }}">
+    <dl class="space-y-2 text-[15px]">
+      <div class="flex justify-between">
+        <dt class="text-ink-2">Subtotal &middot; {{ cart.count }} {{ item_word }}</dt>
+        <dd class="font-medium tabular-nums">{{ fmt.money(cart.subtotal_centavos) }}</dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-ink-2">Shipping</dt>
+        <dd class="font-medium tabular-nums" data-cart-shipping>{% if free_shipping %}Free{% else %}From {{ fmt.money(lowest_rate) }}{% endif %}</dd>
+      </div>
+      <div class="flex justify-between border-t border-line pt-3 text-body">
+        <dt class="font-semibold">Estimated total</dt>
+        <dd class="text-h3 font-semibold tabular-nums" data-cart-total>{{ fmt.money(cart.subtotal_centavos + shipping_centavos) }}</dd>
+      </div>
+    </dl>
+    <p class="mt-2 text-caption text-ink-2">Prices include VAT. No discount codes &mdash; Habi prices are fixed.</p>
+    <p class="mt-1 text-caption text-ink-2">Your bag is stored only in this demo session.</p>
+    <div class="mt-4 grid gap-2">
+      <button type="button" class="btn btn--primary btn--lg w-full" disabled>
+        <span>Checkout</span>
+        {{ icons.icon('arrow-right', 20) }}
+      </button>
+      <p class="text-caption text-ink-2">Checkout arrives in a later milestone &mdash; nothing is charged and no order is placed.</p>
+      <a href="/cart" class="btn btn--secondary w-full" data-cart-view-bag>
+        <span>View full bag</span>
+      </a>
+    </div>
+  </div>
+{% else %}
+  {% if cart.lines|length %}
+    <div class="grid gap-8 @4xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div>
+        {% if cart.notices|length %}
+          <ul class="mb-4 space-y-2" data-cart-notices>
+            {% for notice in cart.notices %}
+              <li class="flex items-start gap-2 rounded-control bg-warning-bg px-3 py-2 text-small font-medium text-warning">
+                {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}
+                <span>{{ notice }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <ul class="divide-y divide-line border-y border-line" data-cart-lines>
+          {% for line in cart.lines %}
+            {% include 'storefront/_cart-line.twig' %}
+          {% endfor %}
+        </ul>
+        <p class="mt-6 text-small">
+          <a class="btn btn--tertiary" href="/products">{{ icons.icon('arrow-left', 20) }}<span>Keep browsing</span></a>
+        </p>
+      </div>
+      <aside class="self-start rounded-panel border border-line bg-surface p-5" data-cart-summary data-cart-subtotal="{{ cart.subtotal_centavos }}" aria-labelledby="cart-summary-title">
+        <h2 id="cart-summary-title" class="text-h3 font-semibold">Summary</h2>
+        <div class="mt-4">
+          <form method="get" action="/cart" data-cart-region-form>
+            <label class="field-label" for="cart-region">Estimate shipping to</label>
+            <select id="cart-region" name="region" class="input" aria-describedby="cart-region-hint" data-cart-region>
+              <option value="">Choose a region group</option>
+              {% for key, rate in rates %}
+                <option value="{{ key }}"{% if region == key %} selected{% endif %}>{{ rate.label }} &mdash; {{ fmt.money(rate.centavos) }} &middot; {{ rate.days }}</option>
+              {% endfor %}
+            </select>
+            <p id="cart-region-hint" class="field-hint">Flat rates by island group; free above &#8369;5,000.</p>
+            <button type="submit" data-cart-region-submit class="btn btn--secondary btn--sm mt-2">Update estimate</button>
+          </form>
+        </div>
+        <div class="mt-5">
+          <dl class="space-y-2 text-[15px]">
+            <div class="flex justify-between">
+              <dt class="text-ink-2">Subtotal &middot; {{ cart.count }} {{ item_word }}</dt>
+              <dd class="font-medium tabular-nums">{{ fmt.money(cart.subtotal_centavos) }}</dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-ink-2">Shipping estimate</dt>
+              <dd class="font-medium tabular-nums" data-cart-shipping>{{ shipping_label }}</dd>
+            </div>
+            <div class="flex justify-between border-t border-line pt-3 text-body">
+              <dt class="font-semibold">Estimated total</dt>
+              <dd class="text-h3 font-semibold tabular-nums" data-cart-total>{{ fmt.money(cart.subtotal_centavos + shipping_centavos) }}</dd>
+            </div>
+          </dl>
+          <p class="mt-2 text-caption text-ink-2">Prices include VAT. No discount codes &mdash; Habi prices are fixed.</p>
+          <p class="mt-1 text-caption text-ink-2">Your bag is stored only in this demo session.</p>
+        </div>
+        <div class="mt-5">
+          <button type="button" class="btn btn--primary btn--lg w-full" disabled>
+            <span>Checkout</span>
+            {{ icons.icon('arrow-right', 20) }}
+          </button>
+          <p class="mt-2 text-caption text-ink-2">Checkout arrives in a later milestone &mdash; your bag stays saved in this demo session, nothing is charged.</p>
+        </div>
+      </aside>
+    </div>
+  {% else %}
+    {% if cart.notices|length %}
+      <ul class="mb-4 space-y-2" data-cart-notices>
+        {% for notice in cart.notices %}
+          <li class="flex items-start gap-2 rounded-control bg-warning-bg px-3 py-2 text-small font-medium text-warning">
+            {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}
+            <span>{{ notice }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% include 'storefront/_cart-empty.twig' %}
+  {% endif %}
+{% endif %}

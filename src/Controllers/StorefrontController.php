@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Habi\Controllers;
 
 use Habi\Middleware\ErrorHandler;
+use Habi\Services\CartService;
 use Habi\Services\ProductService;
 use Habi\Support\Env;
 use Psr\Http\Message\ResponseInterface;
@@ -13,7 +14,9 @@ use Twig\Environment as TwigEnvironment;
 
 /**
  * Public storefront pages: home, catalog listing, product detail, and the
- * read-only stock/config APIs. Rendering has no cart or mutation scope.
+ * read-only stock/config APIs. Every rendered page carries the shared cart
+ * context (badge count, CSRF token, pending cart message) so the nav badge
+ * reconciles live stock server-side.
  */
 final class StorefrontController
 {
@@ -34,6 +37,7 @@ final class StorefrontController
     public function __construct(
         private readonly TwigEnvironment $twig,
         private readonly ProductService $products,
+        private readonly CartService $cart,
     ) {
     }
 
@@ -167,6 +171,9 @@ final class StorefrontController
         $response->getBody()->write($this->twig->render($template, [
             'app_name' => 'Habi',
             'app_env' => (string) Env::get('APP_ENV', 'local'),
+            'cart' => $this->cart->cart(),
+            'csrf_token' => $this->cart->csrfToken(),
+            'cart_message' => $this->cart->consumeMessage(),
         ] + $data));
 
         return $response->withHeader('Content-Type', 'text/html; charset=UTF-8');

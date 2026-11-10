@@ -24,8 +24,8 @@ are superseded. They are not permitted alternatives to the reference.
 Adaptation is limited to real application state and PHP integration: existing product
 IDs, stock, prices and routes remain data-driven; reference sample cart counts/orders
 must not be fabricated. Keep the working procedural Three.js renderer instead of the
-showcase's conceptual CSS model. M3 adds real interior cutaways; M4–M6 commerce/admin
-remain separate milestones. Where sample business values differ, [PRD §9](PRD.md#prototype-vs-requirements)
+showcase's conceptual CSS model. M3 adds real interior cutaways; M4 adds the session
+cart; M5–M6 checkout/admin remain separate milestones. Where sample business values differ, [PRD §9](PRD.md#prototype-vs-requirements)
 prevails; that does not permit changing the visual treatment.
 
 ## 2. Canonical CSS and tokens
@@ -145,14 +145,29 @@ planned estimates, not a claim that shipping/checkout already works.
 Keep real loading, failure/retry, WebGL image fallback, rotation/tilt/reset/pause,
 reduced-motion behavior and mobile focus containment. No “Demo state” select or CSS model
 pretending to be the real viewer. No invented interior images, technique, handle-drop
-measurement, maker or geographic provenance. Quantity/purchase remain unavailable until
-M4 with an explicit reason, rather than simulating cart success.
+measurement, maker or geographic provenance. M4 enables stock-bounded quantities and
+real Add to bag; sold-out products cannot be added.
 
 M3 uses the published secondary small Peek inside / Back outside button as a sibling
 of the persistent orbit toolbar, with its eye/up glyphs and an interior info chip.
 Keep wrapping at narrow widths, persistent hint/status text and the same focusable stage.
 The actual cutaway shows authored lining/pockets, not invented interior photographs;
 an empty pocket configuration stays empty. Keyboard/reduced-motion switches are immediate.
+
+### Bag (`/cart` and drawer, R7–R9/R17/R28)
+
+Use the published cart composition: 1180 px page shell, 30→36 px display heading,
+line list and 360 px Summary column above the 896 px container breakpoint. Lines
+retain illustration, linked name, material label, line price, bounded quantity
+stepper and labeled Remove. Drawer uses the same anatomy in a right-side panel,
+full-width on narrow screens, with Close and a full-page alternative.
+
+Summary keeps the region estimate, quantity count, subtotal and estimated total;
+PRD R12 rates replace prototype sample values. Persistent stock corrections are
+icon+text notices, not disappearing toast-only explanations. Add confirmation and
+the header badge reflect real session state. Native `/cart` forms remain available
+without JavaScript; dialog enhancement contains focus and returns it on close/Esc.
+Session lifetime and unavailable M5 checkout are explained without saved-cart promises.
 
 ## 5. Implemented component APIs and compositions
 
@@ -164,9 +179,10 @@ an empty pocket configuration stays empty. Keyboard/reduced-motion switches are 
 | `.chip` + status roles | Stock icon + words; success, warning and sold-out/error pairs. No ratings or New badges. |
 | `.link`, `.eyebrow` | Reference low-emphasis navigation and category labels. |
 | `icons.icon(name, size = 24, class = '')` in `views/macros/icons.twig` | Shared 1.75 px round-stroke family, with the reference's per-control sizes and optional utility classes. Only names defined in the macro are supported. |
-| `_product-card.twig` | Repeated on catalog and discovery; escaped ProductService data, exact price formatting, one product destination and no nested controls. |
+| `_product-card.twig` | Repeated on catalog and discovery; escaped ProductService data, exact price formatting, separate product destination and native Add to bag form with no nested controls. |
 | `data-*` storefront controls | Progressive mobile navigation, material tabs and catalog GET submission; no framework or fake application state. |
 | `product.js` + `BagViewer` | One real renderer, gallery/mode switching, persistent Peek inside / Back outside controls, live status, retry/fallback and native narrow-screen dialog. `setInside(inside, {animate})` emits `viewchange`; reset stays in the current inspection mode. |
+| `cart.js` + `_cart-content.twig` | Native cart forms enhanced with authoritative server fragments; synchronized header count, drawer/page lines and totals, persistent stock notices, add feedback, named quantity/remove controls and accessible native dialog. |
 
 Good navigation:
 
@@ -178,9 +194,9 @@ Bad: `href="#"` labeled Add to bag suggests an unavailable mutation; decorative 
 colors on competing buttons discard the reference's action hierarchy. Do not add
 undocumented variants or recreate tokens in individual templates.
 
-Cart, checkout, toast and admin components in the published system remain the
-**future visual specification**, not shipped PHP APIs. Their milestone implementation
-must follow that specification, rather than revive the old direction.
+Checkout and admin components in the published system remain the **future visual
+specification**, not shipped PHP APIs. Their milestone implementation must follow
+that specification, rather than revive the old direction.
 
 ## 6. Assets, fonts and provenance
 

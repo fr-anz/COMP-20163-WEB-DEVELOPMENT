@@ -1,0 +1,12 @@
+{#-
+  Habi cart drawer shell, included from the base layout on every storefront
+  page. A native <dialog> styled like the published cart drawer (right panel,
+  400px max, full width on narrow screens, brown backdrop). cart.js fills it
+  with the server-rendered _cart-content.twig (cart_mode='drawer') when the
+  bag icon is used; without JavaScript the dialog stays empty and the header
+  bag link navigates to /cart instead. Also carries the toast region for
+  transient add confirmations.
+-#}
+<dialog id="cart-drawer" class="anim-slide-in bg-surface shadow-overlay" aria-label="Your bag" data-cart-drawer></dialog>
+
+<div class="toast-region" data-cart-toasts aria-live="polite"></div>

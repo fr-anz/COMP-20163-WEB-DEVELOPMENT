@@ -64,7 +64,7 @@
       <div class="mt-4">
         <ul class="grid grid-cols-2 gap-x-4 gap-y-8 @3xl:grid-cols-3 @5xl:grid-cols-4 @5xl:gap-x-6">
           {% for product in products %}
-            {% include 'storefront/_product-card.twig' with { product: product } only %}
+            {% include 'storefront/_product-card.twig' with { product: product, csrf_token: csrf_token } only %}
           {% endfor %}
         </ul>
       </div>

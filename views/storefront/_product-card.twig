@@ -1,9 +1,12 @@
 {#-
   Habi product card, exact reference catalog card. Receives exactly:
-  product (one ProductService row). Single stretched link on the title
-  (after:absolute overlay) — no nested links. Short material label derived
-  from the seeded materials text; price in centavos, stock chip per state.
-  No commerce controls in M1 — cart and checkout arrive in a later milestone.
+  product (one ProductService row) and csrf_token (string) — the include
+  sites pass both explicitly. Single stretched link on the title
+  (after:absolute overlay); the add-to-bag form sits above it as an
+  independent visible control (relative z-10). Short material label derived
+  from the seeded materials text; price in centavos, stock chip per state
+  ("Only N left" at or below the low-stock threshold, matching the detail
+  page); sold-out cards disable the action with an explanation.
 -#}
 {% import "macros/icons.twig" as icons %}
 {% set material_label = product.materials|replace({'Illustrative materials: ': ''})|split(', ')|first %}
@@ -32,9 +35,27 @@
           <span class="chip bg-error-bg text-error">
             <span class="h-2 w-2 rotate-45 border-[1.5px] border-current" aria-hidden="true"></span>Sold out</span>
         {% elseif product.stock <= product.low_stock_threshold %}
-          <span class="chip bg-warning-bg text-warning">{{ icons.icon('alert', 14) }}{{ product.stock }} left</span>
+          <span class="chip bg-warning-bg text-warning">{{ icons.icon('alert', 14) }}Only {{ product.stock }} left</span>
         {% else %}
           <span class="chip bg-success-bg text-success">{{ icons.icon('check', 14) }}In stock</span>
+        {% endif %}
+      </div>
+      {# R7: native POST /cart/add, kept above the title's stretched-link
+         overlay (relative z-10) so it stays an independent visible control. #}
+      <div class="relative z-10 mt-3">
+        {% if product.stock > 0 %}
+          <form method="post" action="/cart/add" data-cart-add>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+            <input type="hidden" name="quantity" value="1">
+            <button type="submit" class="btn btn--secondary btn--sm w-full">
+              {{ icons.icon('bag', 18) }}<span>Add to bag</span>
+            </button>
+          </form>
+        {% else %}
+          <button type="button" class="btn btn--secondary btn--sm w-full" disabled>
+            <span>Sold out</span><span class="sr-only"> — this bag can't be added to your bag</span>
+          </button>
         {% endif %}
       </div>
     </div>
