@@ -1,8 +1,9 @@
-/* Habi product detail page glue (M2).
+/* Habi product detail page glue (M2–M3).
  *
  * Owns: gallery thumbnail switching, Photos/3D mode switching, BagViewer
  * lifecycle (fetch config + dynamic import, retry, WebGL fallback), the
- * mobile fullscreen dialog, and accessible orbit controls.
+ * mobile fullscreen dialog, accessible orbit controls, and the Peek
+ * inside / Back outside toggle synced to the viewer's viewchange event.
  *
  * Out of scope: any cart behavior. Purchase controls stay disabled until M4.
  */
@@ -41,6 +42,11 @@
     stage: page.querySelector('[data-viewer-stage]'),
     pauseButton: page.querySelector('[data-viewer-pause]'),
     resetButton: page.querySelector('[data-viewer-reset]'),
+    peekButton: page.querySelector('[data-viewer-peek]'),
+    peekLabel: page.querySelector('[data-viewer-peek-label]'),
+    iconPeek: page.querySelector('[data-viewer-icon-peek]'),
+    iconOutside: page.querySelector('[data-viewer-icon-outside]'),
+    interiorChip: page.querySelector('[data-viewer-interior-chip]'),
     dialog: document.querySelector('[data-viewer-dialog]'),
     dialogSlot: document.querySelector('[data-viewer-dialog-slot]'),
     dialogClose: document.querySelector('[data-viewer-close]'),
@@ -56,6 +62,7 @@
     viewerState: 'loading', // loading | ready | error | webgl-unavailable
     viewer: null,
     autoRotate: true,
+    inside: false,
     configPromise: null,
     modulePromise: null,
     moduleFailed: false,
@@ -66,23 +73,62 @@
   /* ---------------------------------------------------------------- View */
 
   function setNote(text) {
-    els.note.hidden = text === '';
+    // Inside the mobile dialog the note is always present: reserving its box
+    // prevents the flex stage from resizing when Peek inside adds the hint.
+    els.note.hidden = text === '' && !els.dialog.open;
     els.note.textContent = text;
+  }
+
+  function viewerNote() {
+    if (state.inside) {
+      // The interior is an illustrative cutaway, and idle auto-rotation is
+      // suspended while inside — say both, since the pause control is disabled.
+      return 'Illustrative cutaway — the lining and pockets are simplified. ' +
+        'Drag or use the arrow keys to look around; automatic rotation is paused while inside.';
+    }
+    return reducedMotionQuery.matches
+      ? 'Auto-rotate is off because your system prefers reduced motion.'
+      : '';
   }
 
   function updatePauseButton() {
     if (!els.pauseButton) return;
     const reduced = reducedMotionQuery.matches;
-    const running = state.autoRotate && !reduced;
+    // The viewer suspends idle auto-rotation while inside; the control is
+    // disabled to match (manual orbit and tilt stay available).
+    const running = state.autoRotate && !reduced && !state.inside;
     const label = reduced ? 'Automatic rotation off (reduced motion)' :
+      state.inside ? 'Automatic rotation paused inside' :
       (running ? 'Pause automatic rotation' : 'Start automatic rotation');
     els.pauseButton.setAttribute('aria-pressed', String(running));
     els.pauseButton.setAttribute('aria-label', label);
     els.pauseButton.title = label;
     if (els.iconPause) els.iconPause.hidden = !running;
     if (els.iconPlay) els.iconPlay.hidden = running;
-    els.pauseButton.disabled = reduced;
-    setNote(reduced ? 'Auto-rotate is off because your system prefers reduced motion.' : '');
+    els.pauseButton.disabled = reduced || state.inside;
+    setNote(viewerNote());
+  }
+
+  function syncInteriorChip() {
+    // Truthful marker: only while the ready viewer is actually inside.
+    if (els.interiorChip) {
+      els.interiorChip.hidden = !(state.inside && state.viewerState === 'ready');
+    }
+  }
+
+  function updateInsideUi() {
+    const inside = state.inside;
+    if (els.peekButton) {
+      els.peekButton.setAttribute('aria-pressed', String(inside));
+      if (els.iconPeek) els.iconPeek.hidden = inside;
+      if (els.iconOutside) els.iconOutside.hidden = !inside;
+      if (els.peekLabel) els.peekLabel.textContent = inside ? 'Back outside' : 'Peek inside';
+    }
+    els.stage?.setAttribute('aria-label',
+      productName + ', ' + (inside ? 'interior' : 'exterior') +
+      ' view. Drag or use arrow keys to rotate.');
+    syncInteriorChip();
+    updatePauseButton();
   }
 
   function showWebglFallback() {
@@ -114,6 +160,8 @@
     if (els.errorOverlay) els.errorOverlay.hidden = !failed;
     if (els.nowebglOverlay) els.nowebglOverlay.hidden = !noWebgl;
     els.controls.hidden = state.viewerState !== 'ready';
+    if (els.peekButton) els.peekButton.hidden = state.viewerState !== 'ready';
+    syncInteriorChip();
 
     if (loading) {
       els.status.textContent = 'Loading 3D view';
@@ -121,7 +169,7 @@
     }
 
     if (state.viewerState === 'ready') {
-      els.status.textContent = '3D exterior ready.';
+      els.status.textContent = state.inside ? '3D interior ready.' : '3D exterior ready.';
       updatePauseButton();
       return;
     }
@@ -135,6 +183,15 @@
 
     // Fetch or module failure: the error overlay explains and offers retry.
     els.status.textContent = '';
+  }
+
+  function wireViewer(viewer) {
+    // THREE.EventDispatcher events carry their payload directly (event.inside).
+    viewer.addEventListener('viewchange', (event) => {
+      state.inside = event.inside;
+      updateInsideUi();
+      announce(event.inside ? 'Interior view' : 'Exterior view');
+    });
   }
 
   function loadViewer() {
@@ -168,7 +225,11 @@
       .then(([config, module]) => {
         if (attempt !== state.configPromise) return; // superseded by a retry
         state.viewer = new module.BagViewer(els.container, config);
+        wireViewer(state.viewer);
         state.viewer.setAutoRotate(state.autoRotate);
+        // A retry or bfcache restore keeps the interior view the shopper was
+        // in — the rebuilt viewer really enters it, snapped (no fake state).
+        if (state.inside) state.viewer.setInside(true, { animate: false });
         state.viewerState = 'ready';
         // Coordinator measures viewer readiness from navigation start (N1).
         if (typeof window.performance.mark === 'function') {
@@ -222,6 +283,12 @@
     } else {
       if (els.dialog.open) els.dialog.close();
       els.inlineSlot.appendChild(els.viewer);
+    }
+    // Refresh state-dependent chrome after the dialog opens/closes so the
+    // reserved mobile hint box exists before the first Peek transition.
+    if (state.viewerState === 'ready') {
+      updatePauseButton();
+      syncInteriorChip();
     }
     syncActivity();
   }
@@ -287,6 +354,13 @@
       }
       updatePauseButton();
     }
+  });
+
+  // Peek inside / Back outside. Keyboard activation (event.detail === 0) and
+  // reduced motion set the view instantly; pointer activation tweens.
+  els.peekButton?.addEventListener('click', (event) => {
+    if (!state.viewer) return;
+    state.viewer.setInside(!state.viewer.isInside, { animate: event.detail !== 0 });
   });
 
   // Static retry in the error overlay (same retry semantics as before).

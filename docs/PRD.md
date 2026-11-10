@@ -145,7 +145,7 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
 ## 9. Open Items / Placeholders
 
 - **Fonts and assets:** fonts and colors are approved via the design reference and implemented in `app.css` (DSD §2–3); later screen assets still require review.
-- **Product imagery:** published-reference SVG illustrations replace the previous poster-style seed artwork; original procedural exterior models/textures remain M2. Asset sources and licenses are recorded in DSD §6. **Supplied reference photographs remain inspiration/modeling references only, NOT publication assets or proof of Habi ownership/provenance.** Interior inspection remains M3.
+- **Product imagery:** published-reference SVG illustrations replace the previous poster-style seed artwork; original procedural exterior models/textures are M2 and lining/configured pockets are M3. Asset sources and licenses are recorded in DSD §6. **Supplied reference photographs remain inspiration/modeling references only, NOT publication assets or proof of Habi ownership/provenance.** Local R5 verification and outstanding DoD requirements belong in BUILD.
 - **Province list:** simplified region-level shipping map (R12); full PH province list is v2.
 - **Deployment:** Railway preferred; dev command uses `-t public` (N6). Privacy references SDD §9-10.
 
@@ -164,4 +164,4 @@ prototype screens and this PRD disagree, the PRD prevails:
 
 - **Simulated payment / fake gateway:** a UI-only card flow that mimics authorization; no real transaction occurs (R13–R14, N3). **Demo does not confer rights; all payment flows are simulated.**
 - **Stock decrement:** atomic reduction of `products.stock` when an order reaches `paid` (R15), planned for M5.
-- **3D config:** per-product JSON describing the procedural bag model (R6). Seed configuration is M0 scope; the exterior viewer/models/textures are M2 and interior inspection remains M3.
+- **3D config:** per-product JSON describing the procedural bag model (R6). Seed configuration is M0 scope; exterior viewer/models/textures are M2, and M3 consumes lining/pocket configuration for reversible interior inspection.

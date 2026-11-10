@@ -341,6 +341,10 @@ h1, h2, h3, h4 { text-wrap: balance;
   line-height: 1;
   display: inline-flex;
   }
+.btn--sm { min-height: 36px;
+  padding: 0px 14px;
+  font-size: 14px;
+  }
 .btn--lg { min-height: 52px;
   padding: 0px 28px;
   font-size: 16px;
@@ -1581,6 +1585,7 @@ dialog:not([open]) { display: none; }
 [data-viewer-dialog]::backdrop { background: var(--habi-brown-900); }
 [data-viewer-dialog] [data-viewer] { height: 100%; display: flex; flex-direction: column; }
 [data-viewer-dialog] [data-viewer] > div { flex: 1; min-height: 0; aspect-ratio: auto; }
+[data-viewer-dialog] .viewer__note { min-height: 3.25rem; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; }
   [data-viewer-loading] [style*="animation"] { animation: none !important; transform: none; }

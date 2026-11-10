@@ -1,6 +1,6 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M2 provide discovery, searchable SQLite inventory and real procedural exterior 3D inspection. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**, replacing the current and previous direction; [DSD](docs/DSD.md) records its exact PHP/Twig cutover. Peek inside, cart, checkout, admin and deployment remain later [milestones](docs/BUILD.md).
+Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M3 provide discovery, searchable SQLite inventory and real procedural exterior/interior 3D inspection. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Cart, checkout, admin and deployment remain later [milestones](docs/BUILD.md). Local implementation is separate from the review/merge requirements recorded in BUILD.
 
 ## Local setup — three steps
 
@@ -26,7 +26,7 @@ Requires PHP **8.2+**, Composer 2, and PHP extensions `pdo_sqlite`, `mbstring`, 
 
 ## Data and intentional reset
 
-Money is integer centavos (₱1 = 100). Product images use the published reference's SVG illustration family; each product has a procedural `three_config` consumed by the real exterior viewer. Asset/font provenance: [DSD §6](docs/DSD.md#6-assets-fonts-and-provenance). Schema: [`migrations/001_schema.sql`](migrations/001_schema.sql), seed: [`seed/`](seed/). No data reset is needed for the visual cutover.
+Money is integer centavos (₱1 = 100). Product images use the published reference's SVG illustration family; each product has a procedural `three_config` consumed by the real viewer, including lining and authored pocket details. Asset/font provenance: [DSD §6](docs/DSD.md#6-assets-fonts-and-provenance). Schema: [`migrations/001_schema.sql`](migrations/001_schema.sql), seed: [`seed/`](seed/). No inventory reset is needed for interior inspection.
 
 ```sh
 php seed/seed.php --force
@@ -55,7 +55,7 @@ Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD
 |---|---|
 | `/` | Short skippable introduction, material/bag exploration without purchase, optional featured collection |
 | `/products?q=&category=&sort=&hide_sold_out=&page=` | Active products; literal name/description/material search; category; `featured`/`newest`/`price_asc`/`price_desc`; Hide sold-out bags; eight products per page |
-| `/product/{slug}` | Original-image gallery, details/stock, illustrative labels, exterior 3D; quantity/Add to bag visibly disabled until M4 |
+| `/product/{slug}` | Original-image gallery, details/stock, illustrative labels, exterior/interior 3D; quantity/Add to bag visibly disabled until M4 |
 | `/api/product/{slug}/stock` | Uncached JSON `{slug, stock, low_stock_threshold}`; missing/inactive products return JSON 404 |
 | `/api/product/{slug}/3d` | Uncached per-product procedural JSON config; missing/inactive products return JSON 404; sold-out products remain inspectable |
 
@@ -63,14 +63,21 @@ Search and category combine; pagination retains those filters and sorting. Out-o
 
 Canonical visual source: [`public/assets/css/app.css`](public/assets/css/app.css), using the published semantic roles and shared native component/utility classes. [DSD](docs/DSD.md) is the visual/asset contract: reproduce the reference, not the earlier UI. Fonts and SVG artwork are local; no React runtime, Tailwind build or CDN is needed. Reference photographs are not website assets. PRD §9 resolves sample business-value conflicts without authorizing visual redesign.
 
-### Exterior viewer
+### Exterior and interior viewer
 
-Open a product and choose **3D view**. Desktop inspection is inline; below 900 px
-it opens a fullscreen dialog. Drag/touch to orbit or use the named rotation buttons.
-Idle rotation has pause/resume; reduced motion disables automatic rotation and inertia.
-Photos remain available without JavaScript. If WebGL is unavailable, the original
-product illustration remains with an explanatory note; fetch/module failures offer retry.
-This is exterior-only inspection, not Peek inside or an Add-to-Cart implementation.
+Open a product and choose **3D**. Desktop inspection is inline; below 900 px
+it opens a fullscreen dialog. Drag/touch to orbit or focus the stage and use arrow
+keys; named rotation buttons also work without dragging. **Peek inside** reveals
+the lining and configured pockets in an illustrative cutaway. Satchel/clutch flaps
+fold back; open totes and zip-top slings do not acquire an invented lid.
+**Back outside** restores the previous exterior orbit/zoom. **Reset orientation**
+resets the current mode without leaving the interior.
+
+Idle rotation has pause/resume outside and is suspended inside. Reduced motion
+disables camera/flap tweens, automatic rotation and inertia; keyboard toggles also
+switch immediately. Photos remain available without JavaScript. If WebGL is
+unavailable, the original illustration remains with an explanatory note;
+fetch/module failures offer retry. No Add-to-Cart behavior is implemented.
 
 Three.js **0.160.1 / r160**, MIT, is vendored locally: official
 [`three.module.min.js`](https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.min.js)

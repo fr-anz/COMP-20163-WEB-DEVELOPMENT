@@ -79,6 +79,9 @@
               <div class="relative aspect-[4/5] select-none overflow-hidden rounded-panel border border-line @min-[900px]:aspect-[5/5]" style="background: radial-gradient(120% 80% at 50% 30%, #FFFCF6 0%, #F3ECDF 60%, #E8DECC 100%);">
                 <div class="absolute top-3 left-3 z-10 flex flex-wrap gap-1.5">
                   <span class="chip border border-line bg-surface/90 text-ink">{{ icons.icon('cube', 14) }}3D · procedural model</span>
+                  {# Truthful interior marker (reference chip row); shown only
+                     while the ready viewer is in the interior view. #}
+                  <span class="chip bg-info-bg text-info" data-viewer-interior-chip hidden>Interior cutaway</span>
                 </div>
                 <p class="viewer__status sr-only" data-viewer-status role="status" aria-live="polite"></p>
 
@@ -128,6 +131,14 @@
                     </button>
                     <button type="button" class="icon-btn relative" data-viewer-reset aria-label="Reset orientation" title="Reset orientation">{{ icons.icon('reset') }}</button>
                   </div>
+                  {# Wrapping sibling of the icon controls, as in the reference
+                     viewer: the pair wraps as one bar at 360px. Shown only once
+                     the viewer is ready; state is synced from viewchange. #}
+                  <button type="button" class="btn btn--secondary btn--sm shadow-popover" data-viewer-peek aria-pressed="false" hidden>
+                    <span data-viewer-icon-peek>{{ icons.icon('eye', 18) }}</span>
+                    <span data-viewer-icon-outside hidden>{{ icons.icon('arrow-up', 18) }}</span>
+                    <span data-viewer-peek-label>Peek inside</span>
+                  </button>
                 </div>
               </div>
               <p class="viewer__note mt-2 text-caption text-ink-2" data-viewer-note hidden></p>
