@@ -10,7 +10,7 @@ Structure: PHP/Slim front controller in public/, PSR-4 src/, Twig views/, migrat
 Planning docs in docs/; PRD owns R# IDs, DSD owns visual/asset policy and implemented shell APIs.
 Commands: `composer install`; copy/configure `.env` per README; `php -S localhost:8000 -t public public/index.php`
 (router arg required on PHP 8.2); `vendor/bin/phpunit`; `composer cs`; `composer lint`; `docker build -t habi .`.
-First request initializes SQLite. `php seed/seed.php --force` wipes demo data. M0–M7 features are implemented; M8 adds Dockerfile, render.yaml, CI; Railway is configured via dashboard settings (README Deploy).
+First request initializes SQLite. `php seed/seed.php --force` wipes demo data. M0–M7 implemented; M8 adds Dockerfile, render.yaml, CI; Railway uses dashboard settings (README Deploy).
 
 ## When to read
 
