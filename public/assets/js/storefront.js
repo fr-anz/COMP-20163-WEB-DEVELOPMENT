@@ -3,9 +3,14 @@
  * - Mobile menu: native <dialog id="mobile-menu">, opened by [data-menu-open];
  *   Esc closes natively, backdrop click and [data-menu-close] close it, and
  *   focus returns to the opener.
- * - Material tabs (home): roving tabindex over [data-material-tab]; panels
- *   [data-material-panel] toggle the native hidden attribute so the no-JS
- *   fallback (all panels visible) stays intact.
+ * - Home story ([data-story]): with motion allowed, <html> gets
+ *   .story-motion. [data-reveal] scenes fade/wipe in once; the sticky weave
+ *   stage ([data-story-weave]) sets data-step from scroll progress; the
+ *   wrapper takes the data-tone of the scene at mid-viewport (CSS fades the
+ *   background); the opening sets --exit as it scrolls away; and one thread
+ *   path is laid through the [data-thread] anchors and revealed with scroll.
+ *   Without JS or with reduced motion everything renders in its final
+ *   state, so motion never gates content.
  * - Catalog filters (form[data-filters]): auto-submit on change; the
  *   [data-filter-submit] button is hidden with JS and remains the no-JS
  *   native submit fallback.
@@ -96,66 +101,168 @@
     });
   }
 
-  /* --- Material tabs (home) -------------------------------------------- */
+  /* --- Home story motion ------------------------------------------------ */
 
-  var tablist = document.querySelector('[data-material-tabs]');
-  if (tablist) {
-    var tabs = Array.prototype.slice.call(tablist.querySelectorAll('[data-material-tab]'));
-    var panels = Array.prototype.slice.call(document.querySelectorAll('[data-material-panel]'));
-    var orientation = window.matchMedia('(min-width: 896px)');
-    function updateOrientation() {
-      tablist.querySelector('[role="tablist"]').setAttribute('aria-orientation',
-        orientation.matches ? 'vertical' : 'horizontal');
-    }
-    orientation.addEventListener('change', updateOrientation);
-    updateOrientation();
+  var story = document.querySelector('[data-story]');
+  var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var root = document.documentElement;
 
-    function selectTab(id, moveFocus) {
-      tabs.forEach(function (tab) {
-        var selected = tab.getAttribute('data-material-tab') === id;
-        tab.setAttribute('aria-selected', selected ? 'true' : 'false');
-        tab.setAttribute('tabindex', selected ? '0' : '-1');
-        var selectedClasses = ['bg-inset', 'font-semibold', '@4xl:border-action'];
-        var unselectedClasses = ['text-ink-2', 'hover:bg-page', 'hover:text-ink', '@4xl:border-transparent'];
-        selectedClasses.forEach(function (className) {
-          tab.classList.toggle(className, selected);
-        });
-        unselectedClasses.forEach(function (className) {
-          tab.classList.toggle(className, !selected);
-        });
-        if (selected && moveFocus) {
-          tab.focus();
+  if (story && !reducedMotion.matches && 'IntersectionObserver' in window) {
+    var weave = story.querySelector('[data-story-weave]');
+    var steps = weave ? weave.querySelectorAll('[data-weave-step]').length : 0;
+    var opening = story.querySelector('.story-open');
+    var scenes = Array.prototype.filter.call(story.children, function (child) {
+      return child.hasAttribute('data-tone');
+    });
+    var thread = story.querySelector('[data-story-thread]');
+    var threadPath = thread ? thread.querySelector('path') : null;
+    var anchors = story.querySelectorAll('[data-thread]');
+    var threadHeight = 0;
+
+    var revealObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-in');
+          revealObserver.unobserve(entry.target);
         }
       });
-      panels.forEach(function (panel) {
-        panel.hidden = panel.getAttribute('data-material-panel') !== id;
-      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.15 });
+    Array.prototype.forEach.call(story.querySelectorAll('[data-reveal]'), function (element) {
+      revealObserver.observe(element);
+    });
+
+    // x of the gutter between a two-column element's first two items, or
+    // null when they are stacked (narrow layouts).
+    function gutterX(element) {
+      var items = Array.prototype.map.call(element.children, function (child) {
+        return child.getBoundingClientRect();
+      }).sort(function (a, b) { return a.left - b.left; });
+      if (items.length < 2 || items[1].left < items[0].right - 1) {
+        return null;
+      }
+      return (items[0].right + items[1].left) / 2;
     }
 
-    if (tabs.length) {
-      selectTab(tabs[0].getAttribute('data-material-tab'), false);
+    // Lays one smooth path through every anchor, in document order. Wide
+    // layouts weave through gutters; narrow ones keep a lane at the edge,
+    // except through the loom, where the thread is the lead warp.
+    function layoutThread() {
+      if (!threadPath) {
+        return;
+      }
+      var box = story.getBoundingClientRect();
+      var width = story.clientWidth;
+      var lane = 8;
+      var view = window.innerHeight;
+      var points = [];
+      Array.prototype.forEach.call(anchors, function (anchor) {
+        var rect = anchor.getBoundingClientRect();
+        var top = rect.top - box.top;
+        var middle = top + rect.height / 2;
+        var kind = anchor.getAttribute('data-thread');
+        if (kind === 'start') {
+          points.push([rect.left - box.left + rect.width / 2, top + rect.height]);
+        } else if (kind === 'feed') {
+          var loom = anchor.querySelector('.story-loom').getBoundingClientRect();
+          var x = loom.left - box.left + loom.width / 2;
+          points.push([x, top + view * 0.1], [x, top + rect.height - view * 0.1]);
+        } else if (kind === 'center') {
+          points.push([width >= 768 ? rect.left - box.left + rect.width / 2 : lane, middle]);
+        } else if (kind === 'gap') {
+          var gutter = gutterX(anchor);
+          points.push([gutter === null ? lane : gutter - box.left, middle]);
+        } else if (kind === 'end') {
+          points.push([width >= 768 ? width + 24 : lane, middle]);
+        }
+      });
+      if (points.length < 2) {
+        return;
+      }
+      var d = 'M' + points[0][0] + ' ' + points[0][1];
+      for (var i = 1; i < points.length; i++) {
+        var from = points[i - 1];
+        var to = points[i];
+        var bend = (to[1] - from[1]) / 2;
+        d += ' C' + from[0] + ' ' + (from[1] + bend) + ' ' + to[0] + ' ' + (to[1] - bend) +
+          ' ' + to[0] + ' ' + to[1];
+      }
+      threadHeight = box.height;
+      thread.setAttribute('viewBox', '0 0 ' + width + ' ' + threadHeight);
+      threadPath.setAttribute('d', d);
     }
 
-    tabs.forEach(function (tab, index) {
-      tab.addEventListener('click', function () {
-        selectTab(tab.getAttribute('data-material-tab'), false);
-      });
-      tab.addEventListener('keydown', function (event) {
-        var next = null;
-        if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-          next = tabs[(index + 1) % tabs.length];
-        } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-          next = tabs[(index - 1 + tabs.length) % tabs.length];
-        } else if (event.key === 'Home') {
-          next = tabs[0];
-        } else if (event.key === 'End') {
-          next = tabs[tabs.length - 1];
+    var ticking = false;
+    function update() {
+      ticking = false;
+      var view = window.innerHeight;
+
+      if (steps) {
+        var rect = weave.getBoundingClientRect();
+        var travel = rect.height - view;
+        var progress = travel > 0 ? Math.min(1, Math.max(0, -rect.top / travel)) : 1;
+        var step = String(Math.min(steps - 1, Math.floor(progress * steps)));
+        if (weave.getAttribute('data-step') !== step) {
+          weave.setAttribute('data-step', step);
         }
-        if (next) {
-          event.preventDefault();
-          selectTab(next.getAttribute('data-material-tab'), true);
+      }
+
+      for (var i = 0; i < scenes.length; i++) {
+        var bounds = scenes[i].getBoundingClientRect();
+        if (bounds.top <= view / 2 && bounds.bottom > view / 2) {
+          var tone = scenes[i].getAttribute('data-tone');
+          if (story.getAttribute('data-tone') !== tone) {
+            story.setAttribute('data-tone', tone);
+          }
+          break;
         }
-      });
+      }
+
+      if (opening) {
+        var open = opening.getBoundingClientRect();
+        opening.style.setProperty('--exit', Math.min(1, Math.max(0, -open.top / open.height)).toFixed(3));
+      }
+
+      if (threadHeight) {
+        var drawn = view * 0.75 - story.getBoundingClientRect().top;
+        thread.style.clipPath = 'inset(0 0 ' + Math.max(0, threadHeight - drawn) + 'px 0)';
+      }
+    }
+    function requestUpdate() {
+      if (!ticking) {
+        ticking = true;
+        window.requestAnimationFrame(update);
+      }
+    }
+    function relayout() {
+      layoutThread();
+      requestUpdate();
+    }
+
+    root.classList.add('story-motion');
+    relayout();
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+    window.addEventListener('resize', relayout);
+    window.addEventListener('load', relayout);
+    var resizeObserver = 'ResizeObserver' in window ? new ResizeObserver(relayout) : null;
+    if (resizeObserver) {
+      resizeObserver.observe(story);
+    }
+
+    // A mid-visit switch to reduced motion shows every final state at once.
+    reducedMotion.addEventListener('change', function (event) {
+      if (event.matches) {
+        root.classList.remove('story-motion');
+        revealObserver.disconnect();
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+        }
+        window.removeEventListener('scroll', requestUpdate);
+        window.removeEventListener('resize', relayout);
+        window.removeEventListener('load', relayout);
+        if (weave) {
+          weave.setAttribute('data-step', String(steps - 1));
+        }
+      }
     });
   }
 

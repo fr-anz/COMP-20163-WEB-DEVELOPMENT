@@ -38,7 +38,6 @@
     iconPause: page.querySelector('[data-viewer-icon-pause]'),
     iconPlay: page.querySelector('[data-viewer-icon-play]'),
     expandIndicator: page.querySelector('[data-viewer-expand]'),
-    belowHint: page.querySelector('[data-viewer-below-hint]'),
     stage: page.querySelector('[data-viewer-stage]'),
     pauseButton: page.querySelector('[data-viewer-pause]'),
     resetButton: page.querySelector('[data-viewer-reset]'),
@@ -81,10 +80,10 @@
 
   function viewerNote() {
     if (state.inside) {
-      // The interior is an illustrative cutaway, and idle auto-rotation is
-      // suspended while inside — say both, since the pause control is disabled.
-      return 'Illustrative cutaway — the lining and pockets are simplified. ' +
-        'Drag or use the arrow keys to look around; automatic rotation is paused while inside.';
+      // Idle auto-rotation is suspended while inside — the pause control is
+      // disabled to match, so the note says both.
+      return 'Interior view — drag or use the arrow keys to look around; ' +
+        'automatic rotation is paused while inside.';
     }
     return reducedMotionQuery.matches
       ? 'Auto-rotate is off because your system prefers reduced motion.'
@@ -136,7 +135,7 @@
     if (fallbackImage) {
       const img = document.createElement('img');
       img.src = fallbackImage;
-      img.alt = productName + ' — illustrative demo illustration';
+      img.alt = productName;
       img.className = 'viewer__fallback-img';
       els.container.appendChild(img);
     }
@@ -407,10 +406,9 @@
   }
 
   // Below 900px the reference shows the fullscreen affordance: an expand
-  // glyph on the 3D toggle and the "opens fullscreen" hint under the stage.
+  // glyph on the 3D toggle.
   const syncBelowWide = () => {
     if (els.expandIndicator) els.expandIndicator.hidden = isWide();
-    if (els.belowHint) els.belowHint.hidden = isWide();
   };
 
   // Immediate response to state changes.

@@ -20,7 +20,7 @@
 | # | Step | Screen / touchpoint | What the user sees/does | Req |
 |---|---|---|---|---|
 | 1 | Discover | Home / Google | Short, skippable craft-first intro; free material/bag exploration section; optional shopping path. Hero, featured products, expressive craft sections | R1 |
-| 2 | Browse | Listing | Grid of 10 bags with stock labels (In stock / Only N left / Sold out — the approved system ships no other badges); search, category filter, sort, pagination | R2 |
+| 2 | Browse | Listing | Grid of 4 bags, one per category, with stock labels (In stock / Only N left / Sold out — the approved system ships no other badges); search, category filter, sort, pagination | R2 |
 | 3 | Inspect | Product page | Photos; switches to **3D tab**, drags to rotate the bag | R3, R4 |
 | 4 | Trust | Product page | Clicks **"Peek inside"** — lid/flap opens where applicable (open totes supported), camera goes in, sees lining + pockets; reads neutral label (e.g., "illustrative sample") | R5, R6 |
 | 5 | Decide | Product page | Picks qty 1 (stepper caps at stock), **Add to bag** → toast + cart badge = 1 | R7, R9, R17 |

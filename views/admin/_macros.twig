@@ -23,7 +23,7 @@
 {% endmacro %}
 
 {% macro status_label(status) -%}
-  {{ {paid: 'Paid (simulated)', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled'}[status]|default(status|replace({'_': ' '})|capitalize) }}
+  {{ {paid: 'Paid', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled'}[status]|default(status|replace({'_': ' '})|capitalize) }}
 {%- endmacro %}
 
 {% macro status_chip(status) %}

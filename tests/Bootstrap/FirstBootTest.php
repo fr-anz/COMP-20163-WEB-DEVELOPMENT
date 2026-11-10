@@ -16,7 +16,7 @@ final class FirstBootTest extends IsolatedDatabaseTestCase
 
         Initializer::initialize($pdo, $this->migrationsDir());
 
-        self::assertSame(10, $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
+        self::assertSame(4, $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
         self::assertSame(
             4,
             (int) $pdo->query('SELECT COUNT(DISTINCT category) FROM products')->fetchColumn()
@@ -24,13 +24,13 @@ final class FirstBootTest extends IsolatedDatabaseTestCase
 
         self::assertSame(1, $this->scalar($pdo, 'SELECT COUNT(*) FROM admins'));
         self::assertSame(
-            10,
+            4,
             $this->scalar($pdo, 'SELECT COUNT(*) FROM product_images WHERE is_primary = 1')
         );
 
         // A second initialize on the same database must not add anything.
         Initializer::initialize($pdo, $this->migrationsDir());
-        self::assertSame(10, $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
+        self::assertSame(4, $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
         self::assertSame(1, $this->scalar($pdo, 'SELECT COUNT(*) FROM admins'));
     }
 
@@ -45,7 +45,7 @@ final class FirstBootTest extends IsolatedDatabaseTestCase
              FROM products ORDER BY slug'
         )->fetchAll(PDO::FETCH_ASSOC);
 
-        self::assertCount(10, $products);
+        self::assertCount(4, $products);
 
         foreach ($products as $product) {
             self::assertSame(1, (int) $product['is_active'], $product['slug']);

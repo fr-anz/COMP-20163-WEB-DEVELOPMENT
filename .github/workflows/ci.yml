@@ -77,7 +77,7 @@ jobs:
           wait_ok /
           after=$(docker exec habi php -r 'echo (new PDO("sqlite:/app/data/app.sqlite"))->query("SELECT COUNT(*) FROM products")->fetchColumn();')
           echo "products before=$before after=$after"
-          [ "$before" = 10 ] && [ "$after" = "$before" ]
+          [ "$before" = 4 ] && [ "$after" = "$before" ]
 
   deploy:
     name: Deploy to Google Cloud

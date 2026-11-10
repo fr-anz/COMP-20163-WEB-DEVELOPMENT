@@ -4,10 +4,9 @@
   selvedge strip, completed compact stepper, success mark, thank-you heading
   with the real order number (H-YYYYMMDD-NNNN per PRD R10 — this format
   prevails over the reference's shorter sample numbers), summary grid with
-  the paid snapshot and the verbatim simulated-payment banner. The order
-  figures come from the OrderService snapshot (authoritative PHP values);
-  the delivery window is the controller's clearly simulated estimate.
-  "See it in Admin" awaits M6 and is intentionally absent.
+  the paid snapshot. The order figures come from the OrderService snapshot
+  (authoritative PHP values); the delivery window is the controller's
+  estimate. "See it in Admin" awaits M6 and is intentionally absent.
   Receives exactly: app_name, app_env, cart, csrf_token, shipping, regions,
   shipping_fee_centavos, total_centavos, payment, idempotency_key, errors,
   message, step, order (OrderService array incl. items), delivery_estimate.
@@ -18,7 +17,7 @@
 
 {% block title %}Order {{ order.order_number }} — {{ app_name }}{% endblock %}
 
-{% block description %}Your Habi demo order is placed. Educational demo — nothing was charged and nothing will ship.{% endblock %}
+{% block description %}Your Habi order is placed — confirmation, totals and delivery details.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 
 {% block content %}
@@ -41,8 +40,8 @@
         <div class="mt-8 grid h-12 w-12 place-items-center rounded-control bg-success-bg text-success">
           {{ icons.icon('check', 28) }}
         </div>
-        <h1 tabindex="-1" class="mt-4 font-display text-[30px] font-bold focus:outline-none @3xl:text-h1">Thank you &mdash; your demo order is placed</h1>
-        <p class="mt-2 text-ink-2">Order number <strong class="font-mono text-ink">{{ order.order_number }}</strong>. No payment was taken and nothing will ship.</p>
+        <h1 tabindex="-1" class="mt-4 font-display text-[30px] font-bold focus:outline-none @3xl:text-h1">Thank you &mdash; your order is placed</h1>
+        <p class="mt-2 text-ink-2">Order number <strong class="font-mono text-ink">{{ order.order_number }}</strong>.</p>
 
         {% set ship_lines = [
           order.customer_name,
@@ -65,25 +64,18 @@
             <dd class="whitespace-pre-line">{{ ship_lines|join("\n") }}</dd>
           </div>
           <div>
-            <dt class="text-caption text-ink-2">Total (simulated)</dt>
+            <dt class="text-caption text-ink-2">Total</dt>
             <dd class="font-semibold tabular-nums">&#8369;{{ (order.total_centavos / 100)|number_format(total_cent == 0 ? 0 : 2, '.', ',') }}</dd>
           </div>
           <div>
             <dt class="text-caption text-ink-2">Status</dt>
-            <dd>{{ {paid: 'Paid (simulated)', packed: 'Packed (simulated)', shipped: 'Shipped (simulated)', delivered: 'Delivered (simulated)', cancelled: 'Cancelled — nothing was charged'}[order.status]|default(order.status) }}</dd>
+            <dd>{{ {paid: 'Paid', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled'}[order.status]|default(order.status) }}</dd>
           </div>
           <div class="@3xl:col-span-2">
             <dt class="text-caption text-ink-2">Delivery</dt>
             <dd>{{ delivery_estimate }}</dd>
           </div>
         </dl>
-
-        <div class="mt-6">
-          <div class="flex items-center gap-3 rounded-control border-[1.5px] border-dashed border-info bg-info-bg px-4 py-3 text-info">
-            {{ icons.icon('lock', 20, 'flex-none') }}
-            <p class="text-small font-bold tracking-wide">SIMULATED PAYMENT &mdash; no real transaction occurs</p>
-          </div>
-        </div>
 
         <div class="mt-8 flex flex-wrap gap-3">
           <a href="/products" class="btn btn--primary">

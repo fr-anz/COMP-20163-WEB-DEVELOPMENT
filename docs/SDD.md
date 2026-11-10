@@ -50,7 +50,7 @@ Browser (Twig pages + JS modules + vendored Three.js)
    ▼
 SQLite file  data/app.sqlite   (production: /srv/habi/data on the VM, mounted at /app/data; WAL mode)
    ▲
-   └── migrations/ + seed/  (schema + 10 products, R7/N7)
+   └── migrations/ + seed/  (schema + 4 products, R7/N7)
 
 Static: public/assets/{css,js,img,vendor/three}
 Admin: same app, routes under /admin behind AdminAuthMiddleware (R19)
@@ -82,7 +82,7 @@ Admin: same app, routes under /admin behind AdminAuthMiddleware (R19)
 ├── views/                  # Twig templates (layouts/, storefront/, admin/, emails n/a)
 ├── data/                   # app.sqlite (gitignored), uploads/ (product images, R23)
 ├── migrations/             # 001_schema.sql … (run idempotently on boot if missing)
-├── seed/                   # seed.php → 10 products w/ images + 3D configs (N7)
+├── seed/                   # seed.php → 4 products (one per category) w/ images + 3D configs (N7)
 ├── tests/                  # PHPUnit: services (OrderService stock atomicity, PaymentSimulator Luhn)
 ├── docs/                   # PRD, SDD, DSD, BUILD, USER-JOURNEY
 ├── Dockerfile  .dockerignore  render.yaml  .github/workflows/ci.yml  .env.example  composer.json  README.md
@@ -164,7 +164,18 @@ category and optional `hide_sold_out=1`; pagination preserves these values. Sort
 the default. Newest uses creation date and ID. Out-of-range pages clamp to available pages.
 
 M2 config responses are the decoded per-product `three_config` object: `shape`,
-centimeter `dimensions`, `colors`, `handle_style`, `material`, `lining`, and `pockets`.
+centimeter `dimensions`, `colors`, `handle_style`, `material`, `lining`, and `pockets`,
+plus optional `pattern` (`checker` | `stripes` | `pixel` surface descriptor matching the
+product illustration) and optional `colors.handle`/`colors.handle_secondary`/`colors.binding`. Missing or
+invalid `pattern` falls back to the `material` texture; admin edits keep these extra keys.
+`three_config.dimensions` equals the listed product measurements (seeded and admin-saved
+together). Tala is 30 × 22 × 8 cm (wide bucket) and Maya 26 × 16 × 3 cm (slim envelope),
+matching their illustrations.
+Peek preserves the physical shell and rim anchors; its elevated camera looks through
+the opening. Tote handles fold outward about their fixed rim axis; side-anchored
+satchel/sling handles stay put. Maya's connected flap rotates about the back-top hinge.
+Pattern shells duplicate their back-centre UV seam with whole-circumference repeats;
+vertical stripe dye stays solid beneath fine, low-contrast woven threads.
 The endpoint uses `Cache-Control: no-store`; missing/inactive products return the same
 JSON 404 as stock. Sold-out products remain inspectable. Detail gallery images are
 ordered primary-first, then `sort_order` and ID; catalog queries do not load galleries

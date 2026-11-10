@@ -58,7 +58,7 @@ Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD
 
 The image is `php:8.2-cli` with production Composer dependencies, running the same front controller as development: `php -S 0.0.0.0:$PORT -t public public/index.php` (N6). It defaults `APP_ENV=production`, `DB_DSN=sqlite:/app/data/app.sqlite`, `PORT=8080` and four server workers. `.env`, local data, uploads and `vendor/` are never copied into the image (allowlist `.dockerignore`). Configuration comes only from environment variables.
 
-**Persistent data:** `/app/data` holds `app.sqlite` and `uploads/`. Mount a volume there. The first request on an empty volume migrates and seeds 10 products plus the administrator from `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD_HASH`. Every later boot, restart and redeploy keeps inventory, orders, uploads and the administrator. Changing the seed variables afterwards does not reseed or replace the administrator. Without seed variables an empty volume is left uninitialized and visitors get a generic 500 page. Only the explicit `php seed/seed.php --force` resets data. Deleting the volume deletes the shop.
+**Persistent data:** `/app/data` holds `app.sqlite` and `uploads/`. Mount a volume there. The first request on an empty volume migrates and seeds 4 products plus the administrator from `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD_HASH`. Every later boot, restart and redeploy keeps inventory, orders, uploads and the administrator. Changing the seed variables afterwards does not reseed or replace the administrator. Without seed variables an empty volume is left uninitialized and visitors get a generic 500 page. Only the explicit `php seed/seed.php --force` resets data. Deleting the volume deletes the shop.
 
 Run the production image locally:
 

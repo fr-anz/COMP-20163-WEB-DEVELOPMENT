@@ -1,7 +1,6 @@
 {#-
   Cart empty state, shared by the /cart page and the cart drawer. Receives
-  via context: nothing required. Published empty-state composition with the
-  truthful session-only promise (R28: session lifetime, no saved cart).
+  via context: nothing required. Published empty-state composition.
 -#}
 {% import "macros/icons.twig" as icons %}
 <div class="flex flex-col items-center px-6 py-10 text-center">
@@ -14,5 +13,4 @@
   <div class="mt-5">
     <a href="/products" class="btn btn--primary btn--sm"><span>Explore the collection</span></a>
   </div>
-  <p class="mt-4 max-w-sm text-caption text-ink-2">Your bag lives only in this demo session &mdash; it is not saved between visits.</p>
 </div>

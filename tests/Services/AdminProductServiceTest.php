@@ -135,6 +135,26 @@ final class AdminProductServiceTest extends IsolatedDatabaseTestCase
         self::assertSame('/uploads/after.png', (string) $primary->fetchColumn());
     }
 
+    public function testUpdateKeepsConfigKeysTheFormDoesNotEdit(): void
+    {
+        $created = $this->products->validate($this->input(['sku' => 'HBI-CFG-1']), null);
+        $id = $this->products->create($created['values'], '/uploads/cfg.png', $this->adminId);
+        $config = json_decode((string) $this->productRow($id)['three_config'], true);
+        $config['pattern'] = ['kind' => 'stripes'];
+        $config['colors']['handle'] = '#A0442C';
+        $this->database()->prepare('UPDATE products SET three_config = ? WHERE id = ?')
+            ->execute([json_encode($config), $id]);
+
+        $edited = $this->products->validate($this->input(['sku' => 'HBI-CFG-1', 'color_body' => '#112233']), $id);
+        self::assertSame([], $edited['errors']);
+        $this->products->update($id, $edited['values'], null);
+
+        $saved = json_decode((string) $this->productRow($id)['three_config'], true);
+        self::assertSame(['kind' => 'stripes'], $saved['pattern']);
+        self::assertSame('#A0442C', $saved['colors']['handle']);
+        self::assertSame('#112233', $saved['colors']['body']);
+    }
+
     public function testDuplicateSkuIsAValidationErrorAndKeepsItsOwnSkuWhenEditing(): void
     {
         $created = $this->products->validate($this->input(['sku' => 'HBI-DUP-1']), null);

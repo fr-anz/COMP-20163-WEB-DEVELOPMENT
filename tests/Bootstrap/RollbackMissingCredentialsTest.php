@@ -81,7 +81,7 @@ final class RollbackMissingCredentialsTest extends IsolatedDatabaseTestCase
 
         Initializer::initialize($pdo, $this->migrationsDir());
 
-        self::assertSame(10, (int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn());
+        self::assertSame(4, (int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn());
         self::assertSame(1, (int) $pdo->query('SELECT COUNT(*) FROM admins')->fetchColumn());
     }
 }

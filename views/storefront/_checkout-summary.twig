@@ -26,7 +26,7 @@
         </div>
         <div class="min-w-0 flex-1">
           <p class="truncate text-small font-semibold">{{ line.name }}</p>
-          <p class="text-caption text-ink-2">{{ line.materials|replace({'Illustrative materials: ': ''})|split(',')|first|trim }} · Qty {{ line.quantity }}</p>
+          <p class="text-caption text-ink-2">{{ line.materials|split(',')|first|trim }} · Qty {{ line.quantity }}</p>
         </div>
         <p class="text-small font-semibold tabular-nums"><span class="sr-only">Line total: </span>{{ fmt.money(line.line_total_centavos) }}</p>
       </li>
@@ -55,7 +55,6 @@
       <dd class="text-h3 font-semibold tabular-nums">{{ fmt.money(total_centavos) }}</dd>
     </div>
   </dl>
-  <p class="mt-2 text-caption text-ink-2">Prices include VAT. No discount codes &mdash; Habi prices are fixed.</p>
 {% endmacro %}
 
 {% macro body(cart, step, region_label, shipping_fee_centavos, total_centavos) %}
