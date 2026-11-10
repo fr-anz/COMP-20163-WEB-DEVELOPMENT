@@ -15,6 +15,13 @@ main() {
     branch=${HABI_BRANCH:-main}
     requested=${SSH_ORIGINAL_COMMAND:-${1:-}}
 
+    # One deployment at a time (CI and manual runs share this checkout).
+    exec 9>/srv/habi/deploy.lock
+    if ! flock -w 600 9; then
+        echo "update.sh: another deployment is still running" >&2
+        exit 1
+    fi
+
     cd "$app_dir"
     git fetch --quiet origin "$branch"
 
@@ -39,11 +46,22 @@ main() {
             ;;
     esac
 
+    # Older commits lack this deployment setup; checking one out would delete
+    # this forced-command script and break every later deploy.
+    for required in deploy/gce/update.sh deploy/gce/compose.yaml deploy/gce/caddy/Caddyfile; do
+        if ! git cat-file -e "$target:$required" 2>/dev/null; then
+            echo "update.sh: $target predates $required; refusing to deploy it" >&2
+            exit 2
+        fi
+    done
+
     git checkout --quiet --force --detach "$target"
     echo "update.sh: deploying $(git log -1 --format='%h %s')"
 
     compose="docker compose -f deploy/gce/compose.yaml"
     $compose up -d --build --remove-orphans
+    # Picks up Caddyfile changes; a no-op when nothing changed.
+    $compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 
     # The app answers only inside the stack; any status >= 400 fails here.
     attempt=0

@@ -22,7 +22,7 @@ COPY . .
 RUN composer dump-autoload --no-dev --optimize --no-interaction \
     && mkdir -p data
 
-# Mount persistent storage at /app/data (Railway volume / Render disk): it
+# Mount persistent storage at /app/data (VM bind mount / Render disk): it
 # holds app.sqlite and administrator uploads. The first request on an empty
 # volume migrates and seeds once; later boots never reseed.
 ENV APP_ENV=production \

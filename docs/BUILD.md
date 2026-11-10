@@ -5,7 +5,7 @@
 | Version | 1.1 · 2026-11-09 |
 | Basis | [PRD.md](PRD.md) R#/N# · [SDD.md](SDD.md) architecture · [DSD.md](DSD.md) components · [USER-JOURNEY.md](USER-JOURNEY.md) flows |
 | Team | **4 people**, feature-phased milestones (no fixed deadline) |
-| Stack | PHP 8.2+, Composer, Slim 4, Twig 3, PDO SQLite, vendored Three.js, Docker → Railway/Render |
+| Stack | PHP 8.2+, Composer, Slim 4, Twig 3, PDO SQLite, vendored Three.js, Docker → Google Cloud e2-micro (Render alternative) |
 
 ---
 
@@ -16,7 +16,7 @@
 | **A — Backend & Data** | PHP/Slim/PDO, models, migrations, seed, cart/checkout/order services, inventory transactions, payment simulator, auth, middleware | `src/` (all), `migrations/`, `seed/`, `tests/` |
 | **B — 3D Viewer** | Three.js procedural bag factory, orbit + peek-inside, per-product configs, fallback | `public/assets/js/viewer3d.js`, `bagFactory.js`; proposes `three_config` seed values (R4–R6, R27) — A integrates |
 | **C — Storefront UI** | DSD implementation, all storefront Twig views, cart drawer, checkout UX, responsive + a11y | `public/assets/css/app.css` (shared admin tokens), `views/storefront/`, `public/assets/js/cart.js`, `checkout.js` (R1–R3, R7–R17, R24–R26) |
-| **D — Admin & DevOps** | Admin panel UI, Docker, Railway/Render deploy, CI, README | `views/admin/`, `Dockerfile`, `.dockerignore`, `render.yaml`, Railway service settings (README), `.github/workflows/` (R18–R23, N2, N6) |
+| **D — Admin & DevOps** | Admin panel UI, Docker, Google Cloud/Render deploy, CI, README | `views/admin/`, `Dockerfile`, `.dockerignore`, `deploy/gce/`, `render.yaml`, `.github/workflows/` (R18–R23, N2, N6) |
 
 Integration points: A+B meet at `GET /api/product/{slug}/3d`; A+C meet at cart/checkout
 endpoints; C+D meet at admin templates; all meet at DSD tokens in `app.css`.
@@ -902,15 +902,15 @@ reads `HTTP_X_FORWARDED_PROTO` (and treats `APP_ENV=production` as HTTPS, like t
 
 ### M8 — Deploy & CI (D lead)
 - D: `Dockerfile` (php:8.2-cli, composer install --no-dev, `php -S 0.0.0.0:$PORT -t public public/index.php`),
-  `.dockerignore`, Railway service settings + volume at `/app/data` (SQLite persists; `railway.json` is
-  deprecated for new services), Render `render.yaml` alt, GitHub Actions CI (composer validate, php -l,
-  PSR-12, PHPUnit, docker build), auto-deploy on main after CI.
+  `.dockerignore`, Google Cloud e2-micro stack `deploy/gce/` (Compose + Caddy HTTPS, data on the VM
+  disk at `/app/data`), Render `render.yaml` alt, GitHub Actions CI (composer validate, php -l, PSR-12,
+  PHPUnit, docker build) and SSH deploy of `main` after CI. Railway was replaced by Google Cloud (D6).
 - A: env-driven DSN (`DB_DSN`), boot migration on empty volume, admin seeded from env secrets.
 - All: README final (run, deploy, test cards, architecture diagram), PRD §9 items resolved or scheduled.
-- **Done when:** live HTTPS URL on Railway; restart container → data persists (N6); CI green on main.
+- **Done when:** live HTTPS URL on the Google Cloud VM; restart/redeploy → data persists (N6); CI green on main.
 
 M8 implementation ([issue #9](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/9),
-branch `ad/m8-deploy`, 2026-11-10). Decisions: `.context/decisions.md` D5.
+branch `ad/m8-deploy`, 2026-11-10). Decisions: `.context/decisions.md` D5 (router), D6 (Google Cloud).
 
 Implementation checklist:
 
@@ -918,14 +918,17 @@ Implementation checklist:
   autoload, `PHP_CLI_SERVER_WORKERS=4`, `CMD php -S 0.0.0.0:${PORT} -t public public/index.php`)
   and an allowlist `.dockerignore`. The image contains no `.env`, `data/*.sqlite`, uploads, `.git` or dev
   dependencies, and has `pdo_sqlite`, `mbstring`, `zlib` and `fileinfo` on PHP 8.2.35.
-- [x] Railway: Dockerfile autodetect plus one-time service settings (volume `/app/data`, health check
-  `/`, seed variables, Wait for CI on `main`) in README Deploy. `railway.json` was not added: Railway
-  Config as Code is deprecated, new services cannot use it, and it is unread after 2026-12-01.
-  Render alternative: `render.yaml` (paid plan + disk) validates against Render's JSON schema.
+- [x] Google Cloud e2-micro: `deploy/gce/compose.yaml` (app + Caddy, `/srv/habi/data` → `/app/data`,
+  raw env files, rotated logs), `caddy/Caddyfile`, idempotent `setup.sh`, and `update.sh` (also the SSH
+  forced command; deploy lock, refuses commits without the deploy files, reloads Caddy).
+  The README runbook covers `gcloud`, DNS, deploy key, setup and GitHub variables.
+  Railway was first configured, then replaced by the owner's choice (D6). Render alternative:
+  `render.yaml` (paid plan + disk) validates against Render's JSON schema.
 - [x] `DB_DSN` comes from the environment (image default `sqlite:/app/data/app.sqlite`); seed
   credentials only from `ADMIN_SEED_*`. An empty volume initializes once; nothing reseeds it.
 - [x] `.github/workflows/ci.yml`: composer validate, `php -l`, PSR-12, PHPUnit, Docker build +
-  empty-volume boot/routing/restart smoke. Deployment = platform auto-deploy of `main` after CI.
+  empty-volume boot/routing/restart smoke; `deploy` job (push to `main`, after both jobs, only when
+  `GCE_HOST` is set) runs `update.sh <sha>` over SSH with a pinned host key, then checks HTTPS `/`.
 - [x] README run/deploy/test-card/architecture (Mermaid) sections; PRD §9: fonts/assets and
   deployment resolved, province list scheduled for v2.
 
@@ -975,12 +978,32 @@ Code checks (final working tree): `composer validate --strict`, `composer cs`, `
 31 existing warnings. No new permanent test: the change is start-command/routing behavior, covered
 by the CI container smoke (static file + dotted application path).
 
+Google Cloud VM rehearsal (2026-11-10). This ran on a privileged `debian:13` container standing in for
+the VM: Docker 29.9.3 / Compose v5.7.0 inside it, the branch cloned from GitHub, and `HABI_DOMAIN=localhost`,
+so Caddy used its internal CA rather than Let's Encrypt:
+
+- [x] `setup.sh` created `/srv/habi/{app,data}`, both env files (mode 600, owner `deploy`), and the forced-command
+  key. It deployed `c7e8ec5` → "healthy". Re-running it with different seed values kept both env files,
+  did not duplicate the key, and left the data unchanged.
+- [x] HTTPS via Caddy: `https://localhost/` 200 over HTTP/2. `http://` gives 308 to `https://`. Canonical is
+  `https://localhost/`, and `app.css` is served with gzip. The 60-character bcrypt hash reached the
+  app intact (`format: raw`); without `raw`, Compose truncated `$2y$10$…` to `$2y$10`.
+- [x] Admin sign-in (303 → `/admin`) and a +3 stock adjustment (Alon 15 → 18). The stock and audit row
+  were unchanged after `update.sh`, after `compose down` + `up`, and after re-running setup.
+- [x] SSH forced command: no argument → deploys the branch head; `ls; id` and `deadbeef` → "expected a
+  40-character commit SHA"; an unknown 40-hex SHA → "is not on <branch>"; the real SHA deploys. A
+  PTY request is refused (`restrict`).
+- [ ] Not exercised in the rehearsal: swap creation (`swapon` is not permitted in a container; it was
+  shimmed), Docker starting at boot under systemd, Let's Encrypt issuance, Google firewall/IP, and the
+  GitHub `deploy` job itself (it only runs on `main` once `GCE_HOST` is set). actionlint and
+  shellcheck pass for the workflow and both scripts.
+
 Acceptance status:
 
-- [ ] Live HTTPS Railway URL with `/` 200: **not done**. It needs a Railway project, volume and
-  seed secrets in the owner's account; no Railway access was available in this session.
-- [ ] Persistence across restart/redeploy **on Railway**: blocked on the live deployment above;
-  verified only on local Docker volumes.
+- [ ] Live HTTPS URL on the Google Cloud VM with `/` 200: **not done**. The owner must create the VM,
+  DNS record, and GitHub secret/variables (README runbook); no `gcloud` access in this session.
+- [ ] Persistence across reboot/redeploy **on the VM**: blocked on the live VM. Verified on local
+  Docker volumes and in the Debian rehearsal above.
 - [ ] CI green on `main`: pending review/merge of PR #19. CI passed on the PR, both jobs
   ([run 42804495037](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/actions/runs/42804495037)).
 - [ ] Cross-track PR review (§2.5): pending.
@@ -1017,7 +1040,7 @@ vendor/bin/phpunit               # isolated first-boot/preservation tests
 |---|---|
 | SQLite write contention under concurrent checkouts | `BEGIN IMMEDIATE` + guarded UPDATE + concurrency test in M5 (SDD §8); MySQL migration path documented (SDD §14) |
 | WebGL unsupported on some grader machine | R27 fallback image; document in README |
-| Railway/Render free tier sleeps | Note cold-start in README; paid tier optional |
+| e2-micro limits (1 GB RAM, 1 GB/month free egress, billed IPv4) | 1 GB swap; Caddy compression; budget alert; README cost note. Render alternative if the VM is outgrown |
 | Asset/font drift | Use the approved published artwork and exact local variable fonts; record sources/licenses in DSD §6. Supplied photographs remain unpublished inspiration. |
 | Modeling constraints for procedural bags | Follow the published viewer presentation (DSD §4), retain procedural configs/textures and verify actual rendering/performance; no downloaded model substitution. |
 | Three.js vendored file goes stale | Pin version in README; upgrade = replace 2 files in `public/assets/vendor/three/` |

@@ -1,4 +1,4 @@
-# Render alternative to the preferred Railway deployment (SDD §12).
+# Render alternative to the Google Cloud VM deployment (SDD §12).
 # Persistent disks require a paid instance type; without the disk every
 # deploy starts from an empty database and loses orders/stock changes.
 services:

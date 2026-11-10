@@ -1,6 +1,6 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M6 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders. M8 adds the production Docker image, CI and Railway/Render deployment ([Deploy](#deploy)). The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
+Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M6 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders. M8 adds the production Docker image, CI and deployment to a Google Cloud e2-micro VM, with Render as the alternative ([Deploy](#deploy)). The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
 
 ## Local setup — three steps
 
@@ -72,18 +72,90 @@ docker run --rm -p 8080:8080 -v habi-data:/app/data \
 
 Open <http://localhost:8080> (browsers accept the production Secure session cookie on `localhost`; use HTTPS elsewhere). Stopping and re-running with the same volume keeps all data.
 
-### Railway (preferred)
+### Google Cloud e2-micro (production)
 
-One-time setup in the Railway dashboard. Railway deprecated `railway.json`, and new services cannot use it, so these service settings are the configuration. No Railway file or token is committed.
+One Compute Engine `e2-micro` VM runs `deploy/gce/compose.yaml`: the Habi image plus [Caddy](https://caddyserver.com/), which redirects HTTP to HTTPS and obtains and renews the Let's Encrypt certificate for your domain. Data lives in `/srv/habi/data` on the VM's disk (mounted at `/app/data`).
 
-1. **New project → Deploy from GitHub repo** → this repository. Railway builds the `Dockerfile` automatically.
-2. Service **Settings → Source:** branch `main`, enable **Wait for CI** so a commit deploys only after the CI workflow passes.
-3. Service **Settings → Deploy → Healthcheck path:** `/`.
-4. **Add a volume** to the service with mount path **`/app/data`** (CLI: `railway volume add --mount-path /app/data`).
-5. **Variables:** `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD_HASH` (paste the bcrypt hash **without quotes**), optionally `ADMIN_SEED_NAME` and `APP_URL=https://<your domain>`. Set them before the first deploy. Railway supplies `PORT`; `APP_ENV`/`DB_DSN` come from the image.
-6. **Settings → Networking → Generate domain** for the HTTPS URL.
+**Cost.** Always Free covers one `e2-micro` in `us-west1`, `us-central1` or `us-east1`, 30 GB of **standard** persistent disk, and 1 GB of outbound traffic a month. The VM's public IPv4 address is **not** free: it costs $0.005/hour, about **$3.65/month**, which credits can cover ([pricing](https://cloud.google.com/vpc/network-pricing)). Traffic beyond 1 GB a month is billed. Set a budget alert under Billing → Budgets.
 
-Verify: `https://<domain>/` returns 200, `/admin` signs in with the hashed password, and an order or stock change survives **Restart** and **Redeploy** of the deployment. Services without serverless sleep stay warm; if app sleeping is enabled, the first request after idling is a cold start.
+**1. Create the VM** in [Cloud Shell](https://shell.cloud.google.com), which has `gcloud` preinstalled. `us-west1` is the closest free region to the Philippines.
+
+```sh
+PROJECT=your-project-id
+REGION=us-west1
+ZONE=us-west1-b
+gcloud config set project "$PROJECT"
+gcloud services enable compute.googleapis.com
+gcloud compute addresses create habi-ip --region "$REGION"
+gcloud compute addresses describe habi-ip --region "$REGION" --format='value(address)'
+gcloud compute firewall-rules create habi-allow-web --network default \
+  --allow tcp:80,tcp:443,udp:443 --target-tags habi-web
+gcloud compute instances create habi --zone "$ZONE" --machine-type e2-micro \
+  --image-family debian-13 --image-project debian-cloud \
+  --boot-disk-size 30GB --boot-disk-type pd-standard \
+  --address habi-ip --tags habi-web
+```
+
+Keep `--boot-disk-type pd-standard`: the default balanced disk is not free. GitHub Actions deploys over SSH, which needs the default network's `default-allow-ssh` rule (port 22). Check it with `gcloud compute firewall-rules list`.
+
+**2. DNS.** At your domain registrar, add an **A record** for your hostname (for example `shop.example.com`) pointing to the address printed above. Wait until `dig +short shop.example.com` returns it. Caddy can only obtain the certificate after that.
+
+**3. Deploy key** (for GitHub Actions), in Cloud Shell:
+
+```sh
+ssh-keygen -t ed25519 -N '' -C habi-deploy -f habi_deploy
+cat habi_deploy.pub
+```
+
+**4. Set up the VM.** Generate the admin password hash as in [Local setup](#local-setup--three-steps) step 2. Then open a shell on the VM with `gcloud compute ssh habi --zone "$ZONE"` and run:
+
+```sh
+sudo apt-get update && sudo apt-get install -y git
+git clone https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT.git habi-setup
+sudo HABI_DOMAIN=shop.example.com \
+  ADMIN_SEED_EMAIL=you@example.com \
+  ADMIN_SEED_PASSWORD_HASH='$2y$12$…your hash…' \
+  DEPLOY_PUBKEY='ssh-ed25519 AAAA… habi-deploy' \
+  sh habi-setup/deploy/gce/setup.sh
+```
+
+Keep the hash in **single quotes** here. `setup.sh` is idempotent and does the following:
+- installs Docker and adds 1 GB of swap
+- creates the `deploy` user, `/srv/habi/{app,data}`, and the settings files `/srv/habi/habi.env` and `caddy.env`; existing files are never overwritten
+- installs the deploy key with a forced command, so the key can only run `deploy/gce/update.sh` with a commit already on `main`
+- builds and starts the stack, and checks that `/` is healthy
+
+It ends by printing a `GCE_KNOWN_HOSTS` line. Until this branch is merged, add `--branch ad/m8-deploy` to the clone and `HABI_BRANCH=ad/m8-deploy` to the `sudo` line.
+
+**5. Auto-deploy from GitHub.** In Cloud Shell, or anywhere `gh` is signed in to this repository:
+
+```sh
+gh secret set GCE_SSH_KEY < habi_deploy
+gh variable set GCE_KNOWN_HOSTS --body 'shop.example.com ssh-ed25519 AAAA…'   # line printed by setup.sh
+gh variable set GCE_HOST --body shop.example.com
+rm habi_deploy
+```
+
+After that, each push to `main` runs the CI checks. Only when they pass does the **Deploy to Google Cloud** job run `update.sh <commit>` over SSH and check `https://<host>/`. That script checks out the commit, rebuilds, restarts, and waits for a healthy `/`. Without `GCE_HOST`, the deploy job is skipped.
+
+**Operate.** All commands run on the VM:
+
+| Task | Command |
+|---|---|
+| Status | `sudo -u deploy docker compose -f /srv/habi/app/deploy/gce/compose.yaml ps` |
+| Logs | `sudo -u deploy docker compose -f /srv/habi/app/deploy/gce/compose.yaml logs -f --tail 50` |
+| Manual deploy of `main` | `sudo -u deploy /srv/habi/app/deploy/gce/update.sh` |
+
+Online backup to a new timestamped file in `/srv/habi/data` (SQLite `VACUUM INTO` will not overwrite an existing file):
+
+```sh
+sudo -u deploy docker compose -f /srv/habi/app/deploy/gce/compose.yaml exec -T app \
+  php -r '(new PDO("sqlite:/app/data/app.sqlite"))->exec("VACUUM INTO \"/app/data/backup-" . date("Ymd-His") . ".sqlite\"");'
+```
+
+Containers restart automatically after a reboot. Data in `/srv/habi/data` survives redeploys, reboots and image rebuilds. Deleting the VM or its boot disk deletes the shop.
+
+Verify: `https://<domain>/` returns 200, `/admin` signs in with the hashed password, and an order or stock change survives `update.sh` and `sudo reboot`.
 
 ### Render (alternative)
 
@@ -93,7 +165,7 @@ Verify: `https://<domain>/` returns 200, `/admin` signs in with the hashed passw
 
 ```mermaid
 flowchart LR
-  Browser -->|HTTPS| Proxy[Railway / Render proxy]
+  Browser -->|HTTPS| Proxy["Caddy on the e2-micro VM (or Render proxy)"]
   Proxy --> Server["php -S (router: public/index.php)"]
   Server -->|files in public/| Static[CSS, JS, fonts, SVG, Three.js]
   Server --> Slim[Slim 4 middleware: headers, errors, first-boot init, CSRF, admin auth]

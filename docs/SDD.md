@@ -13,7 +13,7 @@
 
 Design a PHP e-commerce system that (a) satisfies every R#/N# in the PRD, (b) runs locally
 with zero install beyond PHP+Composer, and (c) deploys to the web unchanged via Docker
-(Railway/Render). Checkout payment is simulated by design (N3).
+(Google Cloud Compute Engine e2-micro; Render alternative). Checkout payment is simulated by design (N3).
 **UI authority:** the published Habi UI/design system is followed 1:1, replacing earlier visual interpretations (DSD §§1–4). Craft discovery remains skippable; shopping is optional.
 
 ## 2. Technology Stack
@@ -24,11 +24,11 @@ with zero install beyond PHP+Composer, and (c) deploys to the web unchanged via 
 | Package manager | **Composer** (PSR-4 autoload, PSR-12) | Allowed; needed for Slim/Twig |
 | Framework | **Slim 4** (micro-framework) + nyholm/psr7 | Tiny, explicit routing; no framework lock-in |
 | Templating | **Twig 3** | Auto-escaping kills most XSS (N2); clean separation |
-| Database | **PDO + SQLite** (dev & prod default), MySQL-compatible schema for easy migration | Zero-setup dev (`php -S`), persists on a Railway volume; DSN switch via env (§12) |
+| Database | **PDO + SQLite** (dev & prod default), MySQL-compatible schema for easy migration | Zero-setup dev (`php -S`), persists on the VM disk (`/srv/habi/data`); DSN switch via env (§12) |
 | 3D | **Three.js** (vendored ES module in `public/assets/vendor/three/`), vanilla JS modules | Procedural woven-fiber/textile-inspired bags (R4–R6, DSD §§4,6), no external model files, works offline |
 | Frontend | Server-rendered Twig pages + small vanilla JS module per page; no SPA build step | Fast LCP (N1), simple deploy, course-friendly |
 | Sessions | Native PHP sessions, `HttpOnly`, `SameSite=Lax`, regenerated on admin login (N2) | Cart persistence (R28), admin auth (R19) |
-| Container | **Docker** (`php:8.2-cli` + Composer + `php -S 0.0.0.0:$PORT -t public public/index.php`) | Identical runtime locally and on Railway/Render (N6) |
+| Container | **Docker** (`php:8.2-cli` + Composer + `php -S 0.0.0.0:$PORT -t public public/index.php`) | Identical runtime locally and on the Google Cloud VM / Render (N6) |
 | Tests | PHPUnit for services; manual smoke checklist for flows | See §13 |
 | CI | GitHub Actions: `composer validate`, `php -l`, PSR-12, PHPUnit, Docker build/boot smoke | See §12 |
 
@@ -48,7 +48,7 @@ Browser (Twig pages + JS modules + vendored Three.js)
 └──────────────────────────────────────────────┘
    │
    ▼
-SQLite file  data/app.sqlite   (on Railway: mounted volume; WAL mode)
+SQLite file  data/app.sqlite   (production: /srv/habi/data on the VM, mounted at /app/data; WAL mode)
    ▲
    └── migrations/ + seed/  (schema + 10 products, R7/N7)
 
@@ -341,23 +341,31 @@ On failure:
   PHP 8.2 server treats any dotted path as a static file and answers 404 before the application runs
   (php-src #12604), which broke `/uploads/{name}.png`. Real files under `public/` are handed back to
   the server; every other path, including dotted ones, goes through Slim. Dev uses the same command (N6).
-- **Railway (preferred):** Dockerfile autodetected; no `railway.json` (Config as Code is deprecated and
-  unavailable to new services). One-time service settings: **volume mounted at `/app/data`** (holds
-  `app.sqlite` and `uploads/`), health check path `/`, variables `ADMIN_SEED_EMAIL` /
-  `ADMIN_SEED_PASSWORD_HASH` (optional `ADMIN_SEED_NAME`, `APP_URL`), public domain, auto-deploy from
-  `main` with **Wait for CI**. Steps: README "Deploy".
+- **Google Cloud (production):** one Always Free `e2-micro` (us-west1/us-central1/us-east1), Debian 13,
+  30 GB `pd-standard` boot disk, static external IPv4 (billed ≈ $3.65/month; not in Always Free).
+  `deploy/gce/compose.yaml` runs the image with `/srv/habi/data` bind-mounted at `/app/data`, plus
+  Caddy for HTTP→HTTPS, automatic Let's Encrypt certificates for the configured domain, and zstd/gzip
+  of static files. Settings live in `/srv/habi/habi.env` (seed variables, `APP_URL`) and `caddy.env`
+  (`HABI_DOMAIN`), mode 600; Compose reads them with `format: raw` so bcrypt `$` are kept. `setup.sh`
+  (idempotent; never overwrites settings or data) installs Docker, 1 GB swap, the `deploy` user and
+  the first deploy. `update.sh` checks out a commit, rebuilds, restarts and waits for `/` to be healthy.
+  Railway was dropped (D6; its `railway.json` Config as Code is deprecated). Steps: README "Deploy".
 - **Render (alternative):** `render.yaml` (Docker web service, paid plan, persistent disk at `/app/data`,
   health check `/`, `autoDeployTrigger: checksPass`, seed variables prompted, never committed).
 - **Boot:** `public/index.php` checks for the complete initial schema. On an empty database,
   `Bootstrap/Initializer` acquires a SQLite write transaction, rechecks, migrates and seeds.
   Missing admin credentials roll the initialization back; later boots preserve inventory/admin.
   Credentials come from `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD_HASH` (and optional name).
-- **HTTPS:** provided by platform (TLS terminates at the proxy; `APP_ENV=production` keeps session
-  cookies Secure). Health check: `GET /` → 200.
+- **HTTPS:** Caddy on the VM (Render: platform proxy) terminates TLS and forwards `X-Forwarded-Proto`;
+  `APP_ENV=production` keeps session cookies Secure. Health check: `GET /` → 200. Behind the proxy
+  every request's `REMOTE_ADDR` is the proxy, so the admin throttle key is effectively per email.
 - **CI (GitHub Actions, `.github/workflows/ci.yml`):** on pull requests and pushes to `main` —
   `composer validate --strict`, `composer lint` (`php -l`), `composer cs` (PSR-12), PHPUnit, Docker
   build, then boot on an empty volume, check static/dotted routing and a restart preserving data.
-  Deploy: Railway/Render auto-deploy `main` only after these checks pass; no deploy secret in GitHub.
+  Deploy: on pushes to `main` that pass both jobs, the `deploy` job SSHes to the VM as `deploy` with a
+  key whose `authorized_keys` forced command is `update.sh`; it accepts only a 40-hex SHA already on
+  `main` (or nothing → `origin/main`). Host key pinned via `GCE_KNOWN_HOSTS`; then `https://<host>/`
+  must return 2xx. The job is skipped until the `GCE_HOST` repository variable is set.
 
 ## 13. Testing Strategy
 
@@ -391,6 +399,7 @@ SQLite remains the current target; no migration implementation requested.
 > interior cutaways and configured pockets. M4 adds the session cart and real R3/R7
 > purchase actions; M5 adds simulated guest checkout and atomic paid orders; M6 adds the
 > administrator panel (sign-in/throttle, product CRUD/uploads, audited stock, order
-> fulfilment/cancel). M8 adds the Docker image, router-script start command, Render blueprint and CI;
-> hosted Railway acceptance is tracked in BUILD M8. Review/merge status is tracked separately in BUILD.
+> fulfilment/cancel). M8 adds the Docker image, router-script start command, the Google Cloud VM
+> stack (Caddy, SSH deploy), Render blueprint and CI; hosted acceptance is tracked in BUILD M8.
+> Review/merge status is tracked separately in BUILD.
 > PRD R1–R28, N1–N8 remain the target traceability baseline.
