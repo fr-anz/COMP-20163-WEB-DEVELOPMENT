@@ -3,16 +3,25 @@
 declare(strict_types=1);
 
 use Habi\Bootstrap\Initializer;
+use Habi\Controllers\AdminController;
+use Habi\Controllers\AdminOrderController;
+use Habi\Controllers\AdminProductController;
+use Habi\Controllers\AdminResponder;
 use Habi\Controllers\CartController;
 use Habi\Controllers\CheckoutController;
 use Habi\Controllers\StorefrontController;
+use Habi\Controllers\UploadController;
 use Habi\Middleware\ErrorHandler;
 use Habi\Middleware\AdminAuthMiddleware;
 use Habi\Middleware\CsrfMiddleware;
+use Habi\Services\AdminProductService;
+use Habi\Services\AuthService;
 use Habi\Services\CartService;
+use Habi\Services\ImageUploadService;
 use Habi\Services\ProductService;
 use Habi\Services\OrderService;
 use Habi\Services\PaymentSimulator;
+use Habi\Services\StockService;
 use Habi\Support\Database;
 use Habi\Support\Env;
 use Habi\Support\Session;
@@ -67,6 +76,34 @@ $checkout = static function () use ($twig): CheckoutController {
     );
 };
 
+$uploads = static fn (): ImageUploadService => new ImageUploadService($repoRoot . '/data/uploads');
+$adminView = static fn (): AdminResponder => new AdminResponder($twig, Session::store());
+$adminProducts = static fn (): AdminProductService =>
+    new AdminProductService(Database::connection(), $repoRoot . '/public');
+
+$admin = static function () use ($adminView, $adminProducts): AdminController {
+    return new AdminController(
+        $adminView(),
+        Session::store(),
+        new AuthService(Database::connection()),
+        $adminProducts(),
+        new OrderService(Database::connection()),
+        new StockService(Database::connection())
+    );
+};
+
+$adminCatalog = static function () use ($adminView, $adminProducts, $uploads): AdminProductController {
+    return new AdminProductController(
+        $adminView(),
+        $adminProducts(),
+        new StockService(Database::connection()),
+        $uploads()
+    );
+};
+
+$adminOrders = static fn (): AdminOrderController =>
+    new AdminOrderController($adminView(), new OrderService(Database::connection()));
+
 // Slim executes middleware last-added first: response headers, error handler,
 // database initialization, CSRF, administrator authorization, then routing.
 $app->add(new AdminAuthMiddleware($psr17Factory));
@@ -116,6 +153,136 @@ $app->add(function (
         ->withHeader('X-Frame-Options', 'DENY')
         ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 });
+
+// Admin panel (M6, R18–R23). AdminAuthMiddleware redirects every /admin path
+// except /admin/login to sign-in; CsrfMiddleware guards every POST.
+$app->get('/admin/login', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $admin()->loginForm($request, $response));
+
+$app->post('/admin/login', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $admin()->login($request, $response));
+
+$app->post('/admin/logout', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $admin()->logout($request, $response));
+
+$app->get('/admin', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $admin()->dashboard($request, $response));
+
+$app->get('/admin/audit', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $admin()->audit($request, $response));
+
+$app->get('/admin/products', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $adminCatalog()->index($request, $response));
+
+$app->get('/admin/products/new', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $adminCatalog()->createForm($request, $response));
+
+$app->post('/admin/products', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $adminCatalog()->create($request, $response));
+
+$app->get('/admin/products/{id:[0-9]+}/edit', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminCatalog()->editForm($request, $response, $args));
+
+$app->post('/admin/products/{id:[0-9]+}', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminCatalog()->update($request, $response, $args));
+
+$app->get('/admin/products/{id:[0-9]+}/archive', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminCatalog()->archiveForm($request, $response, $args));
+
+$app->post('/admin/products/{id:[0-9]+}/archive', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminCatalog()->archive($request, $response, $args));
+
+$app->post('/admin/products/{id:[0-9]+}/restore', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminCatalog()->restore($request, $response, $args));
+
+$app->post('/admin/products/{id:[0-9]+}/stock', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminCatalog()->adjust($request, $response, $args));
+
+$app->get('/admin/inventory', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $adminCatalog()->inventory($request, $response));
+
+$app->get('/admin/inventory/{id:[0-9]+}/adjust', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminCatalog()->adjustForm($request, $response, $args));
+
+$app->get('/admin/inventory/{id:[0-9]+}/review', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminCatalog()->review($request, $response, $args));
+
+$app->get('/admin/orders', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $adminOrders()->index($request, $response));
+
+$app->get('/admin/orders/{number}', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminOrders()->show($request, $response, $args));
+
+$app->get('/admin/orders/{number}/cancel', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminOrders()->cancelForm($request, $response, $args));
+
+$app->post('/admin/orders/{number}/status', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminOrders()->updateStatus($request, $response, $args));
+
+$app->post('/admin/orders/{number}/cancel', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $adminOrders()->cancel($request, $response, $args));
+
+$app->get('/uploads/{name}', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => (new UploadController($uploads(), $psr17Factory))->show($request, $response, $args));
 
 $app->get('/checkout', fn (
     ServerRequestInterface $request,

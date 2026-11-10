@@ -20,6 +20,7 @@ use Throwable;
 final class ReseedCommand
 {
     private const DROP_ORDER = [
+        'login_attempts',
         'stock_audit',
         'order_items',
         'orders',

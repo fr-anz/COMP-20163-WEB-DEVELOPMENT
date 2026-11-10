@@ -1,0 +1,43 @@
+{#-
+  Published admin dialog anatomy as a server-rendered overlay (used with
+  {% embed %}): brown/45 scrim, surface panel, header with title,
+  description and Close, scrolling body and a page-coloured action footer.
+  Variables: dialog_id, title, description (optional), close_href,
+  max_width ('420px' or '520px'), flash, and optionally form_action,
+  form_method ('post'/'get'), form_enctype, csrf_token for a form that
+  wraps body + footer. Blocks: body (optional) and footer.
+  The backdrop and Close are links back to close_href, so the dialog works
+  without JavaScript; admin.js adds initial focus, Tab containment and Esc.
+-#}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4" data-admin-dialog data-close-href="{{ close_href }}">
+  <a href="{{ close_href }}" class="anim-fade absolute inset-0 bg-brown-900/45" aria-hidden="true" tabindex="-1"></a>
+  <div role="dialog" aria-modal="true" aria-labelledby="{{ dialog_id }}-t"{% if description is defined and description %} aria-describedby="{{ dialog_id }}-d"{% endif %}
+       class="anim-fade-up relative flex max-h-full w-full flex-col overflow-hidden rounded-panel bg-surface shadow-overlay {{ max_width|default('420px') == '520px' ? 'max-w-[520px]' : 'max-w-[420px]' }}">
+    <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+      <div>
+        <h2 id="{{ dialog_id }}-t" class="text-h3 font-semibold">{{ title }}</h2>
+        {% if description is defined and description %}<p id="{{ dialog_id }}-d" class="mt-1 text-small text-ink-2">{{ description }}</p>{% endif %}
+      </div>
+      <a href="{{ close_href }}" aria-label="Close dialog" title="Close dialog" class="icon-btn relative -mt-1.5 -mr-2" data-dialog-close>{{ icons.icon('close') }}</a>
+    </div>
+    {% if form_action is defined %}
+    <form method="{{ form_method|default('post') }}" action="{{ form_action }}"{% if form_enctype is defined %} enctype="{{ form_enctype }}"{% endif %} novalidate class="flex min-h-0 flex-1 flex-col">
+      {% if form_method|default('post') == 'post' %}<input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% endif %}
+    {% endif %}
+      {% set body_content %}{% block body %}{% endblock %}{% endset %}
+      {% if body_content|trim or flash %}
+        <div class="flex-1 overflow-auto px-5 py-4">
+          {{ ui.flash(flash) }}
+          {{ body_content }}
+        </div>
+      {% endif %}
+      <div class="flex flex-wrap justify-end gap-2 border-t border-line bg-page px-5 py-3">
+        {% block footer %}{% endblock %}
+      </div>
+    {% if form_action is defined %}
+    </form>
+    {% endif %}
+  </div>
+</div>

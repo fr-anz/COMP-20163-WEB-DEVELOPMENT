@@ -1,0 +1,69 @@
+{#-
+  Admin Orders (R22): the published Orders table with its Status filter,
+  plus inclusive From/To date filters (UTC dates as stored). Order numbers
+  link to the detail page. Native GET form; admin.js submits on change.
+  Receives: orders, status, from, to, page, pages, total, statuses, regions.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'orders' %}
+
+{% block title %}Orders{% endblock %}
+
+{% block content %}
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-h2 font-semibold">Orders</h1>
+    <form method="get" action="/admin/orders" data-admin-filters class="flex flex-wrap items-end gap-3">
+      <div class="w-52">
+        <label for="filter-status" class="field-label">Status</label>
+        <select id="filter-status" name="status" class="input">
+          <option value="">All statuses</option>
+          {% for value in statuses %}
+            <option value="{{ value }}"{% if value == status %} selected{% endif %}>{{ ui.status_label(value) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="w-44">
+        <label for="filter-from" class="field-label">From</label>
+        <input id="filter-from" name="from" type="date" class="input" value="{{ from }}">
+      </div>
+      <div class="w-44">
+        <label for="filter-to" class="field-label">To</label>
+        <input id="filter-to" name="to" type="date" class="input" value="{{ to }}">
+      </div>
+      <button type="submit" data-filter-submit class="btn btn--secondary">Apply filters</button>
+    </form>
+  </div>
+  <p class="sr-only" role="status">{{ total }} {{ total == 1 ? 'order' : 'orders' }} found</p>
+  <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+    <table class="w-full min-w-[640px] text-left text-small">
+      <caption class="sr-only">Orders</caption>
+      <thead>
+        <tr>
+          {% for heading in ['Order', 'Date', 'Customer', 'Region', 'Items', 'Total', 'Status'] %}
+            <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+          <tr class="hover:bg-page">
+            <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="inline-block py-0.5 underline-offset-4 hover:underline" href="/admin/orders/{{ order.order_number|url_encode }}">{{ order.order_number }}</a></td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ order.created_at|slice(0, 10) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ order.customer_name }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ regions[order.shipping_region]|default(order.shipping_region) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ order.items }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(order.total_centavos) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.status_chip(order.status) }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="px-3 py-2.5 text-ink-2">
+            {% if status or from or to %}No orders match these filters. <a class="link" href="/admin/orders">Show all orders</a>{% else %}No orders yet. Orders appear here after a simulated checkout.{% endif %}
+          </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ ui.pagination('/admin/orders', {status: status, from: from, to: to}|filter(v => v), page, pages) }}
+{% endblock %}

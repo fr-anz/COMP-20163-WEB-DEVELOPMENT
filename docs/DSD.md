@@ -25,7 +25,7 @@ Adaptation is limited to real application state and PHP integration: existing pr
 IDs, stock, prices and routes remain data-driven; reference sample cart counts/orders
 must not be fabricated. Keep the working procedural Three.js renderer instead of the
 showcase's conceptual CSS model. M3 adds real interior cutaways; M4 adds the session
-cart; M5 adds simulated checkout and atomic orders; M6 admin remains separate. Where
+cart; M5 adds simulated checkout and atomic orders; M6 adds the admin panel. Where
 sample business values differ, [PRD §9](PRD.md#prototype-vs-requirements) prevails;
 that does not permit changing the visual treatment.
 
@@ -192,6 +192,33 @@ shipping already lasts only for this session, with no persistent-device feature.
 These data/privacy adaptations and binding Luhn/CVC/test-card text are not permission
 to change the reference's component styling.
 
+### Admin (`/admin`, R18–R23)
+
+Follow the published Admin application example and Admin components: no storefront
+header/footer and no woven textures behind data. A 232 px surface sidebar (woven mark,
+22 px wordmark, Admin tag, 40 px items with icon + label, inverted current item, Log out
+pinned last) appears from the 896 px container breakpoint; below it the same items form a
+horizontally scrolling row and tables scroll inside their bordered frame. A dashed
+demo-data notice heads every page; its wording states the real situation (fictional
+products, simulated orders) instead of the reference's "Planned feature" sample text.
+
+Dashboard: four metric cards (Active products, Units in stock, Low or sold out with the
+threshold caption, Orders to fulfil), low-stock alerts with Adjust and the recent-orders
+table. Products and Inventory: "Filter by name" + Stock status filters, the published tables
+(thumbnail/name/category/price/status/edit; on-hand count + stock bar/status/Adjust stock),
+the Edit product dialog and the two-step Adjust stock → Confirm stock change dialog. Orders:
+Status filter and table; Stock audit: direction-icon rows with signed change, old → new,
+reason · actor and time. Order status chips are icon + label; paid reads "Paid (simulated)".
+
+Real-data adaptations, not visual changes: Add product (primary small action beside the
+heading) and every R20 field in the 520 px product dialog (SKU, threshold, demonstration
+material/place-of-make labels, dimensions, 3D model, demo illustration); "Archived" filter
+and chip; From/To date filters; data-driven captions ("N placed today"); an order detail
+page composed from the same panels/table/chips with one-step fulfilment and the destructive
+cancel dialog; the sign-in panel composed from the admin lockup, Password field with Show
+and checkout's alert. The reference's "Packing" label is shown as the stored status
+"Packed". Orders use real `H-YYYYMMDD-NNNN` numbers, never sample data.
+
 ## 5. Implemented component APIs and compositions
 
 | API / source | Contract |
@@ -207,7 +234,11 @@ to change the reference's component styling.
 | `product.js` + `BagViewer` | One real renderer, gallery/mode switching, persistent Peek inside / Back outside controls, live status, retry/fallback and native narrow-screen dialog. `setInside(inside, {animate})` emits `viewchange`; reset stays in the current inspection mode. |
 | `cart.js` + `_cart-content.twig` | Native cart forms enhanced with authoritative server fragments; synchronized header count, drawer/page lines and totals, persistent stock notices, add feedback, named quantity/remove controls and accessible native dialog. |
 | `checkout.js` + `checkout-{shipping,payment,review}.twig` | Native PRG forms, server-owned progress/totals, inline errors, first-error/step focus, visible busy status/spinner, reduced motion and card clearing on pagehide/pageshow. `_checkout-stepper.twig` and `_checkout-summary.twig` share responsive progress and native summary disclosure. |
-| `order.twig` | Session-owned order snapshots, simulated status/ETA and payment disclaimer; no gateway, shipping or administrator action is fabricated. |
+| `order.twig` | Session-owned order snapshots, simulated status/ETA and payment disclaimer; no gateway or shipping action is fabricated. |
+| `views/admin/layout.twig` + `_macros.twig` | Admin shell (sidebar/scroll nav, demo notice, flash) and helpers: `money`, `stock_chip`, `status_chip`, `status_label`, `input`, `select`, `field_error`, `pagination`, `flash`. Templates set `dialog_open` to make the shell `inert` behind a dialog. |
+| `views/admin/_dialog.twig` (`{% embed %}`) | Published dialog anatomy (brown/45 scrim, surface panel, header with Close, scrolling body, page-coloured footer) as a server-rendered overlay reached by URL; optional wrapping form. Import macros inside each embed body. |
+| `.btn--destructive` | Reference destructive action (Archive…, Cancel order) — white on status-error. |
+| `admin.js` | Dialog initial focus (first invalid field, first field, else Close), Tab containment, Esc to the close URL; filter auto-submit; password Show/Hide; chosen-file name and early 2 MB warning. Everything works without it. |
 
 Good navigation:
 
@@ -219,8 +250,8 @@ Bad: `href="#"` labeled Add to bag suggests an unavailable mutation; decorative 
 colors on competing buttons discard the reference's action hierarchy. Do not add
 undocumented variants or recreate tokens in individual templates.
 
-Checkout templates now consume the published composition with real server state.
-Admin components remain the future M6 visual specification, not shipped PHP APIs.
+Checkout templates consume the published composition with real server state; admin
+templates consume the published Admin example the same way.
 
 ## 6. Assets, fonts and provenance
 

@@ -1,0 +1,131 @@
+{#-
+  Admin presentation helpers shared by views/admin templates, matching the
+  published Admin components: status chips are icon + label (never colour
+  alone), stock chips use the storefront thresholds, money is integer
+  centavos shown as pesos (decimals only when non-zero).
+-#}
+{% macro money(centavos) -%}
+  {%- if centavos % 100 == 0 -%}&#8369;{{ (centavos / 100)|number_format(0, '.', ',') }}
+  {%- else -%}&#8369;{{ (centavos / 100)|number_format(2, '.', ',') }}{%- endif -%}
+{%- endmacro %}
+
+{% macro stock_chip(product) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- if product.is_active is defined and not product.is_active -%}
+    <span class="chip bg-inset text-ink-2">{{ icons.icon('history', 14) }}Archived</span>
+  {%- elseif product.stock == 0 -%}
+    <span class="chip bg-error-bg text-error"><span class="h-2 w-2 rotate-45 border-[1.5px] border-current" aria-hidden="true"></span>Sold out</span>
+  {%- elseif product.stock <= product.low_stock_threshold -%}
+    <span class="chip bg-warning-bg text-warning">{{ icons.icon('alert', 14) }}{{ product.stock }} left</span>
+  {%- else -%}
+    <span class="chip bg-success-bg text-success">{{ icons.icon('check', 14) }}In stock</span>
+  {%- endif -%}
+{% endmacro %}
+
+{% macro status_label(status) -%}
+  {{ {paid: 'Paid (simulated)', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled'}[status]|default(status|replace({'_': ' '})|capitalize) }}
+{%- endmacro %}
+
+{% macro status_chip(status) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- set styles = {
+    paid: ['bg-info-bg text-info', 'lock'],
+    packed: ['bg-warning-bg text-warning', 'box'],
+    shipped: ['bg-inset text-ink', 'truck'],
+    delivered: ['bg-success-bg text-success', 'check'],
+    cancelled: ['bg-error-bg text-error', 'close'],
+  } -%}
+  {%- set style = styles[status]|default(['bg-inset text-ink-2', 'info']) -%}
+  <span class="chip {{ style[0] }}">{{ icons.icon(style[1], 14) }}{{ _self.status_label(status) }}</span>
+{%- endmacro %}
+
+{% macro field_error(id, message) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- if message -%}
+    <p id="{{ id }}-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+      {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ message }}
+    </p>
+  {%- endif -%}
+{% endmacro %}
+
+{#- Native input with persistent label, optional hint and inline error. -#}
+{% macro input(name, label, value, errors, opts = {}) %}
+  {%- set id = 'f-' ~ name|replace({'_': '-'}) -%}
+  {%- set described = [opts.hint is defined ? id ~ '-hint' : null, errors[name] is defined ? id ~ '-err' : null]|filter(v => v) -%}
+  <div class="{{ opts.class|default('') }}">
+    <label for="{{ id }}" class="field-label">{{ label }}{% if opts.required|default(false) %}<span class="ml-1 text-error" aria-hidden="true">*</span>{% elseif opts.optional|default(false) %}<span class="ml-1.5 font-normal text-ink-2">(optional)</span>{% endif %}</label>
+    {%- if opts.textarea|default(false) %}
+      <textarea id="{{ id }}" name="{{ name }}" rows="{{ opts.rows|default(3) }}" class="input"
+        {%- if opts.required|default(false) %} required aria-required="true"{% endif %}
+        {%- if opts.maxlength is defined %} maxlength="{{ opts.maxlength }}"{% endif %}
+        {%- if errors[name] is defined %} aria-invalid="true"{% endif %}
+        {%- if described|length %} aria-describedby="{{ described|join(' ') }}"{% endif %}>{{ value }}</textarea>
+    {%- else %}
+      <div class="relative">
+        <input id="{{ id }}" name="{{ name }}" class="input{{ opts.input_class is defined ? ' ' ~ opts.input_class : '' }}" type="{{ opts.type|default('text') }}" value="{{ value }}"
+          {%- if opts.required|default(false) %} required aria-required="true"{% endif %}
+          {%- if opts.inputmode is defined %} inputmode="{{ opts.inputmode }}"{% endif %}
+          {%- if opts.autocomplete is defined %} autocomplete="{{ opts.autocomplete }}"{% endif %}
+          {%- if opts.placeholder is defined %} placeholder="{{ opts.placeholder }}"{% endif %}
+          {%- if opts.maxlength is defined %} maxlength="{{ opts.maxlength }}"{% endif %}
+          {%- if opts.min is defined %} min="{{ opts.min }}"{% endif %}
+          {%- if opts.max is defined %} max="{{ opts.max }}"{% endif %}
+          {%- if errors[name] is defined %} aria-invalid="true"{% endif %}
+          {%- if described|length %} aria-describedby="{{ described|join(' ') }}"{% endif %}>
+      </div>
+    {%- endif %}
+    {%- if opts.hint is defined %}
+      <p id="{{ id }}-hint" class="field-hint">{{ opts.hint }}</p>
+    {%- endif %}
+    {{ _self.field_error(id, errors[name]|default(null)) }}
+  </div>
+{% endmacro %}
+
+{#- Native select; options is value => label. -#}
+{% macro select(name, label, value, options, errors, opts = {}) %}
+  {%- set id = 'f-' ~ name|replace({'_': '-'}) -%}
+  <div class="{{ opts.class|default('') }}">
+    <label for="{{ id }}" class="field-label">{{ label }}{% if opts.required|default(false) %}<span class="ml-1 text-error" aria-hidden="true">*</span>{% endif %}</label>
+    <select id="{{ id }}" name="{{ name }}" class="input"
+      {%- if opts.required|default(false) %} required aria-required="true"{% endif %}
+      {%- if errors[name] is defined %} aria-invalid="true" aria-describedby="{{ id }}-err"{% endif %}>
+      {%- if opts.placeholder is defined %}<option value="">{{ opts.placeholder }}</option>{% endif %}
+      {%- for key, text in options %}
+        <option value="{{ key }}"{% if key == value %} selected{% endif %}>{{ text }}</option>
+      {%- endfor %}
+    </select>
+    {{ _self.field_error(id, errors[name]|default(null)) }}
+  </div>
+{% endmacro %}
+
+{#- Previous/next pagination preserving the given query values. -#}
+{% macro pagination(base, query, page, pages) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- if pages > 1 -%}
+    <nav aria-label="Pagination" class="mt-4 flex flex-wrap items-center justify-between gap-3">
+      {%- if page > 1 %}
+        <a class="btn btn--secondary btn--sm" href="{{ base }}?{{ query|merge({page: page - 1})|url_encode }}">{{ icons.icon('chevron-left', 18) }}<span>Newer</span></a>
+      {%- else %}<span></span>{% endif %}
+      <p class="text-small text-ink-2">Page {{ page }} of {{ pages }}</p>
+      {%- if page < pages %}
+        <a class="btn btn--secondary btn--sm" href="{{ base }}?{{ query|merge({page: page + 1})|url_encode }}"><span>Older</span>{{ icons.icon('chevron-right', 18) }}</a>
+      {%- else %}<span></span>{% endif %}
+    </nav>
+  {%- endif -%}
+{% endmacro %}
+
+{#- Flash notice: success is a polite status, errors an alert. -#}
+{% macro flash(flash) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- if flash -%}
+    {%- if flash.type == 'error' -%}
+      <div class="mb-5 flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert">
+        {{ icons.icon('alert', 20, 'mt-0.5 flex-none') }}<p class="text-small font-medium">{{ flash.message }}</p>
+      </div>
+    {%- else -%}
+      <div class="mb-5 flex gap-3 rounded-control border px-4 py-3 bg-success-bg text-success border-success/30" role="status">
+        {{ icons.icon('check', 20, 'mt-0.5 flex-none') }}<p class="text-small font-medium">{{ flash.message }}</p>
+      </div>
+    {%- endif -%}
+  {%- endif -%}
+{% endmacro %}

@@ -17,6 +17,10 @@ use Throwable;
  * lock at a time. The schema check is repeated after the lock is acquired;
  * the loser of the race sees the winner's committed schema and exits without
  * touching data.
+ *
+ * Databases created by an earlier milestone already hold the base schema
+ * (001) and their inventory. For them only the later migrations run; those
+ * files must be idempotent (CREATE … IF NOT EXISTS) and never seed or reset.
  */
 final class Initializer
 {
@@ -27,7 +31,11 @@ final class Initializer
         'orders',
         'order_items',
         'stock_audit',
+        'login_attempts',
     ];
+
+    /** The base schema; every later migration is an idempotent upgrade. */
+    private const BASE_MIGRATION = '001_schema.sql';
 
     /**
      * @param callable(PDO): void|null $seeder
@@ -48,7 +56,15 @@ final class Initializer
                 return;
             }
 
-            self::runMigrations($pdo, $migrationsDir);
+            if (self::tableExists($pdo, 'products')) {
+                // Existing inventory: add missing later tables, never reseed.
+                self::runMigrations($pdo, $migrationsDir, true);
+                $pdo->exec('COMMIT');
+
+                return;
+            }
+
+            self::runMigrations($pdo, $migrationsDir, false);
 
             if ($seeder === null) {
                 Seeder::seed($pdo);
@@ -65,16 +81,8 @@ final class Initializer
 
     public static function isInitialized(PDO $pdo): bool
     {
-        $statement = $pdo->prepare(
-            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?"
-        );
-
         foreach (self::REQUIRED_TABLES as $table) {
-            $statement->execute([$table]);
-            $exists = (int) $statement->fetchColumn() > 0;
-            $statement->closeCursor();
-
-            if (!$exists) {
+            if (!self::tableExists($pdo, $table)) {
                 return false;
             }
         }
@@ -82,7 +90,19 @@ final class Initializer
         return true;
     }
 
-    private static function runMigrations(PDO $pdo, string $migrationsDir): void
+    private static function tableExists(PDO $pdo, string $table): bool
+    {
+        $statement = $pdo->prepare(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?"
+        );
+        $statement->execute([$table]);
+        $exists = (int) $statement->fetchColumn() > 0;
+        $statement->closeCursor();
+
+        return $exists;
+    }
+
+    private static function runMigrations(PDO $pdo, string $migrationsDir, bool $upgradeOnly): void
     {
         $files = glob($migrationsDir . '/*.sql');
         if ($files === false || $files === []) {
@@ -91,6 +111,9 @@ final class Initializer
 
         sort($files);
         foreach ($files as $file) {
+            if ($upgradeOnly && basename($file) === self::BASE_MIGRATION) {
+                continue;
+            }
             $sql = file_get_contents($file);
             if ($sql === false) {
                 throw new RuntimeException('Cannot read a migration file.');

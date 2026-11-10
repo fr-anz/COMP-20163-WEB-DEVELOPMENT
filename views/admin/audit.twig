@@ -1,0 +1,54 @@
+{#-
+  Admin Stock audit (R18, R21): the published audit rows — direction icon,
+  product, signed change, old → new, reason · actor and timestamp — newest
+  first, filterable by product. Checkout decrements show "by system"; admin
+  adjustments, initial stock and cancellations show the administrator.
+  Receives: audit (entries/page/pages/total), product_id, products.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'audit' %}
+
+{% block title %}Stock audit{% endblock %}
+
+{% block content %}
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="text-h2 font-semibold">Stock audit</h1>
+      <p class="mt-1 text-small text-ink-2">Newest first · times in UTC</p>
+    </div>
+    <form method="get" action="/admin/audit" data-admin-filters class="flex flex-wrap items-end gap-3">
+      <div class="w-52">
+        <label for="filter-product" class="field-label">Product</label>
+        <select id="filter-product" name="product" class="input">
+          <option value="">All products</option>
+          {% for product in products %}
+            <option value="{{ product.id }}"{% if product.id == product_id %} selected{% endif %}>{{ product.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" data-filter-submit class="btn btn--secondary">Apply filter</button>
+    </form>
+  </div>
+  <p class="sr-only" role="status">{{ audit.total }} stock {{ audit.total == 1 ? 'change' : 'changes' }}</p>
+  <ul class="divide-y divide-line rounded-control border border-line bg-surface">
+    {% for entry in audit.entries %}
+      <li class="grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1 px-3 py-3 @2xl:grid-cols-[auto_1fr_auto]">
+        <span class="mt-0.5 grid h-7 w-7 place-items-center rounded-sm {{ entry.change < 0 ? 'bg-error-bg text-error' : 'bg-success-bg text-success' }}" aria-hidden="true">{{ icons.icon(entry.change < 0 ? 'arrow-down' : 'arrow-up', 16) }}</span>
+        <div class="min-w-0">
+          <p class="text-small">
+            <strong>{{ entry.product_name }}</strong>
+            <span class="tabular-nums">{{ entry.change > 0 ? '+' : '' }}{{ entry.change }}</span>
+            <span class="text-ink-2 tabular-nums">({{ entry.old_stock }} → {{ entry.new_stock }})</span><span class="sr-only"> {{ entry.change < 0 ? 'decrease' : 'increase' }}</span>
+          </p>
+          <p class="text-caption text-ink-2">{{ entry.reason }} · by {{ entry.actor }}</p>
+        </div>
+        <time datetime="{{ entry.created_at|replace({' ': 'T'}) }}Z" class="col-start-2 text-caption text-ink-2 tabular-nums @2xl:col-start-3">{{ entry.created_at|slice(0, 16) }}</time>
+      </li>
+    {% else %}
+      <li class="px-3 py-3 text-small text-ink-2">No stock changes recorded{% if product_id %} for this product{% endif %} yet.</li>
+    {% endfor %}
+  </ul>
+  {{ ui.pagination('/admin/audit', product_id ? {product: product_id} : {}, audit.page, audit.pages) }}
+{% endblock %}

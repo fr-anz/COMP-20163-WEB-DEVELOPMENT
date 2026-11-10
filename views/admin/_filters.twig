@@ -1,0 +1,26 @@
+{#-
+  Published admin filter controls for Products and Inventory: "Filter by
+  name" search with icon plus the Stock status select (2:1 split from the
+  672px container breakpoint). Native GET form; admin.js submits on change
+  and hides Apply. Receives: action, q, stock.
+-#}
+{% import "macros/icons.twig" as icons %}
+<form method="get" action="{{ action }}" role="search" data-admin-filters class="mb-3 grid gap-3 @2xl:grid-cols-[minmax(0,1fr)_200px] @2xl:items-end">
+  <div>
+    <label for="filter-q" class="field-label">Filter by name</label>
+    <div class="relative">
+      {{ icons.icon('search', 20, 'pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-2') }}
+      <input placeholder="e.g. Sinag or HBI-TOT" id="filter-q" class="input pl-10" type="search" name="q" value="{{ q }}">
+    </div>
+  </div>
+  <div>
+    <label for="filter-stock" class="field-label">Stock status</label>
+    <select id="filter-stock" class="input" name="stock">
+      {% for value, label in {all: 'All', in: 'In stock', low: 'Low stock', out: 'Sold out', archived: 'Archived'} %}
+        <option value="{{ value }}"{% if value == stock %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" data-filter-submit class="btn btn--secondary justify-self-start">Apply filters</button>
+</form>
+<p class="sr-only" role="status">{{ count }} {{ count == 1 ? 'product' : 'products' }} shown</p>

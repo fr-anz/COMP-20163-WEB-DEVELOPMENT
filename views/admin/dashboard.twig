@@ -1,0 +1,83 @@
+{#-
+  Admin dashboard (R18), the published Dashboard example with live data:
+  four metric cards, low-stock alerts (active products at or below their
+  threshold, each linking to the audited adjustment dialog) and the five
+  most recent orders. Receives: metrics (AdminProductService::metrics),
+  summary (OrderService::adminSummary) plus the layout variables.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'dashboard' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+  <h1 class="text-h2 font-semibold">Dashboard</h1>
+  <div class="mt-4 grid grid-cols-2 gap-3 @4xl:grid-cols-4">
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Active products</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ metrics.active }}</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Units in stock</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ metrics.units }}</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Low or sold out</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums{% if metrics.low_or_out > 0 %} text-warning{% endif %}">{{ metrics.low_or_out }}</p>
+      <p class="mt-1.5 text-caption text-ink-2">{% if metrics.thresholds|length == 1 %}Threshold ≤ {{ metrics.thresholds|first }}{% else %}At or below each threshold{% endif %}</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Orders to fulfil</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ summary.to_fulfil }}</p>
+      <p class="mt-1.5 text-caption text-ink-2">{{ summary.today }} placed today</p>
+    </div>
+  </div>
+
+  <div class="mt-6 grid gap-6 @5xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+    <section aria-labelledby="low-stock-h">
+      <h2 id="low-stock-h" class="mb-2 flex items-center gap-2 text-body font-semibold">{{ icons.icon('alert', 18) }} Low-stock alerts</h2>
+      <ul class="divide-y divide-line rounded-control border border-line bg-surface">
+        {% for product in metrics.low_stock %}
+          <li class="flex items-center gap-3 px-3 py-2.5">
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-small font-semibold">{{ product.name }}</p>
+              {{ ui.stock_chip(product) }}
+            </div>
+            <a class="btn btn--secondary btn--sm" href="/admin/inventory/{{ product.id }}/adjust"><span>Adjust</span><span class="sr-only"> stock for {{ product.name }}</span></a>
+          </li>
+        {% else %}
+          <li class="flex items-center gap-2 px-3 py-2.5 text-small text-ink-2">{{ icons.icon('check', 16) }}No active bag is at or below its low-stock threshold.</li>
+        {% endfor %}
+      </ul>
+    </section>
+    <section aria-labelledby="recent-h" class="min-w-0">
+      <h2 id="recent-h" class="mb-2 text-body font-semibold">Recent orders</h2>
+      <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+        <table class="w-full min-w-[640px] text-left text-small">
+          <caption class="sr-only">Recent orders</caption>
+          <thead>
+            <tr>
+              {% for heading in ['Order', 'Region', 'Total', 'Status'] %}
+                <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in summary.recent %}
+              <tr>
+                <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="inline-block py-1 underline-offset-4 hover:underline" href="/admin/orders/{{ order.order_number|url_encode }}">{{ order.order_number }}</a></td>
+                <td class="border-b border-line px-3 py-2.5 align-middle">{{ regions[order.shipping_region]|default(order.shipping_region) }}</td>
+                <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(order.total_centavos) }}</td>
+                <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.status_chip(order.status) }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="px-3 py-2.5 text-ink-2">No orders yet. Orders appear here after a simulated checkout.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+{% endblock %}
