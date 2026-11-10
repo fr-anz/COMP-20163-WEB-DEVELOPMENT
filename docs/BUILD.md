@@ -1000,20 +1000,40 @@ so Caddy used its internal CA rather than Let's Encrypt:
   - Caddy reads `/etc/caddy` as a directory mount, and `caddy reload` runs on each deploy; HTTPS 200,
     stock still 18.
   - The README backup command ran twice and wrote two timestamped files.
-- [ ] Not exercised in the rehearsal: swap creation (`swapon` is not permitted in a container; it was
-  shimmed), Docker starting at boot under systemd, Let's Encrypt issuance, Google firewall/IP, and the
-  GitHub `deploy` job itself (it only runs on `main` once `GCE_HOST` is set). actionlint and
-  shellcheck pass for the workflow and both scripts.
+- [x] The rehearsal gaps are now covered by the live VM (below): Docker starts at boot, Let's
+  Encrypt issued the certificate, the Google firewall/IP work, and the GitHub `deploy` job succeeded.
+  Swap on the real VM was not inspected (`swapon --show` not run). actionlint and shellcheck
+  pass for the workflow and both scripts.
+
+Live deployment (2026-11-10). Project `ark-test-486521`; VM `habi` is an `e2-micro` in `us-west1-b`,
+Debian 13, 30 GB `pd-standard`, static IP `136.118.96.127`. DNS: Cloudflare A record, DNS only.
+The owner ran the README runbook in Cloud Shell; `setup.sh` from `main` printed
+`update.sh: healthy at 8a1349a`, and `df -h /` showed 30G (19% used).
+
+- [x] <https://habi.theavenir.dev/>: 200 over HTTP/2 (0.73 s). `http://` → 308 to `https://`.
+  Certificate from Let's Encrypt (`CN=habi.theavenir.dev`), valid until 2027-02-08.
+  `/products`, `/product/sinag-tote`, the stock API, `/admin/login` and `/favicon.ico` → 200. A
+  missing dotted upload path → the Habi 404, so the PHP 8.2 router fix is live. Canonical is
+  `https://habi.theavenir.dev/`; the session cookie is Secure, HttpOnly, SameSite=Lax; `no-store`
+  and `X-Frame-Options: DENY` are set.
+- [x] The SSH host key from an independent `ssh-keyscan` matched the line `setup.sh` printed, and was
+  stored as `GCE_KNOWN_HOSTS`. `GCE_HOST` and the `GCE_SSH_KEY` secret are set.
+- [x] Auto-deploy: re-running main CI
+  ([run 42813150250](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/actions/runs/42813150250))
+  → PHP checks, Docker image and **Deploy to Google Cloud** all passed. The VM log showed
+  `update.sh: healthy at 8a1349a`, and the public HTTPS check returned 200.
+- [x] Persistence across reboot: the owner signed in to `/admin` and adjusted Sinag Tote 12 → 13,
+  then ran `sudo reboot`. The site answered 200 again without manual action (Docker and the
+  containers restarted), and `/api/product/sinag-tote/stock` still reported **13**.
 
 Acceptance status:
 
-- [ ] Live HTTPS URL on the Google Cloud VM with `/` 200: **not done**. The owner must create the VM,
-  DNS record, and GitHub secret/variables (README runbook); no `gcloud` access in this session.
-- [ ] Persistence across reboot/redeploy **on the VM**: blocked on the live VM. Verified on local
-  Docker volumes and in the Debian rehearsal above.
-- [ ] CI green on `main`: pending review/merge of PR #19. CI passed on the PR, both jobs
-  ([run 42804495037](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/actions/runs/42804495037)).
-- [ ] Cross-track PR review (§2.5): pending.
+- [x] Live HTTPS URL on the Google Cloud VM with `/` 200: <https://habi.theavenir.dev/> (above).
+- [x] Persistence across reboot and redeploy on the VM: stock 13 survived `sudo reboot`. The CI
+  redeploy kept the data, and redeploy persistence was also covered in the rehearsal and local Docker.
+- [x] CI green on `main`: [run 42813150250](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/actions/runs/42813150250)
+  (also green on PR #19, [run 42804495037](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/actions/runs/42804495037)).
+- [ ] Cross-track PR review (§2.5): **not met**. The owner merged PR #19 with 0 reviews recorded.
 - [ ] Real-device/screen-reader pass: not run (emulated touch only, as in M7).
 
 ## 2. Definition of Done (per milestone)

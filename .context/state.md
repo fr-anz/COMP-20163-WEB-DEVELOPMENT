@@ -1,8 +1,8 @@
 # State
 
 Updated: 2026-11-10.
-Objective: issue #9 M8 deploy & CI on `ad/m8-deploy` (from `main` after PR #18 merge).
-Progress: M8 image/CI/router fix done; Google Cloud e2-micro stack `deploy/gce/` (Caddy, setup/update, SSH deploy job) replaces Railway (D6); docs updated.
-Checks: PHPUnit 118/953 (8.2 + 8.5), PSR-12, lint, actionlint; container: health, 3 cards, 8-way race → 1 order, persistence across restart/recreate/rebuild, a11y 100 ×4.
-Evidence: BUILD M8; `/tmp/habi-m8/`.
-Blocker/next: PR #19 open; owner runs README Google Cloud runbook (VM, DNS A record, deploy key, `gh` secret/vars) → verify live HTTPS + reboot/redeploy persistence; review/merge → CI + deploy green on main.
+Objective: issue #9 M8 deploy & CI — merged via PR #19 (`8a1349a`); live-evidence PR on `ad/m8-live-evidence`.
+Progress: live at https://habi.theavenir.dev (GCE e2-micro us-west1-b, 136.118.96.127, Caddy + Let's Encrypt); GitHub deploy job works (run 42813150250); stock 13 survived reboot.
+Checks: main CI green incl. deploy; PHPUnit 118/953; container + Debian rehearsal + live HTTPS/route checks (BUILD M8).
+Evidence: BUILD M8 "Live deployment".
+Blocker/next: §2.5 cross-track review not recorded (PR #19 merged with 0 reviews); real-device pass not run. IPv4 ≈ $3.65/mo against $10 credit — budget alert advised.
