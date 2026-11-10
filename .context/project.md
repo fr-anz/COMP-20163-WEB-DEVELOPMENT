@@ -8,9 +8,9 @@ Constraints/conventions: PHP 8.2+ required (course), Composer allowed, PSR-12, n
 payments, no secrets in repo; follow .context/rules.md; docs pipeline in docs/ (PRD owns R# IDs).
 Structure: PHP/Slim front controller in public/, PSR-4 src/, Twig views/, migrations/, seed/, tests/.
 Planning docs in docs/; PRD owns R# IDs, DSD owns visual/asset policy and implemented shell APIs.
-Commands: `composer install`; copy/configure `.env` per README; `php -S localhost:8000 -t public`;
-`vendor/bin/phpunit`; `composer cs`; `composer lint`. First request initializes SQLite.
-`php seed/seed.php --force` wipes demo data. Catalog, exterior/interior inspection, session cart, simulated checkout/atomic orders and the admin panel (`/admin`) are implemented; deploy remains M8.
+Commands: `composer install`; copy/configure `.env` per README; `php -S localhost:8000 -t public public/index.php`
+(router arg required on PHP 8.2); `vendor/bin/phpunit`; `composer cs`; `composer lint`; `docker build -t habi .`.
+First request initializes SQLite. `php seed/seed.php --force` wipes demo data. M0–M7 features are implemented; M8 adds Dockerfile, render.yaml, CI; Railway is configured via dashboard settings (README Deploy).
 
 ## When to read
 

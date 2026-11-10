@@ -28,9 +28,9 @@ with zero install beyond PHP+Composer, and (c) deploys to the web unchanged via 
 | 3D | **Three.js** (vendored ES module in `public/assets/vendor/three/`), vanilla JS modules | Procedural woven-fiber/textile-inspired bags (R4–R6, DSD §§4,6), no external model files, works offline |
 | Frontend | Server-rendered Twig pages + small vanilla JS module per page; no SPA build step | Fast LCP (N1), simple deploy, course-friendly |
 | Sessions | Native PHP sessions, `HttpOnly`, `SameSite=Lax`, regenerated on admin login (N2) | Cart persistence (R28), admin auth (R19) |
-| Container | **Docker** (`php:8.2-cli` + Composer + `php -S 0.0.0.0:$PORT -t public`) | Identical runtime locally and on Railway/Render (N6) |
+| Container | **Docker** (`php:8.2-cli` + Composer + `php -S 0.0.0.0:$PORT -t public public/index.php`) | Identical runtime locally and on Railway/Render (N6) |
 | Tests | PHPUnit for services; manual smoke checklist for flows | See §13 |
-| CI | GitHub Actions: `composer validate`, `php -l` on src, PHPUnit | See BUILD M8 |
+| CI | GitHub Actions: `composer validate`, `php -l`, PSR-12, PHPUnit, Docker build/boot smoke | See §12 |
 
 No frontend bundler: JS is native ES modules with an import map; Three.js is vendored so
 the site works without CDN access.
@@ -64,7 +64,7 @@ Admin: same app, routes under /admin behind AdminAuthMiddleware (R19)
 ## 4. Directory Structure
 
 ```
-├── public/                 # docroot (php -S -t public)
+├── public/                 # docroot + router (php -S -t public public/index.php)
 │   ├── index.php           # front controller
 │   └── assets/
 │       ├── css/  (DSD tokens → app.css)
@@ -85,7 +85,7 @@ Admin: same app, routes under /admin behind AdminAuthMiddleware (R19)
 ├── seed/                   # seed.php → 10 products w/ images + 3D configs (N7)
 ├── tests/                  # PHPUnit: services (OrderService stock atomicity, PaymentSimulator Luhn)
 ├── docs/                   # PRD, SDD, DSD, BUILD, USER-JOURNEY
-├── Dockerfile  railway.json  render.yaml  .env.example  composer.json  README.md
+├── Dockerfile  .dockerignore  render.yaml  .github/workflows/ci.yml  .env.example  composer.json  README.md
 ```
 
 M1 implements home, catalog and stock JSON through `Controllers/StorefrontController`
@@ -289,7 +289,7 @@ On failure:
 - Uploads (R23): type detected from bytes (`getimagesizefromstring`), allowlist JPEG/PNG/WebP,
   ≤2 MB and ≤6000 px, random 32-hex name with the detected extension, stored in `data/uploads/`
   outside the document root, served only by `/uploads/{name}` with the mapped MIME and `nosniff`.
-- Secrets: `.env` (gitignored) → `APP_ENV`, `DB_DSN`, `SESSION_SECRET`, `ADMIN_SEED_*`, optional `APP_URL` (absolute public base URL for canonical/Open Graph links; derived from the request scheme/host when blank). `.env.example` committed.
+- Secrets: `.env` (gitignored) → `APP_ENV`, `DB_DSN`, `ADMIN_SEED_*`, optional `APP_URL` (absolute public base URL for canonical/Open Graph links; derived from the request scheme/host when blank). `.env.example` committed. Native PHP sessions need no application secret. Hosted deployments set the same names as platform variables; the image never contains `.env`.
 - Headers: `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, basic CSP
   (`default-src 'self'`; inline styles allowed for Twig; no external scripts except fonts).
 
@@ -331,20 +331,33 @@ On failure:
 
 ## 12. Deployment Design (N6; BUILD M8)
 
-- **Dockerfile:** `FROM php:8.2-cli` → install Composer → `composer install --no-dev` →
-  copy app → `EXPOSE 8080` → `CMD php -S 0.0.0.0:$PORT -t public` (PORT env, default 8080).
-  `.dockerignore`: `.git`, `data/*.sqlite`, `vendor` (rebuilt), `node_modules`.
-- **Railway:** `railway.json` or Dockerfile autodetect + a **volume mounted at `/app/data`**
-  so `app.sqlite` survives restarts/redeploys. Env vars: `APP_ENV=production`, `DB_DSN=sqlite:/app/data/app.sqlite`, `SESSION_SECRET` (Railway secret).
-- **Render:** `render.yaml` (web service, Docker runtime, persistent disk at `/app/data`) —
-  either platform works; Railway preferred, Render documented as alternative.
+- **Dockerfile:** `FROM php:8.2-cli` (production `php.ini`) → Composer → `composer install --no-dev`
+  → copy runtime sources → `EXPOSE 8080` → `CMD php -S 0.0.0.0:$PORT -t public public/index.php`
+  (`PORT` default 8080, `PHP_CLI_SERVER_WORKERS=4` so the 1.5–2.5 s payment simulation does not
+  block other visitors). The image defaults `APP_ENV=production` and
+  `DB_DSN=sqlite:/app/data/app.sqlite`. `.dockerignore` is an allowlist (composer files, `public/`,
+  `src/`, `views/`, `migrations/`, `seed/`): `.env`, local data/uploads, `vendor/` and `.git` stay out.
+- **Router script:** `public/index.php` is passed as the built-in server's router. Without one, the
+  PHP 8.2 server treats any dotted path as a static file and answers 404 before the application runs
+  (php-src #12604), which broke `/uploads/{name}.png`. Real files under `public/` are handed back to
+  the server; every other path, including dotted ones, goes through Slim. Dev uses the same command (N6).
+- **Railway (preferred):** Dockerfile autodetected; no `railway.json` (Config as Code is deprecated and
+  unavailable to new services). One-time service settings: **volume mounted at `/app/data`** (holds
+  `app.sqlite` and `uploads/`), health check path `/`, variables `ADMIN_SEED_EMAIL` /
+  `ADMIN_SEED_PASSWORD_HASH` (optional `ADMIN_SEED_NAME`, `APP_URL`), public domain, auto-deploy from
+  `main` with **Wait for CI**. Steps: README "Deploy".
+- **Render (alternative):** `render.yaml` (Docker web service, paid plan, persistent disk at `/app/data`,
+  health check `/`, `autoDeployTrigger: checksPass`, seed variables prompted, never committed).
 - **Boot:** `public/index.php` checks for the complete initial schema. On an empty database,
   `Bootstrap/Initializer` acquires a SQLite write transaction, rechecks, migrates and seeds.
   Missing admin credentials roll the initialization back; later boots preserve inventory/admin.
   Credentials come from `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD_HASH` (and optional name).
-- **HTTPS:** provided by platform. Health check: `GET /` → 200.
-- **CI (GitHub Actions):** on PR/push to main — `composer validate`, `php -l` over `src/ public/`,
-  run PHPUnit, build Docker image (smoke). Deploy on merge to main (Railway/Render auto).
+- **HTTPS:** provided by platform (TLS terminates at the proxy; `APP_ENV=production` keeps session
+  cookies Secure). Health check: `GET /` → 200.
+- **CI (GitHub Actions, `.github/workflows/ci.yml`):** on pull requests and pushes to `main` —
+  `composer validate --strict`, `composer lint` (`php -l`), `composer cs` (PSR-12), PHPUnit, Docker
+  build, then boot on an empty volume, check static/dotted routing and a restart preserving data.
+  Deploy: Railway/Render auto-deploy `main` only after these checks pass; no deploy secret in GitHub.
 
 ## 13. Testing Strategy
 
@@ -356,7 +369,7 @@ On failure:
   Admin service boundaries (M6): throttle/lockout expiry, stale/negative adjustments and audit
   rows, fulfilment/cancel transitions and atomic cancel rollback, peso parsing, uploads by
   content, pre-M6 database upgrade. Admin HTTP/browser acceptance is recorded in BUILD M6.
-  Hosted/browser-family certification remains M7/M8.
+  Hosted/browser-family certification remains M7/M8; container acceptance is recorded in BUILD M8.
 - **Concurrency:** script that fires N parallel `place` requests for the last item → exactly
   one succeeds (§8).
 
@@ -378,5 +391,6 @@ SQLite remains the current target; no migration implementation requested.
 > interior cutaways and configured pockets. M4 adds the session cart and real R3/R7
 > purchase actions; M5 adds simulated guest checkout and atomic paid orders; M6 adds the
 > administrator panel (sign-in/throttle, product CRUD/uploads, audited stock, order
-> fulfilment/cancel). Deployment remains M8. Review/merge status is tracked separately in BUILD.
+> fulfilment/cancel). M8 adds the Docker image, router-script start command, Render blueprint and CI;
+> hosted Railway acceptance is tracked in BUILD M8. Review/merge status is tracked separately in BUILD.
 > PRD R1–R28, N1–N8 remain the target traceability baseline.

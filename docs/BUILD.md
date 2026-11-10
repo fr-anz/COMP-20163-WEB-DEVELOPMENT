@@ -16,7 +16,7 @@
 | **A — Backend & Data** | PHP/Slim/PDO, models, migrations, seed, cart/checkout/order services, inventory transactions, payment simulator, auth, middleware | `src/` (all), `migrations/`, `seed/`, `tests/` |
 | **B — 3D Viewer** | Three.js procedural bag factory, orbit + peek-inside, per-product configs, fallback | `public/assets/js/viewer3d.js`, `bagFactory.js`; proposes `three_config` seed values (R4–R6, R27) — A integrates |
 | **C — Storefront UI** | DSD implementation, all storefront Twig views, cart drawer, checkout UX, responsive + a11y | `public/assets/css/app.css` (shared admin tokens), `views/storefront/`, `public/assets/js/cart.js`, `checkout.js` (R1–R3, R7–R17, R24–R26) |
-| **D — Admin & DevOps** | Admin panel UI, Docker, Railway/Render deploy, CI, README | `views/admin/`, `Dockerfile`, `railway.json`/`render.yaml`, `.github/workflows/` (R18–R23, N2, N6) |
+| **D — Admin & DevOps** | Admin panel UI, Docker, Railway/Render deploy, CI, README | `views/admin/`, `Dockerfile`, `.dockerignore`, `render.yaml`, Railway service settings (README), `.github/workflows/` (R18–R23, N2, N6) |
 
 Integration points: A+B meet at `GET /api/product/{slug}/3d`; A+C meet at cart/checkout
 endpoints; C+D meet at admin templates; all meet at DSD tokens in `app.css`.
@@ -901,12 +901,88 @@ read the wrong `$_SERVER` key, so proxied HTTPS produced `http://` canonical/OG 
 reads `HTTP_X_FORWARDED_PROTO` (and treats `APP_ENV=production` as HTTPS, like the session).
 
 ### M8 — Deploy & CI (D lead)
-- D: `Dockerfile` (php:8.2-cli, composer install --no-dev, `php -S 0.0.0.0:$PORT -t public`),
-  `.dockerignore`, `railway.json` + volume at `/app/data` (SQLite persists), Render `render.yaml` alt,
-  GitHub Actions CI (composer validate, php -l, PHPUnit, docker build), auto-deploy on main.
+- D: `Dockerfile` (php:8.2-cli, composer install --no-dev, `php -S 0.0.0.0:$PORT -t public public/index.php`),
+  `.dockerignore`, Railway service settings + volume at `/app/data` (SQLite persists; `railway.json` is
+  deprecated for new services), Render `render.yaml` alt, GitHub Actions CI (composer validate, php -l,
+  PSR-12, PHPUnit, docker build), auto-deploy on main after CI.
 - A: env-driven DSN (`DB_DSN`), boot migration on empty volume, admin seeded from env secrets.
 - All: README final (run, deploy, test cards, architecture diagram), PRD §9 items resolved or scheduled.
 - **Done when:** live HTTPS URL on Railway; restart container → data persists (N6); CI green on main.
+
+M8 implementation ([issue #9](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/9),
+branch `ad/m8-deploy`, 2026-11-10). Decisions: `.context/decisions.md` D5.
+
+Implementation checklist:
+
+- [x] `Dockerfile` (php:8.2-cli, production `php.ini`, `composer install --no-dev`, optimized
+  autoload, `PHP_CLI_SERVER_WORKERS=4`, `CMD php -S 0.0.0.0:${PORT} -t public public/index.php`)
+  and an allowlist `.dockerignore`. The image contains no `.env`, `data/*.sqlite`, uploads, `.git` or dev
+  dependencies, and has `pdo_sqlite`, `mbstring`, `zlib` and `fileinfo` on PHP 8.2.35.
+- [x] Railway: Dockerfile autodetect plus one-time service settings (volume `/app/data`, health check
+  `/`, seed variables, Wait for CI on `main`) in README Deploy. `railway.json` was not added: Railway
+  Config as Code is deprecated, new services cannot use it, and it is unread after 2026-12-01.
+  Render alternative: `render.yaml` (paid plan + disk) validates against Render's JSON schema.
+- [x] `DB_DSN` comes from the environment (image default `sqlite:/app/data/app.sqlite`); seed
+  credentials only from `ADMIN_SEED_*`. An empty volume initializes once; nothing reseeds it.
+- [x] `.github/workflows/ci.yml`: composer validate, `php -l`, PSR-12, PHPUnit, Docker build +
+  empty-volume boot/routing/restart smoke. Deployment = platform auto-deploy of `main` after CI.
+- [x] README run/deploy/test-card/architecture (Mermaid) sections; PRD §9: fonts/assets and
+  deployment resolved, province list scheduled for v2.
+
+**Defect found and fixed (N6, R23).** Under PHP 8.2's built-in server, the image and course version,
+`/uploads/<hex>.png` returned the server's own 404 without running the app. Any missing dotted
+path is treated as a static file (php-src #12604). Local PHP 8.5 routed it, which is why M6
+observed 200. `public/index.php` is now also the router script: real files under `public/` are
+passed back to the server; all other paths reach Slim. Uploaded images now serve `200 image/png`
+after a redeploy. Traversal (`/../.env`, `/%2e%2e/.env`, `/../composer.json` with `--path-as-is`)
+gets the Habi 404, and `/index.php` and missing assets also get the Habi 404. Review found that a
+`%00` path made `realpath()` throw an uncaught `ValueError`. NUL paths now skip the passthrough:
+`/%00` and `/assets/%00.css` get the Habi 404, with no fatal error in the log. Also removed two
+stale "Checkout arrives in a later milestone" sentences from the product page (checkout is live
+since M5).
+
+Container verification (local Docker 2026-11-10, image `habi:m8`, named volume, isolated admin hash;
+throwaway scripts in `/tmp/habi-m8/`):
+
+- [x] Health: `GET /` → 200 from the container; Secure, HttpOnly, SameSite=Lax session cookie;
+  `no-store` and security headers present.
+- [x] Simulated payments over real HTTP: `4242…4242` → Review → Place → `H-20261110-0001`, Sinag
+  12 → 11; `…0002` → 422 "declined (simulated)"; `…9995` → 422 "Insufficient funds (simulated)".
+  Neither decline created an order or changed stock.
+- [x] Admin: sign-in, two-step +5 adjustment (Alon 15 → 20, audit row with reason/note), image
+  upload served from `/uploads/…png`, and the order list shows the browser-placed order.
+- [x] Stock race: Gabi set to 1 via admin; 8 sessions reached Review, then 8 parallel Place
+  requests → exactly **1** order (`H-20261110-0002`), 7 redirected to the bag; stock 0, never negative.
+- [x] Persistence (N6): snapshot of all product stock, orders, audit count and admins was identical
+  after `docker restart`, after container removal + new container with a **different**
+  `ADMIN_SEED_*` (no reseed; original admin still signs in), and after rebuild + recreate (uploaded
+  file still served).
+- [x] Fresh empty volume without seed variables → generic 500, no tables created, nothing leaked;
+  stderr names the missing variables. Same volume with variables → 200, 10 products / 4 categories.
+- [x] Dev/production parity: 16 routes (pages, APIs, 404/303, static, gzip'd Three.js adapter,
+  dotted upload path, `/index.php`) return identical status + content type from
+  `php -S … -t public public/index.php` (PHP 8.5, temp DB) and the container (PHP 8.2).
+- [x] Browser (managed Chromium, container): 360 px reduced motion, first Tab = skip link, no
+  overflow on home/product/order; Add to bag → shipping → 4242 → Review → Place → order page with
+  simulation notice; Lupa 3D viewer ready 256 ms (360, dialog) / 278 ms (1280, inline) after load
+  including the toggle; Esc returns focus to 3D; no page errors. Admin at 1440 signs in.
+- [x] Lighthouse 13.6.0 accessibility (mobile defaults) on the container: home, listing, product,
+  admin sign-in all **100**. Checkout Lighthouse was not run on the container (it was run in M7).
+
+Code checks (final working tree): `composer validate --strict`, `composer cs`, `composer lint` clean;
+`vendor/bin/phpunit` **118 tests / 953 assertions** OK on PHP 8.5 and in `php:8.2-cli`; actionlint
+(with shellcheck) clean; CI Docker step executed locally → pass; `contextspine check` 0 failures /
+31 existing warnings. No new permanent test: the change is start-command/routing behavior, covered
+by the CI container smoke (static file + dotted application path).
+
+Acceptance status:
+
+- [ ] Live HTTPS Railway URL with `/` 200: **not done**. It needs a Railway project, volume and
+  seed secrets in the owner's account; no Railway access was available in this session.
+- [ ] Persistence across restart/redeploy **on Railway**: blocked on the live deployment above;
+  verified only on local Docker volumes.
+- [ ] CI green on `main`: pending PR review/merge.
+- [ ] Real-device/screen-reader pass: not run (emulated touch only, as in M7).
 
 ## 2. Definition of Done (per milestone)
 
@@ -923,7 +999,7 @@ M0 setup contract (see [README](../README.md) for requirements and password-hash
 ```bash
 composer install                 # pinned dependencies
 cp .env.example .env             # configure ADMIN_SEED_EMAIL/PASSWORD_HASH before first boot
-php -S localhost:8000 -t public   # run (auto-migrates + seeds on first request)
+php -S localhost:8000 -t public public/index.php   # run (auto-migrates + seeds on first request)
 php seed/seed.php --force        # destructive reset; never run against data you need
 vendor/bin/phpunit               # isolated first-boot/preservation tests
 ```

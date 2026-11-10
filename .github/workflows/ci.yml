@@ -1,0 +1,79 @@
+name: CI
+
+# Railway (and the Render alternative) deploy main only after these checks
+# pass on the commit: see README "Deploy". No deployment secret lives here.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  php:
+    name: PHP checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_sqlite, mbstring, dom, xml, xmlwriter, zlib
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Lint (php -l)
+        run: composer lint
+
+      - name: Coding standard (PSR-12)
+        run: composer cs
+
+      - name: PHPUnit
+        run: vendor/bin/phpunit
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: docker build -t habi:ci .
+
+      - name: Boot on an empty volume and survive a restart
+        run: |
+          hash=$(docker run --rm habi:ci php -r 'echo password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);')
+          docker volume create habi-ci-data
+          docker run -d --name habi -p 8080:8080 -v habi-ci-data:/app/data \
+            -e ADMIN_SEED_EMAIL=ci@example.test -e ADMIN_SEED_PASSWORD_HASH="$hash" habi:ci
+          wait_ok() {
+            for _ in $(seq 1 30); do
+              [ "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8080$1")" = 200 ] && return 0
+              sleep 1
+            done
+            echo "GET $1 did not return 200"; docker logs habi; return 1
+          }
+          # Static files come from public/; dotted application paths must
+          # reach the front controller (Habi 404 page, not the PHP server's).
+          wait_ok /favicon.ico
+          curl -s http://127.0.0.1:8080/uploads/00000000000000000000000000000000.png | grep -q 'Habi'
+          wait_ok /
+          wait_ok /products
+          before=$(docker exec habi php -r 'echo (new PDO("sqlite:/app/data/app.sqlite"))->query("SELECT COUNT(*) FROM products")->fetchColumn();')
+          docker restart habi
+          wait_ok /
+          after=$(docker exec habi php -r 'echo (new PDO("sqlite:/app/data/app.sqlite"))->query("SELECT COUNT(*) FROM products")->fetchColumn();')
+          echo "products before=$before after=$after"
+          [ "$before" = 10 ] && [ "$after" = "$before" ]

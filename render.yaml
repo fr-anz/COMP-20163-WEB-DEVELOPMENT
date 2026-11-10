@@ -1,0 +1,27 @@
+# Render alternative to the preferred Railway deployment (SDD §12).
+# Persistent disks require a paid instance type; without the disk every
+# deploy starts from an empty database and loses orders/stock changes.
+services:
+  - type: web
+    name: habi
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    autoDeployTrigger: checksPass
+    disk:
+      name: habi-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DB_DSN
+        value: sqlite:/app/data/app.sqlite
+      # Prompted once in the Render dashboard; never committed.
+      - key: ADMIN_SEED_EMAIL
+        sync: false
+      - key: ADMIN_SEED_PASSWORD_HASH
+        sync: false
+      - key: ADMIN_SEED_NAME
+        sync: false

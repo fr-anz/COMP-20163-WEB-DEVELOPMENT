@@ -1,6 +1,6 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M6 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Deployment remains a later [milestone](docs/BUILD.md). Local implementation is separate from the review/merge requirements recorded in BUILD.
+Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M6 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders. M8 adds the production Docker image, CI and Railway/Render deployment ([Deploy](#deploy)). The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
 
 ## Local setup — three steps
 
@@ -18,9 +18,11 @@ Requires PHP **8.2+**, Composer 2, and PHP extensions `pdo_sqlite`, `mbstring`, 
    Choose a local-only password; the prompt echoes input, so use a private terminal. Paste the generated hash into `ADMIN_SEED_PASSWORD_HASH` in `.env`, keeping **single quotes**. Set `ADMIN_SEED_EMAIL` and optionally `ADMIN_SEED_NAME`. Never put a plaintext password in `.env` or commit it. Process environment values override `.env` settings.
 3. Start the development server from the repository root:
    ```sh
-   php -S localhost:8000 -t public
+   php -S localhost:8000 -t public public/index.php
    ```
    Open <http://localhost:8000>. The first request initializes `data/app.sqlite` and seeds 10 fictional bags across four categories plus your configured administrator. Later requests/restarts preserve data and do not reset credentials. Sign in at <http://localhost:8000/admin> with `ADMIN_SEED_EMAIL` and the password you hashed. A database created before M6 is upgraded in place on the next request (the `login_attempts` table is added; no data is reset).
+
+`public/index.php` is also the built-in server's router. Keep that last argument: without it PHP 8.2 treats any dotted path as a static file and answers 404 for uploaded images (`/uploads/<name>.png`) before the application runs. Real files in `public/` are still served directly. Optionally set `PHP_CLI_SERVER_WORKERS=4` so a simulated payment does not block other requests.
 
 `DB_DSN=sqlite:data/app.sqlite` resolves relative to the repository root; an absolute SQLite path is also supported. The database directory must be writable. Missing/invalid first-boot admin settings prevent initialization rather than creating a default password. Fix `.env` and request the page again. No credentials or internal errors are shown in the browser; inspect server stderr for local diagnosis. Optionally set `APP_URL` (for example `APP_URL=https://habi.example.com`, no trailing slash) to pin the absolute base URL used for canonical links and Open Graph tags; when blank it is derived from each request's scheme and host.
 
@@ -39,9 +41,12 @@ php seed/seed.php --force
 ```sh
 composer validate --strict
 vendor/bin/phpunit
-vendor/bin/phpcs --standard=PSR12 src public/index.php seed tests
-find src public seed tests -name '*.php' -print0 | xargs -0 -n1 php -l
+composer cs      # PSR-12: src public/index.php seed tests
+composer lint    # php -l over src public seed tests
+docker build -t habi .
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the same checks on every pull request and push to `main`, then boots the image on an empty volume. That job checks `/`, `/products`, a static file, a dotted application path and a restart preserving the catalog.
 
 PHPUnit uses isolated databases, not your local demo inventory. Catalog coverage includes filters/order/pagination and active/sold-out visibility; inspection coverage includes active-only configs and ordered galleries. Cart boundary coverage includes cumulative stock caps, persistent corrections/removals, malformed quantities, session isolation and CSRF rejection. Inspect the actual changed surface at 360 px and wide widths with keyboard navigation; PHP checks do not establish visual accessibility. On product pages, also exercise viewer loading/retry, WebGL fallback, pause/reduced motion and mobile dialog close/Esc/focus return. Exact observed scenarios and commands are recorded in [BUILD](docs/BUILD.md).
 
@@ -49,7 +54,57 @@ Admin coverage includes the sign-in throttle and lockout expiry, stale/negative 
 
 Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD — Exact published-reference cutover](docs/BUILD.md#exact-published-reference-cutover-2026-11-10); earlier reconciliation and performance measurements remain historical.
 
+## Deploy
+
+The image is `php:8.2-cli` with production Composer dependencies, running the same front controller as development: `php -S 0.0.0.0:$PORT -t public public/index.php` (N6). It defaults `APP_ENV=production`, `DB_DSN=sqlite:/app/data/app.sqlite`, `PORT=8080` and four server workers. `.env`, local data, uploads and `vendor/` are never copied into the image (allowlist `.dockerignore`). Configuration comes only from environment variables.
+
+**Persistent data:** `/app/data` holds `app.sqlite` and `uploads/`. Mount a volume there. The first request on an empty volume migrates and seeds 10 products plus the administrator from `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD_HASH`. Every later boot, restart and redeploy keeps inventory, orders, uploads and the administrator. Changing the seed variables afterwards does not reseed or replace the administrator. Without seed variables an empty volume is left uninitialized and visitors get a generic 500 page. Only the explicit `php seed/seed.php --force` resets data. Deleting the volume deletes the shop.
+
+Run the production image locally:
+
+```sh
+docker build -t habi .
+docker volume create habi-data
+docker run --rm -p 8080:8080 -v habi-data:/app/data \
+  -e ADMIN_SEED_EMAIL=admin@example.test \
+  -e ADMIN_SEED_PASSWORD_HASH='<hash from the setup step>' habi
+```
+
+Open <http://localhost:8080> (browsers accept the production Secure session cookie on `localhost`; use HTTPS elsewhere). Stopping and re-running with the same volume keeps all data.
+
+### Railway (preferred)
+
+One-time setup in the Railway dashboard. Railway deprecated `railway.json`, and new services cannot use it, so these service settings are the configuration. No Railway file or token is committed.
+
+1. **New project → Deploy from GitHub repo** → this repository. Railway builds the `Dockerfile` automatically.
+2. Service **Settings → Source:** branch `main`, enable **Wait for CI** so a commit deploys only after the CI workflow passes.
+3. Service **Settings → Deploy → Healthcheck path:** `/`.
+4. **Add a volume** to the service with mount path **`/app/data`** (CLI: `railway volume add --mount-path /app/data`).
+5. **Variables:** `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD_HASH` (paste the bcrypt hash **without quotes**), optionally `ADMIN_SEED_NAME` and `APP_URL=https://<your domain>`. Set them before the first deploy. Railway supplies `PORT`; `APP_ENV`/`DB_DSN` come from the image.
+6. **Settings → Networking → Generate domain** for the HTTPS URL.
+
+Verify: `https://<domain>/` returns 200, `/admin` signs in with the hashed password, and an order or stock change survives **Restart** and **Redeploy** of the deployment. Services without serverless sleep stay warm; if app sleeping is enabled, the first request after idling is a cold start.
+
+### Render (alternative)
+
+`render.yaml` defines a Docker web service with a 1 GB persistent disk at `/app/data`, health check `/`, and deploys after checks pass. **New → Blueprint** → this repository, then enter the prompted `ADMIN_SEED_*` values (hash without quotes). Persistent disks need a paid instance type. A free instance has no disk, so its data is lost on every deploy.
+
 ## Architecture and scope
+
+```mermaid
+flowchart LR
+  Browser -->|HTTPS| Proxy[Railway / Render proxy]
+  Proxy --> Server["php -S (router: public/index.php)"]
+  Server -->|files in public/| Static[CSS, JS, fonts, SVG, Three.js]
+  Server --> Slim[Slim 4 middleware: headers, errors, first-boot init, CSRF, admin auth]
+  Slim --> Controllers[Storefront / cart / checkout / admin / upload controllers]
+  Controllers --> Services[Services: catalog, cart, orders, stock, auth, payment simulator]
+  Controllers --> Twig[Twig 3 views]
+  Services --> DB[(SQLite app.sqlite)]
+  Controllers --> Uploads[(data/uploads)]
+  DB -.-> Volume["Persistent volume /app/data"]
+  Uploads -.-> Volume
+```
 
 `public/index.php` → Slim 4 → storefront/cart/checkout/admin controllers → services/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with transactional initialization and idempotent upgrades. Templates autoescape HTML. Global middleware protects every POST with a per-session CSRF token and redirects every `/admin` path except `/admin/login` to sign-in. Native PHP session cookies are session-only, HttpOnly and SameSite=Lax; Secure is set for HTTPS or `APP_ENV=production`. Admin sign-in regenerates the session ID and CSRF token. Responses are `no-store`.
 
@@ -164,4 +219,4 @@ contacted at runtime and no frontend build step is required. Geometry and
 canvas-generated material patterns are original Habi demo artwork, not supplied
 reference photographs or downloaded models.
 
-Requirements: [PRD](docs/PRD.md) · architecture: [SDD](docs/SDD.md) · [issue #3](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/3). N6 local execution is M0 scope; Docker, deployment and persistence on a hosted volume remain M8. No real payments are processed. Local implementation does not imply human PR review, merge or deployment.
+Requirements: [PRD](docs/PRD.md) · architecture: [SDD](docs/SDD.md) · deployment: [SDD §12](docs/SDD.md#12-deployment-design-n6-build-m8) · evidence: [BUILD](docs/BUILD.md). No real payments are processed. Local implementation does not imply human PR review, merge or deployment.
