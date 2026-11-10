@@ -158,7 +158,7 @@ prototype screens and this PRD disagree, the PRD prevails:
 - **Order numbers:** the reference's shortened examples do not replace R10's required format.
 - **Stock handling:** the reference replaces the sold-out button; R17 requires only that
   0-stock products cannot be added, and R9 clamping plus R15 atomic decrement are binding.
-  Purchase controls remain unavailable until M4; preserve the published visual layout while explaining that real application state (DSD §4).
+  M4 enables real purchase controls; preserve the published visual layout while explaining actual application state and the unavailable M5 checkout (DSD §4).
 
 ## 10. Glossary
 

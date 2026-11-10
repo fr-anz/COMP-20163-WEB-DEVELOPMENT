@@ -1,0 +1,41 @@
+{#-
+  Habi cart page (/cart), matching the published Cart application example:
+  1180px shell, 30→36px display heading, line list (divide/border rules, no
+  surface wrapper) with a Keep browsing link, and a 360px Summary column
+  (region estimate, totals, disabled checkout) above the 896px breakpoint.
+  The content region is what cart.js replaces with the server's page_html
+  after JSON mutations; without JavaScript the fragment still renders fully
+  and forms post natively. Receives exactly: app_name, app_env, cart,
+  csrf_token, cart_message (one-shot native feedback), region (optional).
+-#}
+{% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% set active_nav = '' %}
+
+{% block title %}Your bag — {{ app_name }}{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Your Habi bag: line items, quantity steppers, remove actions and a shipping estimate. This educational demo saves your bag only for this session — checkout arrives in a later milestone.">
+{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-[1180px] px-4 py-8 @3xl:px-8 @3xl:py-12">
+    <h1 tabindex="-1" class="font-display text-[30px] font-bold @3xl:text-h1">Your bag</h1>
+
+    {% if cart_message %}
+      <p class="mt-4 flex items-start gap-2 rounded-control bg-info-bg px-3 py-2 text-small font-medium text-info" role="status">
+        {{ icons.icon('info', 16, 'mt-0.5 flex-none') }}
+        <span>{{ cart_message }}</span>
+      </p>
+    {% endif %}
+
+    <div class="mt-6" data-cart-page-content>
+      {% include 'storefront/_cart-content.twig' with {
+        cart: cart,
+        csrf_token: csrf_token,
+        cart_mode: 'page',
+        region: region|default(''),
+      } only %}
+    </div>
+  </div>
+{% endblock %}

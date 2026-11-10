@@ -1590,3 +1590,64 @@ dialog:not([open]) { display: none; }
   *, *::before, *::after { scroll-behavior: auto !important; }
   [data-viewer-loading] [style*="animation"] { animation: none !important; transform: none; }
 }
+
+/* M4 cart: published cart drawer/page/toast components and the exact
+ * reference utilities they consume (fit-igloo-66636772.figma.site). */
+
+.btn--tertiary { background: rgba(0, 0, 0, 0); color: var(--color-text-primary); text-underline-offset: 4px; text-decoration: underline; text-decoration-thickness: 1.5px; text-decoration-color: var(--color-border-strong); padding-left: 10px; padding-right: 10px; }
+.btn--tertiary:hover:not(:disabled), .btn--tertiary[data-force="hover"] { color: var(--color-action-primary-hover); text-decoration-color: var(--color-action-primary); }
+.btn--tertiary:active:not(:disabled), .btn--tertiary[data-force="active"] { background: var(--color-bg-inset); }
+.btn--tertiary:disabled { background: rgba(0, 0, 0, 0); text-decoration-color: rgba(0, 0, 0, 0); }
+
+.anim-slide-in { animation: habi-slide-in var(--duration-standard) var(--ease-weave) both; }
+@keyframes habi-slide-in { 0% { transform: translate(100%); } }
+
+/* Utilities consumed by the cart templates, ported from the reference build. */
+.w-3 { width: calc(var(--spacing) * 3); }
+.w-20 { width: calc(var(--spacing) * 20); }
+.w-24 { width: calc(var(--spacing) * 24); }
+.px-6 { padding-inline: calc(var(--spacing) * 6); }
+.py-0\.5 { padding-block: calc(var(--spacing) * .5); }
+.mb-4 { margin-bottom: calc(var(--spacing) * 4); }
+.-right-1 { right: calc(var(--spacing) * -1); }
+.-bottom-1 { bottom: calc(var(--spacing) * -1); }
+.overflow-y-auto { overflow-y: auto; }
+.overscroll-contain { overscroll-behavior: contain; }
+.max-w-sm { max-width: var(--container-sm); }
+.max-w-\[1180px\] { max-width: 1180px; }
+.h-\[18px\] { height: 18px; }
+.min-w-\[18px\] { min-width: 18px; }
+.font-normal { --tw-font-weight: var(--font-weight-normal); font-weight: var(--font-weight-normal); }
+.text-\[11px\] { font-size: 11px; }
+.text-\[13px\] { font-size: 13px; }
+.text-on-action { color: var(--color-action-foreground); }
+.text-cream-50 { color: var(--color-cream-50); }
+.text-cream-50\/80 { color: color-mix(in srgb, var(--color-cream-50) 80%, transparent); }
+.bg-brown-900\/45 { background-color: color-mix(in srgb, var(--color-brown-900) 45%, transparent); }
+.self-start { align-self: flex-start; }
+.rounded-l-\[4px\] { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+.rounded-r-\[4px\] { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+:where(.space-y-4 > :not(:last-child)) { --tw-space-y-reverse: 0; margin-block-start: calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse)); margin-block-end: calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-y-reverse))); }
+@container (width >= 56rem) {
+  .\@4xl\:grid-cols-\[minmax\(0\,1fr\)_360px\] { grid-template-columns: minmax(0, 1fr) 360px; }
+}
+
+/* Cart drawer: native dialog, right panel, full width on narrow screens.
+   display:flex only while open so the closed dialog never paints. */
+#cart-drawer { margin: 0; inset: 0 0 0 auto; padding: 0; border: 0; width: 100%; max-width: 400px; height: 100dvh; max-height: none; color: var(--color-text-primary); overflow-y: auto; overscroll-behavior: contain; }
+#cart-drawer[open] { display: flex; flex-direction: column; }
+#cart-drawer:not([open]) { display: none; }
+#cart-drawer::backdrop { background: color-mix(in srgb, var(--habi-brown-900) 45%, transparent); }
+
+/* Transient confirmation toasts (reference dark bar, check/alert glyph). */
+.toast-region { position: fixed; bottom: 16px; left: 16px; z-index: 60; display: flex; flex-direction: column; gap: 12px; width: min(360px, calc(100vw - 32px)); pointer-events: none; }
+.toast-region > * { pointer-events: auto; }
+
+/* Reference 40px stepper anatomy with a ≥44px touch/keyboard hit target. */
+[data-cart-step]::after { content: ""; position: absolute; inset: -3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-slide-in, .anim-fade, .anim-fade-up { animation: none !important; }
+}
+.top-1 { top: var(--spacing); }
+.right-1 { right: var(--spacing); }

@@ -1,0 +1,59 @@
+{#-
+  One cart line, shared by the /cart page and the cart drawer. Receives via
+  context: line (one CartService line), cart_mode ('drawer'|'page'),
+  csrf_token (string). Ids are scoped by cart_mode so both server fragments
+  can coexist. Visual source: published cart line — thumbnail, linked name,
+  material label, line price, bounded quantity stepper, labelled Remove.
+  Stepper buttons keep the 40px reference anatomy with an expanded ≥44px hit
+  target (app.css [data-cart-step]::after).
+-#}
+{% import "macros/icons.twig" as icons %}
+{% set line_material = line.materials|replace({'Illustrative materials: ': ''})|split(',')|first|trim %}
+{% set unit_cent = line.price_centavos % 100 %}
+{% set unit_price = (line.price_centavos / 100)|number_format(unit_cent == 0 ? 0 : 2, '.', ',') %}
+{% set line_cent = line.line_total_centavos % 100 %}
+<li class="flex gap-4 py-4" data-cart-line data-product-id="{{ line.product_id }}">
+  <a href="/product/{{ line.slug }}" class="w-{{ cart_mode == 'drawer' ? '20' : '24' }} aspect-[4/5] flex-none overflow-hidden rounded-control border border-line" tabindex="-1" aria-hidden="true">
+    <img src="{{ line.image_path }}" alt="" width="96" height="120" loading="lazy" class="block h-full w-full object-contain">
+  </a>
+  <div class="flex min-w-0 flex-1 flex-col">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="leading-snug font-semibold"><a href="/product/{{ line.slug }}" class="decoration-action decoration-2 underline-offset-4 hover:underline">{{ line.name }}</a></p>
+        <p class="text-small text-ink-2">{{ line_material }}</p>
+      </div>
+      <p class="font-semibold tabular-nums"><span class="sr-only">Line total: </span>&#8369;{{ (line.line_total_centavos / 100)|number_format(line_cent == 0 ? 0 : 2, '.', ',') }}</p>
+    </div>
+    {% if line.quantity > 1 %}
+      <p class="text-caption text-ink-2">&#8369;{{ unit_price }} each</p>
+    {% endif %}
+    {% if line.stock <= 3 %}
+      <p class="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-warning">
+        {{ icons.icon('alert', 16) }}Only {{ line.stock }} available now
+      </p>
+    {% endif %}
+    <div class="mt-auto flex items-end justify-between gap-2 pt-3">
+      <form method="post" action="/cart/update" data-cart-update>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="product_id" value="{{ line.product_id }}">
+        <label class="sr-only" for="{{ cart_mode }}-qty-{{ line.product_id }}">Quantity for {{ line.name }}</label>
+        <div class="inline-flex h-10 items-stretch rounded-control border-[1.5px] border-line-strong bg-raised">
+          <button type="button" hidden class="relative grid w-10 place-items-center rounded-l-[4px] hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="Decrease quantity for {{ line.name }}" data-cart-step="-1"{{ line.quantity <= 1 ? ' disabled' }}>{{ icons.icon('minus', 18) }}</button>
+          <input id="{{ cart_mode }}-qty-{{ line.product_id }}" name="quantity" inputmode="numeric" value="{{ line.quantity }}" data-cart-qty data-stock="{{ line.stock }}"
+                 class="w-10 border-x border-line bg-transparent text-center font-semibold tabular-nums focus:outline-none focus-visible:bg-info-bg"
+                 aria-describedby="{{ cart_mode }}-qty-{{ line.product_id }}-max">
+          <button type="button" hidden class="relative grid w-10 place-items-center rounded-r-[4px] hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="Increase quantity for {{ line.name }}" data-cart-step="1"{{ line.quantity >= line.stock ? ' disabled' }}>{{ icons.icon('plus', 18) }}</button>
+        </div>
+        <span id="{{ cart_mode }}-qty-{{ line.product_id }}-max" class="sr-only">Up to {{ line.stock }} available</span>
+        <noscript><button type="submit" class="btn btn--secondary btn--sm mt-2">Update</button></noscript>
+      </form>
+      <form method="post" action="/cart/remove" data-cart-remove>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="product_id" value="{{ line.product_id }}">
+        <button type="submit" class="btn btn--tertiary btn--sm" aria-label="Remove {{ line.name }} from bag">
+          {{ icons.icon('trash', 18) }}<span>Remove</span>
+        </button>
+      </form>
+    </div>
+  </div>
+</li>

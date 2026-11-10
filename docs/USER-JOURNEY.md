@@ -1,6 +1,6 @@
 # USER-JOURNEY — Habi
 
-> **Status:** Journeys describe target behavior. M0–M3 implement discovery, catalog and reversible exterior/interior inspection; purchase/admin remain M4–M6. Local verification and outstanding review/merge requirements are recorded in BUILD. The published UI/design system remains authoritative 1:1. Real inventory, routes and truthful unavailable states remain binding; no fake cart/order data.
+> **Status:** Journeys describe target behavior. M0–M4 implement discovery, catalog, reversible exterior/interior inspection and the session cart; checkout/admin remain M5–M6. Local verification and outstanding review/merge requirements are recorded in BUILD. The published UI/design system remains authoritative 1:1. Real inventory, routes and truthful unavailable states remain binding; no fake cart/order data.
 
 | | |
 |---|---|

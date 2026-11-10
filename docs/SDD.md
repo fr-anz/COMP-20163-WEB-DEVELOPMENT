@@ -92,11 +92,11 @@ M1 implements home, catalog and stock JSON through `Controllers/StorefrontContro
 and `Services/ProductService`, registered in `public/index.php`. M2 extends detail with
 ordered gallery images and adds the active-only procedural config endpoint.
 `src/Bootstrap/` handles initialization/catalog seeding, `src/Support/` environment/PDO
-helpers, and `src/Console/` the explicit reset command. Commerce/admin remain later milestones.
+helpers, and `src/Console/` the explicit reset command. M4 adds native session cart/CSRF support, `CartService` and `CartController`; checkout/admin remain later milestones.
 
 Canonical CSS is `public/assets/css/app.css`, using the exact published semantic roles
 and consumed component/utility rules (DSD §2). Actual modules are `storefront.js`
-(menu/materials/catalog enhancement), `product.js`, `viewer3d.js` and `bagFactory.js`,
+(menu/materials/catalog enhancement), `cart.js`, `product.js`, `viewer3d.js` and `bagFactory.js`,
 with Twig views under `views/`. No React runtime, Tailwind build or CDN is required.
 
 ## 5. Data Model
@@ -136,6 +136,7 @@ Indexes: `products(slug)`, `products(category,is_active)`, `orders(order_number)
 | GET | `/cart` | Cart page (R8) | session |
 | POST | `/cart/add` | Add item (R7) | session + CSRF |
 | POST | `/cart/update` | Qty change / remove (R8, R9) | session + CSRF |
+| POST | `/cart/remove` | Remove a line (R8); update with quantity zero also removes | session + CSRF |
 | GET | `/checkout` | Checkout shell, step 1 shipping (R10) | session, cart non-empty |
 | POST | `/checkout/shipping` | Validate + store shipping (R11, R12) | session + CSRF |
 | GET | `/checkout/payment` | Mock card form (R13) | session, shipping done |
@@ -161,9 +162,9 @@ centimeter `dimensions`, `colors`, `handle_style`, `material`, `lining`, and `po
 The endpoint uses `Cache-Control: no-store`; missing/inactive products return the same
 JSON 404 as stock. Sold-out products remain inspectable. Detail gallery images are
 ordered primary-first, then `sort_order` and ID; catalog queries do not load galleries
-or model configs. Purchase behavior remains M4.
+or model configs. M4 enables stock-validated purchase controls.
 
-All POST routes pass `CsrfMiddleware`; all templates use Twig auto-escape (N2).
+Implemented cart POST routes validate the session CSRF token in `CartController`; later POST routes must enforce the same guard. Templates use Twig auto-escape (N2).
 
 ## 7. Cart & Checkout Flow (state machine)
 
@@ -178,6 +179,19 @@ All POST routes pass `CsrfMiddleware`; all templates use Twig auto-escape (N2).
 
 - Cart lives in `$_SESSION['cart']` = `{product_id: qty}`; every cart mutation re-validates
   against live stock and clamps (R9, R28).
+- M4 reconciles live prices/stock on cart reads and server-rendered navigation as well as
+  mutations. Deleted/inactive/sold-out lines are removed. Correction notices persist in
+  the session rather than disappearing after a toast or a drawer fetch.
+- `GET /cart` and mutations accept `Accept: application/json`, returning `cart`,
+  `drawer_html`, `page_html`, `message` and `csrf_token`; `cart.count` sums quantities,
+  `cart.subtotal_centavos` and line totals are integer centavos. Native POSTs use 303
+  redirects to the full cart. Session-bearing pages/fragments use `Cache-Control: no-store`.
+- Cart POST fields are `csrf_token`, `product_id`, `quantity` (except remove).
+  Updates set absolute quantities; adds accumulate up to current stock. Quantity zero
+  removes only on update; invalid requests do not apply the requested change.
+- Session cookies have lifetime zero, HttpOnly and SameSite=Lax; no localStorage or
+  persistent cart database exists. The cart explains that expiry loses its contents.
+  The checkout CTA remains unavailable until M5, not a fake completed flow.
 - Checkout progress in `$_SESSION['checkout']` = `{shipping:…, payment_result: approved|declined|…}`;
   steps enforced server-side (can't reach review without approved payment — R10).
 - Idempotency key generated before Place form shown; Place creates order + atomic stock decrement (R15, R16).

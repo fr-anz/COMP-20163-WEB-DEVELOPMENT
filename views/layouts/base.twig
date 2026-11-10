@@ -1,9 +1,11 @@
 {#-
   Habi shell layout, matching the reference UI exactly: 64px sticky header
-  (multicolour mark + 26px wordmark, icon-only search, bag honestly
-  unavailable until M4), mobile menu as a native <dialog>, dark brown footer
-  with inverse 34px wordmark, three columns and selvedge strip.
-  Receives exactly: app_name (string), app_env (string). No catalog queries.
+  (multicolour mark + 26px wordmark, icon-only search, bag link with the
+  server cart count that cart.js enhances into the accessible drawer),
+  mobile menu as a native <dialog>, dark brown footer with inverse 34px
+  wordmark, three columns and selvedge strip.
+  Receives exactly: app_name (string), app_env (string), cart (CartService
+  array), csrf_token (string). No catalog queries.
   Anchors: #main-content, #craft, #materials. Navigation works without
   JavaScript (footer links); the mobile dialog and material tabs enhance.
   storefront.js is loaded on every page; child templates overriding the
@@ -59,10 +61,12 @@
         <a href="/products#collection-search" aria-label="Search the collection" title="Search the collection" class="icon-btn relative">
           {{ icons.icon('search') }}
         </a>
-        <button type="button" class="icon-btn relative" aria-disabled="true"
-                aria-label="Bag — not available in this demo" title="Bag (unavailable in this demo)">
+        <a href="/cart" data-cart-bag class="icon-btn relative"
+           aria-label="Bag{% if cart.count|default(0) > 0 %}, {{ cart.count }} {{ cart.count == 1 ? 'item' : 'items' }}{% else %}, empty{% endif %}"
+           title="Bag{% if cart.count|default(0) > 0 %}, {{ cart.count }} {{ cart.count == 1 ? 'item' : 'items' }}{% endif %}">
           {{ icons.icon('bag') }}
-        </button>
+          <span data-cart-count class="absolute top-1 right-1 grid h-[18px] min-w-[18px] place-items-center rounded-sm bg-action px-1 text-[11px] font-bold text-on-action"{% if cart.count|default(0) == 0 %} hidden{% endif %}>{{ cart.count|default(0) }}</span>
+        </a>
       </div>
     </div>
   </header>
@@ -82,10 +86,10 @@
           <li><a href="/products" class="flex h-14 w-full items-center justify-between rounded-control px-3 text-left font-display text-h3 font-semibold hover:bg-inset">Collection{{ icons.icon('chevron-right') }}</a></li>
           <li><a href="/#materials" class="flex h-14 w-full items-center justify-between rounded-control px-3 text-left font-display text-h3 font-semibold hover:bg-inset">Materials{{ icons.icon('chevron-right') }}</a></li>
           <li class="mt-2 border-t border-line pt-2">
-            <span class="flex h-12 w-full items-center gap-3 rounded-control px-3 text-left font-medium text-ink-2" aria-disabled="true">
+            <a href="/cart" data-cart-bag class="flex h-12 w-full items-center gap-3 rounded-control px-3 text-left font-medium hover:bg-inset">
               {{ icons.icon('bag') }} Your bag
-              <span class="sr-only">— not available in this demo</span>
-            </span>
+              {% if cart.count|default(0) > 0 %}<span class="sr-only">, {{ cart.count }} {{ cart.count == 1 ? 'item' : 'items' }}</span>{% endif %}
+            </a>
           </li>
         </ul>
         <div class="mx-5 mt-6 h-24 overflow-hidden rounded-panel" aria-hidden="true">
@@ -120,7 +124,7 @@
         <ul class="mt-2 space-y-0.5 text-small">
           <li><a href="/#craft" class="inline-block py-1.5 underline-offset-4 hover:underline">Discover the weave</a></li>
           <li><a href="/products" class="inline-block py-1.5 underline-offset-4 hover:underline">The collection</a></li>
-          <li><span class="inline-block py-1.5" aria-disabled="true" title="Your bag arrives with checkout — not available in this demo">Your bag<span class="sr-only"> — not available in this demo</span></span></li>
+          <li><a href="/cart" class="inline-block py-1.5 underline-offset-4 hover:underline">Your bag</a></li>
         </ul>
       </nav>
       <div>
@@ -137,8 +141,11 @@
     </div>
   </footer>
 
+  {% include 'storefront/_cart-drawer.twig' %}
+
   {% block scripts %}
   <script src="/assets/js/storefront.js" defer></script>
+  <script src="/assets/js/cart.js" defer></script>
   {% endblock %}
 </body>
 </html>

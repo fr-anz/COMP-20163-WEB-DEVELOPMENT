@@ -470,6 +470,112 @@ owner's PR review and merge to `main`; issue #4 is not fully Done.**
 - C: cart drawer + `/cart` page (R8), toasts on add (R7), badge count, qty steppers, remove, subtotal.
 - **Done when:** R7–R9, R28 pass; stock-cap correction notice works; cart survives reload.
 
+M4 local implementation (issue #5, branch `ac/m4-session-cart`, 2026-11-10):
+
+- Native PHP session cart, CSRF-protected POST add/update/remove, integer-centavo
+  totals and live-stock reconciliation. Reads/navigation also clamp stock and remove
+  inactive/deleted/sold-out lines; explanatory notices persist across subsequent reads,
+  including an empty cart. Adding never reserves or decrements inventory.
+- Native forms redirect with feedback; enhanced requests return the authoritative
+  cart/count/totals and drawer/page fragments. Session cookies are lifetime-zero,
+  HttpOnly and SameSite=Lax; responses are `no-store`. No new dependencies/env settings.
+- Checkout execution remains M5. M4 supplies the named CTA with an explicit unavailable
+  explanation, not a fake checkout or a link to a missing route.
+
+Backend commands and observed outcomes:
+
+```sh
+vendor/bin/phpunit tests/Services/CartServiceTest.php
+composer cs
+composer lint
+bun /tmp/habi-m4-qFfLy2/http-smoke.mjs
+```
+
+- Targeted PHPUnit: **17 tests / 120 assertions**; PSR-12 and PHP lint pass
+  (PHP 8.5.12; project minimum remains 8.2).
+- Actual HTTP smoke against `php -d session.save_path=/tmp/habi-m4-qFfLy2 -S
+  127.0.0.1:8018 -t public`, isolated SQLite/admin process environment:
+  cumulative add caps at stock 12; stock 12→2 clamps on GET and the notice survives
+  another GET; mixed-line subtotal is exactly 475000 centavos.
+- Negative, fractional, malformed, overlong and empty quantities → JSON 400 without
+  applying the requested change; wrong CSRF → 403. Update-zero/removal works; zero
+  stock and inactive products cannot be added. Native POST → 303 `/cart`.
+- Removed the isolated server session file while retaining its stale cookie/token:
+  next POST → 403 with an empty cart and fresh token; subsequent GET stays empty.
+  Cookie has no Expires/Max-Age; HttpOnly/SameSite=Lax and `no-store` observed.
+- Product stock is unchanged by cart mutations. HTTP evidence:
+  `/tmp/habi-m4-qFfLy2/http-evidence.json`. The throwaway smoke source is removed
+  after verification; the recorded scenarios describe the repeatable inputs.
+
+**DoD status:** local consumer evidence follows. Another track owner's human PR
+review and merge to `main` remain required. The checkout CTA is present but disabled
+until M5; a functional checkout handoff is **not** certified. No commit, push, merge
+or deployment is claimed. Issue #5 is not fully Done.
+
+Storefront scenarios (Chromium 150, native **1440×1000, 768×1000 and 360 px**):
+
+- Actual listing Add → toast/count 1 → product navigation retains server count;
+  detail quantity 2 Add → count 3 and subtotal ₱4,950. Drawer estimate is ₱5,070
+  with Metro Manila's ₱120 minimum. Drawer and full cart agree after navigation/reload.
+- Quantity changes and Remove use real POSTs. Corrected two defects found during
+  consumer checks: disabling the focused button lost focus before rerender, and
+  a 2→1 decrement disabled its submitter before the browser submitted. Focus is
+  captured before locking; enhanced steps submit directly. Last-line removal
+  focuses the cart heading; a minimum-bound step focuses its quantity field.
+- Duplicate native `quantity` fields made no-JS decrement ineffective. Removed that
+  competing submission path: step buttons are JS-only; native users edit the labeled
+  quantity and submit Update. Actual no-JS add/update/remove, region GET, reload and
+  expiry recovery pass at 360 px.
+- Stock 2→1 clamps on navigation; the explanation survives reload and the increment
+  is disabled at the cap. Stock 1→0 removes the last line; its explanation remains
+  visible after reload. Listing disables Sold out and detail has no add form.
+- Drawer Tab/Shift+Tab wrap, Esc, visible header focus return, menu-to-bag handoff and
+  full-page alternative pass. At 360 px the drawer is full width; real CDP touch
+  gestures operate product plus/Add, header bag and cart minus.
+- Mindanao selection yields matching page/drawer totals (₱3,550 for a ₱3,300
+  subtotal). Exactly ₱5,000 is not free; ₱5,000.01 is free and retains the centavo
+  on both surfaces. Changing quantity keeps the selected region and recomputes.
+- A lost-response fixture lets the real POST commit, then rejects its response:
+  only one POST occurs, a safe GET restores the authoritative count and a persistent
+  uncertainty notice explains that nothing was retried.
+- Expired the actual server session while leaving the product form open. Found and
+  repaired an omitted JSON `error` argument that had hidden the expiry explanation.
+  Now the stale POST shows the session-expired notice/count 0 and a fresh token;
+  an explicit retry adds once. The native equivalent redirects to an empty cart
+  with actionable informational feedback. Neither promises a saved cart.
+- Keyboard-only listing Add → product link → quantity plus → Add → header drawer →
+  Esc passes. Reduced motion produces `animation-name: none` on the drawer.
+- Published Cart comparison (showcase frame removed, native-width storefront
+  container retained): heading and grid **x/y/width match exactly** at all three
+  widths. Two-line page has no horizontal overflow. Real product data, shipping
+  requirements, session guidance and unavailable M5 checkout differ intentionally;
+  this is not a whole-page pixel-identity claim.
+- Actual contrast: primary/page **12.96:1**, secondary/surface **6.38:1**,
+  input boundary/input **4.25:1**. No browser JavaScript errors observed.
+
+Final affected-repair commands:
+
+```sh
+vendor/bin/phpcs --standard=PSR12 src/Controllers/CartController.php
+php -l src/Controllers/CartController.php
+node --check public/assets/js/cart.js
+node --check public/assets/js/product.js
+npx --no-install contextspine check
+```
+
+PHP/JS checks pass; ContextSpine reports **0 failures / 31 existing warnings** for
+missing IDEA/RESEARCH/QAD documents and requirement coverage, not cart defects.
+Full `composer cs`/`composer lint` and the 17-test service run above passed before
+the one-line error-payload repair; its affected controller checks pass afterward.
+No unrun whole-suite/performance/browser-family certification is claimed.
+
+Raw UI scenarios/geometry: `/tmp/habi-m4-qFfLy2/ui-evidence.json`.
+Final cart captures: desktop `/tmp/omp-sshots-15c820c9447b3137.webp`,
+tablet `/tmp/omp-sshots-15c820c9757b3138.webp`, narrow
+`/tmp/omp-sshots-15c820c995fb3139.webp`; touch drawer
+`/tmp/omp-sshots-15c82036453b3136.webp`.
+
+
 ### M5 — Checkout, simulated payment, orders, inventory (A lead, C UI, D middleware)
 - A: checkout step state machine (SDD §7), shipping validation (R11), region shipping fees (R12),
   `PaymentSimulator` (R13–R14, Luhn + test cards), `OrderService::placeOrder` atomic w/ idempotency +

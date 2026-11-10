@@ -5,7 +5,7 @@
  * mobile fullscreen dialog, accessible orbit controls, and the Peek
  * inside / Back outside toggle synced to the viewer's viewchange event.
  *
- * Out of scope: any cart behavior. Purchase controls stay disabled until M4.
+ * Cart controls are enhanced separately by cart.js.
  */
 (() => {
   'use strict';

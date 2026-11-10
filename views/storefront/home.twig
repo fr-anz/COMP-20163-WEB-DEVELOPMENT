@@ -212,7 +212,7 @@
       </article>
       <ul class="grid grid-cols-2 content-start gap-x-4 gap-y-8 @4xl:col-span-4">
         {% for product in featured_products|slice(1, 2) %}
-          {% include 'storefront/_product-card.twig' with { product: product } only %}
+          {% include 'storefront/_product-card.twig' with { product: product, csrf_token: csrf_token } only %}
         {% endfor %}
         <li class="col-span-2 border-t border-line pt-4 text-small text-ink-2">Strip-woven totes hold their shape; loom cloth drapes. Same over-under logic, different hand.</li>
       </ul>
