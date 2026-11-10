@@ -2,7 +2,7 @@
   Habi cart page (/cart), matching the published Cart application example:
   1180px shell, 30→36px display heading, line list (divide/border rules, no
   surface wrapper) with a Keep browsing link, and a 360px Summary column
-  (region estimate, totals, disabled checkout) above the 896px breakpoint.
+  (region estimate, totals, checkout link) above the 896px breakpoint.
   The content region is what cart.js replaces with the server's page_html
   after JSON mutations; without JavaScript the fragment still renders fully
   and forms post natively. Receives exactly: app_name, app_env, cart,
@@ -15,7 +15,7 @@
 {% block title %}Your bag — {{ app_name }}{% endblock %}
 
 {% block meta %}
-<meta name="description" content="Your Habi bag: line items, quantity steppers, remove actions and a shipping estimate. This educational demo saves your bag only for this session — checkout arrives in a later milestone.">
+<meta name="description" content="Your Habi bag: line items, quantity steppers, remove actions and shipping estimates. This educational demo keeps your bag for this session and offers a clearly simulated guest checkout.">
 {% endblock %}
 
 {% block content %}

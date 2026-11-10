@@ -1,0 +1,97 @@
+{#-
+  Habi checkout order summary (M5), shared by the shipping/payment/review
+  steps. panel() renders both instances the reference shows: the sticky
+  desktop aside (≥896px container) and the native <details> disclosure below
+  it — the disclosure keeps the summary reachable without JavaScript and
+  without custom toggle code. Fees are the authoritative PHP values passed
+  by the controller; nothing is recomputed here. Step 1 has no chosen region
+  yet, so shipping reads "From …" with "Estimated total"; steps 2–3 show the
+  bound region fee with "Total".
+  Receives exactly: cart (CartService array), shipping_fee_centavos (int),
+  total_centavos (int), step (1|2|3), region_label (string, '' on step 1).
+-#}
+{% import "macros/icons.twig" as icons %}
+
+{% macro money(centavos) %}{% set cent = centavos % 100 %}₱{{ (centavos / 100)|number_format(cent == 0 ? 0 : 2, '.', ',') }}{% endmacro %}
+{% import _self as fmt %}
+
+{% macro lines(cart) %}
+  {% import _self as fmt %}
+  <ul class="divide-y divide-line">
+    {% for line in cart.lines %}
+      {% set line_cent = line.line_total_centavos % 100 %}
+      <li class="flex items-center gap-3 py-3">
+        <div class="relative h-16 w-[52px] flex-none overflow-hidden rounded-sm border border-line">
+          <img src="{{ line.image_path }}" alt="" width="52" height="64" loading="lazy" class="block h-full w-full object-contain">
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-small font-semibold">{{ line.name }}</p>
+          <p class="text-caption text-ink-2">{{ line.materials|replace({'Illustrative materials: ': ''})|split(',')|first|trim }} · Qty {{ line.quantity }}</p>
+        </div>
+        <p class="text-small font-semibold tabular-nums"><span class="sr-only">Line total: </span>{{ fmt.money(line.line_total_centavos) }}</p>
+      </li>
+    {% endfor %}
+  </ul>
+{% endmacro %}
+
+{% macro totals(cart, step, region_label, shipping_fee_centavos, total_centavos) %}
+  {% import _self as fmt %}
+  <dl class="space-y-2 text-[15px]">
+    <div class="flex justify-between">
+      <dt class="text-ink-2">Subtotal · {{ cart.count }} {{ cart.count == 1 ? 'item' : 'items' }}</dt>
+      <dd class="font-medium tabular-nums">{{ fmt.money(cart.subtotal_centavos) }}</dd>
+    </div>
+    <div class="flex justify-between">
+      {% if step == 1 %}
+        <dt class="text-ink-2">Shipping</dt>
+        <dd class="font-medium tabular-nums">{{ shipping_fee_centavos == 0 ? 'Free' : 'From ' ~ fmt.money(shipping_fee_centavos) }}</dd>
+      {% else %}
+        <dt class="text-ink-2">Shipping{% if region_label %} · {{ region_label }}{% endif %}</dt>
+        <dd class="font-medium tabular-nums">{{ shipping_fee_centavos == 0 ? 'Free' : fmt.money(shipping_fee_centavos) }}</dd>
+      {% endif %}
+    </div>
+    <div class="flex justify-between border-t border-line pt-3 text-body">
+      <dt class="font-semibold">{{ step == 1 ? 'Estimated total' : 'Total' }}</dt>
+      <dd class="text-h3 font-semibold tabular-nums">{{ fmt.money(total_centavos) }}</dd>
+    </div>
+  </dl>
+  <p class="mt-2 text-caption text-ink-2">Prices include VAT. No discount codes &mdash; Habi prices are fixed.</p>
+{% endmacro %}
+
+{% macro body(cart, step, region_label, shipping_fee_centavos, total_centavos) %}
+  {% import _self as fmt %}
+  {{ fmt.lines(cart) }}
+  <div class="mt-3 border-t border-line pt-4">
+    <div>
+      {{ fmt.totals(cart, step, region_label, shipping_fee_centavos, total_centavos) }}
+    </div>
+  </div>
+{% endmacro %}
+
+{# Mobile disclosure instance (native <details>; below the 896px container). #}
+{% macro disclosure(cart, step, region_label, shipping_fee_centavos, total_centavos) %}
+  {% import "macros/icons.twig" as icons %}
+  {% import _self as fmt %}
+  <details class="mt-5 rounded-panel border border-line bg-surface @4xl:hidden" data-checkout-summary>
+    <summary class="flex min-h-14 cursor-pointer items-center justify-between gap-3 px-4 text-left">
+      <span class="flex items-center gap-2 font-semibold">
+        {{ icons.icon('bag', 20) }}Show order summary<span class="inline-flex transition-transform duration-[var(--duration-standard)]" data-checkout-chevron>{{ icons.icon('chevron-down', 18) }}</span>
+      </span>
+      <span class="font-semibold tabular-nums">{{ fmt.money(total_centavos) }}</span>
+    </summary>
+    <div id="m-summary" class="border-t border-line px-4 py-4">
+      {{ fmt.body(cart, step, region_label, shipping_fee_centavos, total_centavos) }}
+    </div>
+  </details>
+{% endmacro %}
+
+{# Sticky desktop aside instance (≥896px container); place inside the step grid. #}
+{% macro aside(cart, step, region_label, shipping_fee_centavos, total_centavos) %}
+  {% import _self as fmt %}
+  <aside aria-label="Order summary" class="hidden h-fit rounded-panel border border-line bg-surface p-5 @4xl:sticky @4xl:top-24 @4xl:block">
+    <h2 class="text-h3 font-semibold">Order summary</h2>
+    <div>
+      {{ fmt.body(cart, step, region_label, shipping_fee_centavos, total_centavos) }}
+    </div>
+  </aside>
+{% endmacro %}

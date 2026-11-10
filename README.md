@@ -1,6 +1,6 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M4 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection and a session-only cart with live stock limits. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Checkout, admin and deployment remain later [milestones](docs/BUILD.md). Local implementation is separate from the review/merge requirements recorded in BUILD.
+Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M5 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart and simulated guest checkout with atomic inventory. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Admin and deployment remain later [milestones](docs/BUILD.md). Local implementation is separate from the review/merge requirements recorded in BUILD.
 
 ## Local setup — three steps
 
@@ -49,7 +49,7 @@ Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD
 
 ## Architecture and scope
 
-`public/index.php` → Slim 4 → storefront/cart controllers → services/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with first-boot transactional initialization. Templates autoescape HTML. Cart mutations require a per-session CSRF token; native PHP session cookies are session-only, HttpOnly and SameSite=Lax.
+`public/index.php` → Slim 4 → storefront/cart/checkout controllers → services/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with first-boot transactional initialization. Templates autoescape HTML. Global middleware protects every POST with a per-session CSRF token and gates admin paths in preparation for M6. Native PHP session cookies are session-only, HttpOnly and SameSite=Lax; Secure is set for HTTPS or `APP_ENV=production`. Responses are `no-store`.
 
 | Route | Available behavior |
 |---|---|
@@ -60,6 +60,10 @@ Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD
 | `/api/product/{slug}/3d` | Uncached per-product procedural JSON config; missing/inactive products return JSON 404; sold-out products remain inspectable |
 | `/cart` | Full bag page; JSON with authoritative cart/count/totals and rendered fragments when requested via `Accept: application/json` |
 | `POST /cart/add`, `/cart/update`, `/cart/remove` | Session cart mutations with CSRF and live-stock reconciliation; native forms redirect to `/cart`, enhanced forms update the drawer and badge |
+| `/checkout`, `POST /checkout/shipping` | Guest shipping form with server validation and region fees |
+| `/checkout/payment`, `POST /api/payment/simulate` | Mock card validation and 1.5–2.5 s simulated processing; no real gateway |
+| `/checkout/review`, `POST /checkout/place` | Approved-payment-only review, preissued retry key and atomic stock/order/audit transaction |
+| `/order/{orderNumber}` | Session-owned confirmation with immutable item/address/price snapshots and simulated delivery estimate |
 
 Search and category combine; pagination retains those filters and sorting. Out-of-range pages use the nearest available page. Sold-out products remain visible unless “Hide sold-out bags” is selected; inactive products do not. A missing/inactive product detail returns 404.
 
@@ -91,8 +95,37 @@ notices visible across reloads. Adding to the bag does not reserve or decrement 
 
 The bag lasts only for the native PHP session: there is no saved cart after expiry.
 An expired form requires a fresh session token before adding again. Shipping estimates
-use PRD R12 rates and are free only **above** ₱5,000. Checkout is visibly unavailable
-until M5; no order/payment flow is simulated by this milestone.
+use PRD R12 rates and are free only **above** ₱5,000. Proceed to checkout opens the
+guest shipping form; stock is checked again atomically when Place order is submitted.
+
+### Simulated checkout
+
+Shipping → Payment → Review → Place order → Confirmation is enforced on the server.
+Shipping rates: Metro Manila ₱120, Luzon ₱180, Visayas ₱220, Mindanao ₱250; exactly
+₱5,000 is not free, while ₱5,000.01 is. Enter fictional contact/address details only.
+
+**SIMULATED PAYMENT — no real transaction occurs.** Use a future `MM/YY` and any
+3–4 digit test CVC. Never enter real card details.
+
+| Test card | Result |
+|---|---|
+| `4242 4242 4242 4242` | Approved simulation; Place creates one paid demo order |
+| `4000 0000 0000 0002` | Card declined; no order or decrement |
+| `4000 0000 0000 9995` | Insufficient funds; no order or decrement |
+
+Other Luhn-valid cards approve. Invalid details show inline errors; declines preserve
+shipping and the bag. Only result, last four digits and brand are retained, never full
+card number, expiry or CVC. Changing shipping or bag quantities revokes approval;
+price changes require reviewing the bag again.
+
+Review issues the idempotency key before displaying Place. Repeating Place returns
+the same `H-YYYYMMDD-NNNN` order without consuming another item. SQLite `BEGIN IMMEDIATE`
+serializes placement; guarded decrements, stock audit, order and item snapshots commit
+or roll back together. Stock/price conflicts explain the correction on the bag page.
+Transient failures retain the key for an explicit safe retry. Confirmation is visible
+only to the originating session; expiry also loses access. Delivery is explicitly
+simulated: nothing will be charged or shipped. M6 implements administrator sign-in;
+the M5 authorization guard does not expose an admin dashboard.
 
 ### Viewer dependencies
 

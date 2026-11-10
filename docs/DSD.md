@@ -25,8 +25,9 @@ Adaptation is limited to real application state and PHP integration: existing pr
 IDs, stock, prices and routes remain data-driven; reference sample cart counts/orders
 must not be fabricated. Keep the working procedural Three.js renderer instead of the
 showcase's conceptual CSS model. M3 adds real interior cutaways; M4 adds the session
-cart; M5–M6 checkout/admin remain separate milestones. Where sample business values differ, [PRD §9](PRD.md#prototype-vs-requirements)
-prevails; that does not permit changing the visual treatment.
+cart; M5 adds simulated checkout and atomic orders; M6 admin remains separate. Where
+sample business values differ, [PRD §9](PRD.md#prototype-vs-requirements) prevails;
+that does not permit changing the visual treatment.
 
 ## 2. Canonical CSS and tokens
 
@@ -167,7 +168,29 @@ PRD R12 rates replace prototype sample values. Persistent stock corrections are
 icon+text notices, not disappearing toast-only explanations. Add confirmation and
 the header badge reflect real session state. Native `/cart` forms remain available
 without JavaScript; dialog enhancement contains focus and returns it on close/Esc.
-Session lifetime and unavailable M5 checkout are explained without saved-cart promises.
+Session lifetime is explained without saved-cart promises; Proceed to checkout opens the real guest flow.
+
+### Checkout and confirmation (R10–R17)
+
+Follow the published Checkout/Confirmation examples: responsive stepper, shipping
+form and summary, clearly simulated card form, review and received-order composition.
+Native forms enforce Shipping → Payment → Review → Place → Confirmation without
+JavaScript; enhancement adds processing status rather than a second checkout state.
+Use server totals and PRD R12 fees, not the prototype's sample rates.
+
+Show inline field errors with persistent labels and text/icon feedback. Declines
+preserve shipping and bag contents. Review includes the already-issued retry key;
+stock/price conflicts return to the corrected bag with an explanation. Confirmation
+uses session-owned order snapshots, `H-YYYYMMDD-NNNN`, a clearly simulated delivery
+estimate and the simulation notice. Never fabricate a successful order to match the
+reference or retain entered card details in browser storage.
+
+The name-on-card field reflects the already validated shipping name read-only;
+Back to Shipping edits it, with no second stored identity. Optional address line 2
+comes from the order schema. No “remember on this device” checkbox is offered:
+shipping already lasts only for this session, with no persistent-device feature.
+These data/privacy adaptations and binding Luhn/CVC/test-card text are not permission
+to change the reference's component styling.
 
 ## 5. Implemented component APIs and compositions
 
@@ -183,6 +206,8 @@ Session lifetime and unavailable M5 checkout are explained without saved-cart pr
 | `data-*` storefront controls | Progressive mobile navigation, material tabs and catalog GET submission; no framework or fake application state. |
 | `product.js` + `BagViewer` | One real renderer, gallery/mode switching, persistent Peek inside / Back outside controls, live status, retry/fallback and native narrow-screen dialog. `setInside(inside, {animate})` emits `viewchange`; reset stays in the current inspection mode. |
 | `cart.js` + `_cart-content.twig` | Native cart forms enhanced with authoritative server fragments; synchronized header count, drawer/page lines and totals, persistent stock notices, add feedback, named quantity/remove controls and accessible native dialog. |
+| `checkout.js` + `checkout-{shipping,payment,review}.twig` | Native PRG forms, server-owned progress/totals, inline errors, first-error/step focus, visible busy status/spinner, reduced motion and card clearing on pagehide/pageshow. `_checkout-stepper.twig` and `_checkout-summary.twig` share responsive progress and native summary disclosure. |
+| `order.twig` | Session-owned order snapshots, simulated status/ETA and payment disclaimer; no gateway, shipping or administrator action is fabricated. |
 
 Good navigation:
 
@@ -194,9 +219,8 @@ Bad: `href="#"` labeled Add to bag suggests an unavailable mutation; decorative 
 colors on competing buttons discard the reference's action hierarchy. Do not add
 undocumented variants or recreate tokens in individual templates.
 
-Checkout and admin components in the published system remain the **future visual
-specification**, not shipped PHP APIs. Their milestone implementation must follow
-that specification, rather than revive the old direction.
+Checkout templates now consume the published composition with real server state.
+Admin components remain the future M6 visual specification, not shipped PHP APIs.
 
 ## 6. Assets, fonts and provenance
 

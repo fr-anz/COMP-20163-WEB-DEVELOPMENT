@@ -92,7 +92,7 @@ M1 implements home, catalog and stock JSON through `Controllers/StorefrontContro
 and `Services/ProductService`, registered in `public/index.php`. M2 extends detail with
 ordered gallery images and adds the active-only procedural config endpoint.
 `src/Bootstrap/` handles initialization/catalog seeding, `src/Support/` environment/PDO
-helpers, and `src/Console/` the explicit reset command. M4 adds native session cart/CSRF support, `CartService` and `CartController`; checkout/admin remain later milestones.
+helpers, and `src/Console/` the explicit reset command. M4 adds native session cart support, `CartService` and `CartController`; M5 adds `CheckoutController`, `ShippingService`, `PaymentSimulator`, atomic `OrderService` and global CSRF/admin-path middleware. Administrator sign-in remains M6.
 
 Canonical CSS is `public/assets/css/app.css`, using the exact published semantic roles
 and consumed component/utility rules (DSD §2). Actual modules are `storefront.js`
@@ -122,7 +122,7 @@ orders        *───*  order_statuses (enum values: pending_payment/paid/pac
 
 Indexes: `products(slug)`, `products(category,is_active)`, `orders(order_number)`, `orders(status,created_at)`, `order_items(order_id)`.
 
-**Order number:** `H-YYYYMMDD-NNNN` — date + daily sequence from `orders` count; unique constraint + retry loop. Not unguessable.
+**Order number:** `H-YYYYMMDD-NNNN` — date + daily sequence allocated inside the serialized SQLite write transaction, protected by a unique constraint. Not unguessable; confirmation additionally requires session ownership.
 
 ## 6. Endpoints
 
@@ -164,7 +164,7 @@ JSON 404 as stock. Sold-out products remain inspectable. Detail gallery images a
 ordered primary-first, then `sort_order` and ID; catalog queries do not load galleries
 or model configs. M4 enables stock-validated purchase controls.
 
-Implemented cart POST routes validate the session CSRF token in `CartController`; later POST routes must enforce the same guard. Templates use Twig auto-escape (N2).
+M5 moves POST CSRF enforcement into `CsrfMiddleware`, including future/unregistered POST paths; cart failures retain the authoritative fragment/recovery contract. `AdminAuthMiddleware` gates `/admin` and descendants except the future `/admin/login` route. Sign-in, throttling and login-time session/token rotation remain M6. Templates use Twig auto-escape (N2).
 
 ## 7. Cart & Checkout Flow (state machine)
 
@@ -191,10 +191,11 @@ Implemented cart POST routes validate the session CSRF token in `CartController`
   removes only on update; invalid requests do not apply the requested change.
 - Session cookies have lifetime zero, HttpOnly and SameSite=Lax; no localStorage or
   persistent cart database exists. The cart explains that expiry loses its contents.
-  The checkout CTA remains unavailable until M5, not a fake completed flow.
-- Checkout progress in `$_SESSION['checkout']` = `{shipping:…, payment_result: approved|declined|…}`;
-  steps enforced server-side (can't reach review without approved payment — R10).
-- Idempotency key generated before Place form shown; Place creates order + atomic stock decrement (R15, R16).
+- Checkout is available from both the bag page and drawer. Expired/empty sessions return to the bag with an actionable explanation.
+- `$_SESSION['checkout']` holds validated `shipping`, an approved non-sensitive `payment` result, reviewed `lines` and their `fingerprint`, and the preissued `idempotency_key`. Quantity mutations revoke approval/key while retaining shipping. Shipping edits require a new simulation; price changes cannot silently alter the reviewed order.
+- Review requires shipping and approval for the exact current snapshot. Place uses the reviewed quantities without first clamping: live stock/active/price changes fail and roll back, then the bag is reconciled with an explanatory notice.
+- The key is generated before the Place form renders and survives transient retry. Committed keys/numbers remain in session `completed_orders`; repeats return that order before inspecting any new bag. This map also grants order-page access; predictable numbers alone never grant access.
+- Invalid shipping and invalid/declined payment use POST/Redirect/GET: only safe shipping redisplay values or field-error/message metadata are flashed, never PAN/expiry/CVC. The redirected GET displays inline errors (422). This prevents Chromium's no-store POST Back-history cache miss; subsequent Back returns a cleared card form.
 ## 8. Inventory Concurrency (R15, R17, R18)
 
 Pseudocode for `OrderService::placeOrder()` (algorithm, not executable PHP):
@@ -228,15 +229,15 @@ On failure:
 
 ## 9. Simulated Payment (R13, R14, N3, N4)
 
-`PaymentSimulator` (planned, not unit-tested):
+`PaymentSimulator` (M5):
 
 1. Validate: Luhn(card) + expiry future + CVC format. Invalid → `invalid` (stays on form).
 2. Test-card table: `4242…4242` → `approved`; `4000 0000 0000 0002` → `declined`;
    `4000 0000 0000 9995` → `insufficient_funds`; any other Luhn-valid → `approved`.
 3. Simulated latency 1.5–2.5 s (server-side `usleep`), spinner in UI.
 4. **Card number is never persisted** — only non-sensitive result (approved/declined/insufficient_funds,
-   `payment_last4` + brand) stored in checkout session (N4). The payment page and confirmation page
-   show the banner: "SIMULATED PAYMENT — no real transaction occurs" (N3).
+   `payment_last4` + brand) stored in checkout session (N4); expiry and CVC are discarded too. The payment page and confirmation page
+   show the banner: "SIMULATED PAYMENT — no real transaction occurs" (N3). Native forms work without JavaScript; `checkout.js` adds a processing status/spinner without persisting input.
 5. **Enforcement:** Review step requires approved payment result in session; Place requires approved
    payment and generates idempotency key before showing the form.
 ## 10. Security Design (N2, N4)
@@ -245,8 +246,7 @@ On failure:
 - XSS: Twig auto-escape on; `|raw` forbidden in product/admin content (admin-entered HTML is
   plain text or sanitized allowlist if rich text is added later).
 - CSRF: per-session token, hidden field on every POST, `hash_equals` check, regenerate on login.
-- Sessions: `session.cookie_httponly=1`, `SameSite=Lax`, `session_regenerate_id(true)` on admin
-  login; session cookie name custom.
+- Sessions: strict mode, cookie-only IDs, no URL propagation, custom cookie name, lifetime zero, `HttpOnly`, `SameSite=Lax`. Secure on HTTPS or `APP_ENV=production` (including TLS-terminating deployments). Admin login-time session regeneration/token rotation is M6.
 - Passwords: `password_hash(PASSWORD_DEFAULT)` / `password_verify`.
 - Admin throttle: after 5 failed attempts, 60 s lockout per email+IP (in-memory/SQLite table),
   generic "Invalid credentials" error, no user enumeration.
@@ -311,11 +311,12 @@ On failure:
 
 ## 13. Testing Strategy
 
-- **Unit (PHPUnit, planned):** `PaymentSimulator` (Luhn, test cards), `OrderService::placeOrder`
-  (happy path, insufficient stock rollback, idempotency), `CartService` clamping (R9),
-  money formatting.
-- **Integration/smoke (manual checklist in BUILD M7/M8):** full journey per USER-JOURNEY J1 with
-  each test card; out-of-stock path; admin CRUD; mobile 360 px; keyboard-only checkout (R25).
+- **Unit (PHPUnit):** `PaymentSimulator` validation/outcomes, `OrderService::placeOrder`
+  rollback/idempotency/snapshots, shipping fee/validation boundaries, checkout prerequisite
+  and session-isolation transitions, and `CartService` clamping (R9).
+- **Consumer smoke (BUILD M5):** actual checkout with each test card, stock/price conflict,
+  injected database failure/retry, session-owned confirmation, mobile and keyboard/no-JS.
+  Admin CRUD and hosted/browser-family certification remain later milestones.
 - **Concurrency:** script that fires N parallel `place` requests for the last item → exactly
   one succeeds (§8).
 
@@ -334,6 +335,7 @@ SQLite remains the current target; no migration implementation requested.
 > reduced motion and static fallback. Runtime evidence belongs in BUILD. Supplied images
 > remain inspiration/modeling references only, never publication assets or proof of
 > provenance. Original SVG illustrations are the seed image format. M3 adds reversible
-> interior cutaways and configured pockets. Commerce, admin and deployment remain later
-> milestones; full R3/R7 is not claimed. Review/merge status is tracked separately in BUILD.
+> interior cutaways and configured pockets. M4 adds the session cart and real R3/R7
+> purchase actions; M5 adds simulated guest checkout and atomic paid orders. Admin and
+> deployment remain later milestones. Review/merge status is tracked separately in BUILD.
 > PRD R1–R28, N1–N8 remain the target traceability baseline.

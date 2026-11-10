@@ -1,0 +1,42 @@
+{#-
+  Habi checkout progress stepper (M5). Receives exactly: step (1–4).
+  Desktop: numbered ol with completed/current/upcoming states; below the
+  768px container breakpoint it collapses to "Step N of 4" plus a 4-segment
+  progress bar. Visual source: published "Checkout stepper" component
+  (fit-igloo-66636772.figma.site), full and compact (mobile) figures.
+-#}
+{% import "macros/icons.twig" as icons %}
+{% set steps = ['Shipping', 'Payment', 'Review', 'Confirmation'] %}
+<div class="mt-4 @3xl:hidden">
+  <div aria-label="Checkout progress">
+    <p class="text-small font-semibold">Step {{ step }} of 4 · <span class="font-normal text-ink-2">{{ steps[step - 1] }}</span></p>
+    <div class="mt-2 grid grid-cols-4 gap-1" aria-hidden="true">
+      {% for i in 1..4 %}
+        <span class="h-1.5 rounded-sm {{ i <= step ? 'bg-action' : 'bg-line' }}"></span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<div class="mt-4 hidden @3xl:block">
+  <ol aria-label="Checkout progress" class="flex items-center gap-2">
+    {% for i in 1..4 %}
+      <li class="flex flex-1 items-center gap-2 last:flex-none"{% if i == step %} aria-current="step"{% endif %}>
+        {% if i < step %}
+          <span class="grid h-7 w-7 flex-none place-items-center rounded-sm text-[13px] font-bold bg-ink text-inverse">
+            {{ icons.icon('check', 16) }}<span class="sr-only"> completed</span>
+          </span>
+          <span class="text-small whitespace-nowrap text-ink-2">{{ steps[i - 1] }}</span>
+        {% elseif i == step %}
+          <span class="grid h-7 w-7 flex-none place-items-center rounded-sm text-[13px] font-bold bg-action text-on-action">{{ i }}<span class="sr-only"> current</span></span>
+          <span class="text-small whitespace-nowrap font-semibold text-ink">{{ steps[i - 1] }}</span>
+        {% else %}
+          <span class="grid h-7 w-7 flex-none place-items-center rounded-sm text-[13px] font-bold border-[1.5px] border-line-strong text-ink-2">{{ i }}</span>
+          <span class="text-small whitespace-nowrap text-ink-2">{{ steps[i - 1] }}</span>
+        {% endif %}
+        {% if i < 4 %}
+          <span class="h-px min-w-4 flex-1 {{ i < step ? 'bg-ink' : 'bg-line-strong/50' }}" aria-hidden="true"></span>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+</div>

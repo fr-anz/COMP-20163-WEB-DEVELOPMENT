@@ -74,6 +74,18 @@ final class CartController
         return $this->mutate($request, $response, 'remove');
     }
 
+    public function rejectCsrf(
+        ServerRequestInterface $request,
+        ResponseInterface $response
+    ): ResponseInterface {
+        return $this->error(
+            $request,
+            $response,
+            403,
+            'Your session has expired — please reload and try again. An expired session loses its bag.'
+        );
+    }
+
     /**
      * The ?region= selection for the no-JS shipping estimate, allowlisted to
      * the supported keys; anything unknown or absent is an empty string.
@@ -96,17 +108,6 @@ final class CartController
     ): ResponseInterface {
         $body = $this->body($request);
 
-        $submittedToken = isset($body['csrf_token']) && is_string($body['csrf_token'])
-            ? $body['csrf_token']
-            : null;
-        if (!$this->cart->validateCsrf($submittedToken)) {
-            return $this->error(
-                $request,
-                $response,
-                403,
-                'Your session has expired — please add the item to your bag again.'
-            );
-        }
 
         $productId = CartService::parseId($body['product_id'] ?? null);
         if ($productId === null) {

@@ -1,0 +1,147 @@
+{#-
+  Habi checkout step 2 — payment (/checkout/payment, POST /api/payment/simulate),
+  matching the published Checkout example's payment form 1:1, including the
+  verbatim "SIMULATED PAYMENT — no real transaction occurs" banner (N3).
+  Validation is server-side (PaymentSimulator): inline field errors plus the
+  decline/insufficient-funds alert. Card inputs are never repopulated (the
+  controller renders them empty after a failure) and never stored — they use
+  autocomplete="off" and nothing is written to storage (N4). checkout.js adds
+  a spinner + polite status during the server's simulated 1.5–2.5 s gateway
+  wait; without JavaScript the form posts natively and works unchanged.
+  Receives exactly: app_name, app_env, cart, csrf_token, shipping (array),
+  regions (key => label), shipping_fee_centavos (int), total_centavos (int),
+  payment (result/last4/brand), idempotency_key, errors (field => message),
+  message (string|null), step.
+-#}
+{% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% from 'storefront/_checkout-summary.twig' import disclosure as summary_disclosure, aside as summary_aside %}
+{% set active_nav = '' %}
+{% set region_label = regions[shipping.region]|default('') %}
+
+{% block title %}Checkout · Payment — {{ app_name }}{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Habi checkout, step 2 of 4: simulated payment. Educational demo — no real gateway is contacted and nothing is charged.">
+{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-[1180px] px-4 py-6 @3xl:px-8 @3xl:py-10">
+    <div class="flex items-center justify-between gap-4">
+      <a href="/checkout" class="btn btn--tertiary btn--sm">
+        {{ icons.icon('arrow-left', 18) }}
+        <span>Back to Shipping</span>
+      </a>
+      <span class="flex items-center gap-1.5 text-caption text-ink-2">
+        {{ icons.icon('lock', 16) }} Demo checkout
+      </span>
+    </div>
+
+    {% include 'storefront/_checkout-stepper.twig' with { step: 2 } only %}
+
+    {{ summary_disclosure(cart, 2, region_label, shipping_fee_centavos, total_centavos) }}
+
+    <div class="mt-6 grid gap-10 @4xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div class="max-w-[640px]">
+        <form method="post" action="/api/payment/simulate" novalidate autocomplete="off" aria-labelledby="pay-h" data-checkout-payment>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <h1 id="pay-h" tabindex="-1" class="mb-4 font-display text-h2 font-semibold focus:outline-none">Payment</h1>
+
+          <div class="flex items-center gap-3 rounded-control border-[1.5px] border-dashed border-info bg-info-bg px-4 py-3 text-info">
+            {{ icons.icon('lock', 20, 'flex-none') }}
+            <p class="text-small font-bold tracking-wide">SIMULATED PAYMENT &mdash; no real transaction occurs</p>
+          </div>
+
+          <div class="mt-4"></div>
+
+          <div class="grid gap-5 @2xl:grid-cols-2">
+            <div class="@2xl:col-span-2">
+              <label for="p-holder" class="field-label">Name on card</label>
+              <div class="relative">
+                <input id="p-holder" autocomplete="off" readonly class="input"
+                       value="{{ shipping.name }}" aria-describedby="p-holder-hint">
+              </div>
+              <p id="p-holder-hint" class="field-hint">Uses your shipping name for this simulation. Change it in Shipping.</p>
+            </div>
+            <div class="@2xl:col-span-2">
+              <label for="p-card" class="field-label">Card number<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <div class="relative">
+                <input id="p-card" name="card_number" inputmode="numeric" autocomplete="off" placeholder="4242 4242 4242 4242" required aria-required="true"
+                       class="input" value=""
+                       {% if errors.card_number %}aria-invalid="true" aria-describedby="p-card-hint p-card-err"{% else %}aria-describedby="p-card-hint"{% endif %}>
+              </div>
+              <p id="p-card-hint" class="field-hint">Use a 13–19 digit Luhn-valid test number. 4242 4242 4242 4242 approves; 4000 0000 0000 0002 declines; 4000 0000 0000 9995 reports insufficient funds.</p>
+              {% if errors.card_number %}
+                <p id="p-card-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.card_number }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="">
+              <label for="p-exp" class="field-label">Expiry<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <div class="relative">
+                <input id="p-exp" name="expiry" placeholder="MM/YY" inputmode="numeric" autocomplete="off" required aria-required="true"
+                       class="input" value=""
+                       {% if errors.expiry %}aria-invalid="true" aria-describedby="p-exp-err"{% endif %}>
+              </div>
+              {% if errors.expiry %}
+                <p id="p-exp-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.expiry }}
+                </p>
+              {% endif %}
+            </div>
+            <div class="">
+              <label for="p-cvc" class="field-label">Security code<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+              <div class="relative">
+                <input id="p-cvc" name="cvc" inputmode="numeric" maxlength="4" autocomplete="off" required aria-required="true"
+                       class="input" value=""
+                       {% if errors.cvc %}aria-invalid="true" aria-describedby="p-cvc-hint p-cvc-err"{% else %}aria-describedby="p-cvc-hint"{% endif %}>
+              </div>
+              <p id="p-cvc-hint" class="field-hint">3&ndash;4 digits</p>
+              {% if errors.cvc %}
+                <p id="p-cvc-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                  {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.cvc }}
+                </p>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if message %}
+            <div class="mt-4 flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert">
+              {{ icons.icon('alert', 20, 'mt-0.5 flex-none') }}
+              <div class="min-w-0 flex-1">
+                <p class="text-[15px] font-semibold">{{ message }}</p>
+              </div>
+            </div>
+          {% endif %}
+
+          <p class="mt-4 flex items-center gap-2 text-caption text-ink-2">
+            {{ icons.icon('lock', 16) }} Full card number, expiry and security code are used only for this simulation and never saved.
+          </p>
+
+          <button type="submit" class="btn btn--primary btn--lg mt-6" data-checkout-submit>
+            <span class="inline-flex items-center gap-2" data-checkout-submit-label>
+              <span>Review order</span>
+              {{ icons.icon('arrow-right', 20) }}
+            </span>
+          </button>
+          <p class="mt-4 hidden items-center gap-3 text-small text-ink-2" role="status" data-checkout-processing>
+            <span class="flex h-8 w-16 flex-col justify-between" aria-hidden="true">
+              <span class="block h-1.5 origin-left rounded-sm bg-action" style="animation: habi-weave-load 1.2s 0s var(--ease-weave) infinite;"></span>
+              <span class="block h-1.5 origin-left rounded-sm bg-yellow-400" style="animation: habi-weave-load 1.2s 0.15s var(--ease-weave) infinite;"></span>
+              <span class="block h-1.5 origin-left rounded-sm bg-green-700" style="animation: habi-weave-load 1.2s 0.3s var(--ease-weave) infinite;"></span>
+            </span>
+            <span>Processing payment&hellip;</span>
+          </p>
+        </form>
+      </div>
+
+      {{ summary_aside(cart, 2, region_label, shipping_fee_centavos, total_centavos) }}
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ parent() }}
+  <script src="/assets/js/checkout.js" defer></script>
+{% endblock %}

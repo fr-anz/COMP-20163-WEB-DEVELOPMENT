@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 use Habi\Bootstrap\Initializer;
 use Habi\Controllers\CartController;
+use Habi\Controllers\CheckoutController;
 use Habi\Controllers\StorefrontController;
 use Habi\Middleware\ErrorHandler;
+use Habi\Middleware\AdminAuthMiddleware;
+use Habi\Middleware\CsrfMiddleware;
 use Habi\Services\CartService;
 use Habi\Services\ProductService;
+use Habi\Services\OrderService;
+use Habi\Services\PaymentSimulator;
 use Habi\Support\Database;
 use Habi\Support\Env;
 use Habi\Support\Session;
@@ -32,6 +37,44 @@ $twig = new TwigEnvironment(
     ['autoescape' => 'html']
 );
 
+
+// The controller is built inside each route handler so the database
+// connection is only opened after the first-boot middleware has run.
+$storefront = static function () use ($twig): StorefrontController {
+    return new StorefrontController(
+        $twig,
+        new ProductService(Database::connection()),
+        new CartService(Database::connection(), Session::store())
+    );
+};
+
+$cart = static function () use ($twig): CartController {
+    return new CartController(
+        $twig,
+        new CartService(Database::connection(), Session::store())
+    );
+};
+
+$checkout = static function () use ($twig): CheckoutController {
+    $session = Session::store();
+
+    return new CheckoutController(
+        $twig,
+        new CartService(Database::connection(), $session),
+        $session,
+        new OrderService(Database::connection()),
+        new PaymentSimulator()
+    );
+};
+
+// Slim executes middleware last-added first: response headers, error handler,
+// database initialization, CSRF, administrator authorization, then routing.
+$app->add(new AdminAuthMiddleware($psr17Factory));
+$app->add(new CsrfMiddleware(
+    $psr17Factory,
+    static fn (ServerRequestInterface $request, ResponseInterface $response): ResponseInterface =>
+        $cart()->rejectCsrf($request, $response)
+));
 // First-boot initialization runs on every request but only acts when the
 // schema is missing; it is transactional and safe under concurrent boots.
 // A failure (for example missing admin settings on an empty database) is
@@ -60,33 +103,55 @@ $app->add(function (
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(new ErrorHandler($psr17Factory));
 
-// Every storefront/cart route is session-backed, so responses must never be
-// cached by browsers or shared caches.
+// All session-backed responses, including failed POSTs, must not be cached.
 $app->add(function (
     ServerRequestInterface $request,
     RequestHandlerInterface $handler
 ): ResponseInterface {
     $response = $handler->handle($request);
 
-    return $response->withHeader('Cache-Control', 'no-store');
+    return $response
+        ->withHeader('Cache-Control', 'no-store')
+        ->withHeader('X-Content-Type-Options', 'nosniff')
+        ->withHeader('X-Frame-Options', 'DENY')
+        ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 });
 
-// The controller is built inside each route handler so the database
-// connection is only opened after the first-boot middleware has run.
-$storefront = static function () use ($twig): StorefrontController {
-    return new StorefrontController(
-        $twig,
-        new ProductService(Database::connection()),
-        new CartService(Database::connection(), Session::store())
-    );
-};
+$app->get('/checkout', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $checkout()->shipping($request, $response));
 
-$cart = static function () use ($twig): CartController {
-    return new CartController(
-        $twig,
-        new CartService(Database::connection(), Session::store())
-    );
-};
+$app->post('/checkout/shipping', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $checkout()->saveShipping($request, $response));
+
+$app->get('/checkout/payment', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $checkout()->payment($request, $response));
+
+$app->post('/api/payment/simulate', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $checkout()->simulate($request, $response));
+
+$app->get('/checkout/review', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $checkout()->review($request, $response));
+
+$app->post('/checkout/place', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $checkout()->place($request, $response));
+
+$app->get('/order/{orderNumber}', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => $checkout()->confirmation($request, $response, $args));
 
 $app->get('/', fn (
     ServerRequestInterface $request,
