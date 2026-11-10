@@ -981,7 +981,9 @@ Acceptance status:
   seed secrets in the owner's account; no Railway access was available in this session.
 - [ ] Persistence across restart/redeploy **on Railway**: blocked on the live deployment above;
   verified only on local Docker volumes.
-- [ ] CI green on `main`: pending PR review/merge.
+- [ ] CI green on `main`: pending review/merge of PR #19. CI passed on the PR, both jobs
+  ([run 42804495037](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/actions/runs/42804495037)).
+- [ ] Cross-track PR review (§2.5): pending.
 - [ ] Real-device/screen-reader pass: not run (emulated touch only, as in M7).
 
 ## 2. Definition of Done (per milestone)
