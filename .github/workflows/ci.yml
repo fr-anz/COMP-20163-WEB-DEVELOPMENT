@@ -1,7 +1,8 @@
 name: CI
 
-# Railway (and the Render alternative) deploy main only after these checks
-# pass on the commit: see README "Deploy". No deployment secret lives here.
+# Pushes to main deploy to the Google Cloud VM only after both check jobs pass
+# (README "Deploy"). The deploy job runs once the GCE_HOST repository variable
+# is set; its SSH key can only run deploy/gce/update.sh with a commit SHA.
 on:
   push:
     branches: [main]
@@ -77,3 +78,28 @@ jobs:
           after=$(docker exec habi php -r 'echo (new PDO("sqlite:/app/data/app.sqlite"))->query("SELECT COUNT(*) FROM products")->fetchColumn();')
           echo "products before=$before after=$after"
           [ "$before" = 10 ] && [ "$after" = "$before" ]
+
+  deploy:
+    name: Deploy to Google Cloud
+    needs: [php, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCE_HOST != ''
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Deploy this commit over SSH
+        env:
+          SSH_KEY: ${{ secrets.GCE_SSH_KEY }}
+          KNOWN_HOSTS: ${{ vars.GCE_KNOWN_HOSTS }}
+          HOST: ${{ vars.GCE_HOST }}
+          SHA: ${{ github.sha }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/habi_deploy
+          chmod 600 ~/.ssh/habi_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/habi_deploy -o BatchMode=yes -o StrictHostKeyChecking=yes "deploy@$HOST" "$SHA"
+
+      - name: Public HTTPS health check
+        run: curl -fsS --retry 10 --retry-delay 6 --retry-all-errors -o /dev/null -w '%{http_code}\n' "https://${{ vars.GCE_HOST }}/"

@@ -1,0 +1,9 @@
+# HABI_DOMAIN comes from /srv/habi/caddy.env. Caddy redirects HTTP to HTTPS,
+# obtains a Let's Encrypt certificate once DNS points at the VM, and sets
+# X-Forwarded-Proto/Host for the application's canonical URLs.
+{$HABI_DOMAIN} {
+	# The app already gzips PHP responses; this also compresses static CSS,
+	# fonts and SVG, which php -S sends uncompressed.
+	encode zstd gzip
+	reverse_proxy app:8080
+}
