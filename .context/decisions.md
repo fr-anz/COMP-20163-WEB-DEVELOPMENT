@@ -22,3 +22,15 @@
 - **Reason/source:** user approved the direction brief after three interview rounds; wants handmade, contemporary, distinctly Filipino identity rather than generic e-commerce/editorial branding.
 - **Asset boundary:** supplied images are inspiration and procedural-3D modeling references for the educational demo, not authorized publication assets or proof of product/maker ownership. DSD §9 governs generated/authorized website assets.
 - **Consequences:** reconcile all five planning docs; brand naming is complete. Exact fonts/colors and original publishable assets remain implementation choices. No application implementation was requested or performed.
+
+## D5 — 2026-11-10 — accepted by user (via Q&A) — M8 deployment configuration
+- **Decision:** (1) start the built-in server with `public/index.php` as router (`php -S … -t public public/index.php`) in dev and the image; (2) configure Railway through one-time service settings documented in README, committing no `railway.json`; Render via `render.yaml`. **Part (2) superseded by D6.**
+- **Reason:** PHP 8.2's server 404s dotted paths (`/uploads/<hex>.png`) without a router (php-src #12604); Railway Config as Code is deprecated, unavailable to new services and unread after 2026-12-01, while IaC would add npm plus a token.
+- **Alternatives rejected:** extension-free upload URLs (data/template migration); `.railway/railway.ts` IaC.
+- **Source:** issue #9; docs/SDD.md §12; README Deploy.
+
+## D6 — 2026-11-10 — accepted by user (via Q&A) — Google Cloud e2-micro replaces Railway
+- **Decision:** production runs on one Compute Engine `e2-micro` (Debian 13, `pd-standard`, static IPv4) using `deploy/gce/` (Compose: app + Caddy HTTPS for the owner's own domain, data in `/srv/habi/data`). GitHub Actions deploys `main` after CI over SSH; the key's forced command is `update.sh`, accepting only a SHA on `main`. Render stays the alternative.
+- **Reason:** user chose the Always Free VM and own domain. External IPv4 is billed (~$3.65/month); the user's $10 credit covers it for about 2.7 months.
+- **Alternatives rejected:** IPv6-only + Cloudflare ($0 but fragile, GitHub lacks IPv6); manual-only updates.
+- **Source:** issue #9; README Deploy; docs/SDD.md §12.

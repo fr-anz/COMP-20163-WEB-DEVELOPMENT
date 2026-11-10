@@ -1,0 +1,10 @@
+# Allowlist: only runtime sources enter the image. This keeps .env secrets,
+# local SQLite data, uploads, vendor/ (rebuilt), .git and dev tooling out.
+*
+!composer.json
+!composer.lock
+!public/
+!src/
+!views/
+!migrations/
+!seed/

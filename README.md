@@ -1,6 +1,6 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M6 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders. The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Deployment remains a later [milestone](docs/BUILD.md). Local implementation is separate from the review/merge requirements recorded in BUILD.
+Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M6 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders. M8 adds the production Docker image, CI and deployment to a Google Cloud e2-micro VM, with Render as the alternative ([Deploy](#deploy)). The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
 
 ## Local setup — three steps
 
@@ -18,9 +18,11 @@ Requires PHP **8.2+**, Composer 2, and PHP extensions `pdo_sqlite`, `mbstring`, 
    Choose a local-only password; the prompt echoes input, so use a private terminal. Paste the generated hash into `ADMIN_SEED_PASSWORD_HASH` in `.env`, keeping **single quotes**. Set `ADMIN_SEED_EMAIL` and optionally `ADMIN_SEED_NAME`. Never put a plaintext password in `.env` or commit it. Process environment values override `.env` settings.
 3. Start the development server from the repository root:
    ```sh
-   php -S localhost:8000 -t public
+   php -S localhost:8000 -t public public/index.php
    ```
    Open <http://localhost:8000>. The first request initializes `data/app.sqlite` and seeds 10 fictional bags across four categories plus your configured administrator. Later requests/restarts preserve data and do not reset credentials. Sign in at <http://localhost:8000/admin> with `ADMIN_SEED_EMAIL` and the password you hashed. A database created before M6 is upgraded in place on the next request (the `login_attempts` table is added; no data is reset).
+
+`public/index.php` is also the built-in server's router. Keep that last argument: without it PHP 8.2 treats any dotted path as a static file and answers 404 for uploaded images (`/uploads/<name>.png`) before the application runs. Real files in `public/` are still served directly. Optionally set `PHP_CLI_SERVER_WORKERS=4` so a simulated payment does not block other requests.
 
 `DB_DSN=sqlite:data/app.sqlite` resolves relative to the repository root; an absolute SQLite path is also supported. The database directory must be writable. Missing/invalid first-boot admin settings prevent initialization rather than creating a default password. Fix `.env` and request the page again. No credentials or internal errors are shown in the browser; inspect server stderr for local diagnosis. Optionally set `APP_URL` (for example `APP_URL=https://habi.example.com`, no trailing slash) to pin the absolute base URL used for canonical links and Open Graph tags; when blank it is derived from each request's scheme and host.
 
@@ -39,9 +41,12 @@ php seed/seed.php --force
 ```sh
 composer validate --strict
 vendor/bin/phpunit
-vendor/bin/phpcs --standard=PSR12 src public/index.php seed tests
-find src public seed tests -name '*.php' -print0 | xargs -0 -n1 php -l
+composer cs      # PSR-12: src public/index.php seed tests
+composer lint    # php -l over src public seed tests
+docker build -t habi .
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the same checks on every pull request and push to `main`, then boots the image on an empty volume. That job checks `/`, `/products`, a static file, a dotted application path and a restart preserving the catalog.
 
 PHPUnit uses isolated databases, not your local demo inventory. Catalog coverage includes filters/order/pagination and active/sold-out visibility; inspection coverage includes active-only configs and ordered galleries. Cart boundary coverage includes cumulative stock caps, persistent corrections/removals, malformed quantities, session isolation and CSRF rejection. Inspect the actual changed surface at 360 px and wide widths with keyboard navigation; PHP checks do not establish visual accessibility. On product pages, also exercise viewer loading/retry, WebGL fallback, pause/reduced motion and mobile dialog close/Esc/focus return. Exact observed scenarios and commands are recorded in [BUILD](docs/BUILD.md).
 
@@ -49,7 +54,129 @@ Admin coverage includes the sign-in throttle and lockout expiry, stale/negative 
 
 Exact-cutover visual, keyboard, no-JS and recovery checks are recorded in [BUILD — Exact published-reference cutover](docs/BUILD.md#exact-published-reference-cutover-2026-11-10); earlier reconciliation and performance measurements remain historical.
 
+## Deploy
+
+The image is `php:8.2-cli` with production Composer dependencies, running the same front controller as development: `php -S 0.0.0.0:$PORT -t public public/index.php` (N6). It defaults `APP_ENV=production`, `DB_DSN=sqlite:/app/data/app.sqlite`, `PORT=8080` and four server workers. `.env`, local data, uploads and `vendor/` are never copied into the image (allowlist `.dockerignore`). Configuration comes only from environment variables.
+
+**Persistent data:** `/app/data` holds `app.sqlite` and `uploads/`. Mount a volume there. The first request on an empty volume migrates and seeds 10 products plus the administrator from `ADMIN_SEED_EMAIL`/`ADMIN_SEED_PASSWORD_HASH`. Every later boot, restart and redeploy keeps inventory, orders, uploads and the administrator. Changing the seed variables afterwards does not reseed or replace the administrator. Without seed variables an empty volume is left uninitialized and visitors get a generic 500 page. Only the explicit `php seed/seed.php --force` resets data. Deleting the volume deletes the shop.
+
+Run the production image locally:
+
+```sh
+docker build -t habi .
+docker volume create habi-data
+docker run --rm -p 8080:8080 -v habi-data:/app/data \
+  -e ADMIN_SEED_EMAIL=admin@example.test \
+  -e ADMIN_SEED_PASSWORD_HASH='<hash from the setup step>' habi
+```
+
+Open <http://localhost:8080> (browsers accept the production Secure session cookie on `localhost`; use HTTPS elsewhere). Stopping and re-running with the same volume keeps all data.
+
+### Google Cloud e2-micro (production)
+
+One Compute Engine `e2-micro` VM runs `deploy/gce/compose.yaml`: the Habi image plus [Caddy](https://caddyserver.com/), which redirects HTTP to HTTPS and obtains and renews the Let's Encrypt certificate for your domain. Data lives in `/srv/habi/data` on the VM's disk (mounted at `/app/data`).
+
+**Cost.** Always Free covers one `e2-micro` in `us-west1`, `us-central1` or `us-east1`, 30 GB of **standard** persistent disk, and 1 GB of outbound traffic a month. The VM's public IPv4 address is **not** free: it costs $0.005/hour, about **$3.65/month**, which credits can cover ([pricing](https://cloud.google.com/vpc/network-pricing)). Traffic beyond 1 GB a month is billed. Set a budget alert under Billing → Budgets.
+
+**1. Create the VM** in [Cloud Shell](https://shell.cloud.google.com), which has `gcloud` preinstalled. `us-west1` is the closest free region to the Philippines.
+
+```sh
+PROJECT=your-project-id
+REGION=us-west1
+ZONE=us-west1-b
+gcloud config set project "$PROJECT"
+gcloud services enable compute.googleapis.com
+gcloud compute addresses create habi-ip --region "$REGION"
+gcloud compute addresses describe habi-ip --region "$REGION" --format='value(address)'
+gcloud compute firewall-rules create habi-allow-web --network default \
+  --allow tcp:80,tcp:443,udp:443 --target-tags habi-web
+gcloud compute instances create habi --zone "$ZONE" --machine-type e2-micro \
+  --image-family debian-13 --image-project debian-cloud \
+  --boot-disk-size 30GB --boot-disk-type pd-standard \
+  --address habi-ip --tags habi-web
+```
+
+Keep `--boot-disk-type pd-standard`: the default balanced disk is not free. GitHub Actions deploys over SSH, which needs the default network's `default-allow-ssh` rule (port 22). Check it with `gcloud compute firewall-rules list`.
+
+**2. DNS.** At your domain registrar, add an **A record** for your hostname (for example `shop.example.com`) pointing to the address printed above. Wait until `dig +short shop.example.com` returns it. Caddy can only obtain the certificate after that. On **Cloudflare**, set the record to **DNS only** (grey cloud): a proxied record hides the VM's address, which breaks the SSH deploy and the certificate setup.
+
+**3. Deploy key** (for GitHub Actions), in Cloud Shell:
+
+```sh
+ssh-keygen -t ed25519 -N '' -C habi-deploy -f habi_deploy
+cat habi_deploy.pub
+```
+
+**4. Set up the VM.** Generate the admin password hash as in [Local setup](#local-setup--three-steps) step 2. In Cloud Shell, which has Docker, you can use `read -rsp 'Admin password: ' P; echo; docker run --rm -e P="$P" php:8.2-cli php -r 'echo password_hash(getenv("P"), PASSWORD_DEFAULT), PHP_EOL;'; unset P`. Then open a shell on the VM with `gcloud compute ssh habi --zone "$ZONE"` and run:
+
+```sh
+sudo apt-get update && sudo apt-get install -y git
+git clone https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT.git habi-setup
+sudo HABI_DOMAIN=shop.example.com \
+  ADMIN_SEED_EMAIL=you@example.com \
+  ADMIN_SEED_PASSWORD_HASH='$2y$12$…your hash…' \
+  DEPLOY_PUBKEY='ssh-ed25519 AAAA… habi-deploy' \
+  sh habi-setup/deploy/gce/setup.sh
+```
+
+Keep the hash in **single quotes** here. `setup.sh` is idempotent and does the following:
+- installs Docker and adds 1 GB of swap
+- creates the `deploy` user, `/srv/habi/{app,data}`, and the settings files `/srv/habi/habi.env` and `caddy.env`; existing files are never overwritten
+- installs the deploy key with a forced command, so the key can only run `deploy/gce/update.sh` with a commit already on `main`
+- builds and starts the stack, and checks that `/` is healthy
+
+It ends by printing a `GCE_KNOWN_HOSTS` line. Until this branch is merged, add `--branch ad/m8-deploy` to the clone and `HABI_BRANCH=ad/m8-deploy` to the `sudo` line.
+
+**5. Auto-deploy from GitHub.** In Cloud Shell, or anywhere `gh` is signed in to this repository:
+
+```sh
+gh secret set GCE_SSH_KEY < habi_deploy
+gh variable set GCE_KNOWN_HOSTS --body 'shop.example.com ssh-ed25519 AAAA…'   # line printed by setup.sh
+gh variable set GCE_HOST --body shop.example.com
+rm habi_deploy
+```
+
+After that, each push to `main` runs the CI checks. Only when they pass does the **Deploy to Google Cloud** job run `update.sh <commit>` over SSH and check `https://<host>/`. That script checks out the commit, rebuilds, restarts, and waits for a healthy `/`. Without `GCE_HOST`, the deploy job is skipped.
+
+**Operate.** All commands run on the VM:
+
+| Task | Command |
+|---|---|
+| Status | `sudo -u deploy docker compose -f /srv/habi/app/deploy/gce/compose.yaml ps` |
+| Logs | `sudo -u deploy docker compose -f /srv/habi/app/deploy/gce/compose.yaml logs -f --tail 50` |
+| Manual deploy of `main` | `sudo -u deploy /srv/habi/app/deploy/gce/update.sh` |
+
+Online backup to a new timestamped file in `/srv/habi/data` (SQLite `VACUUM INTO` will not overwrite an existing file):
+
+```sh
+sudo -u deploy docker compose -f /srv/habi/app/deploy/gce/compose.yaml exec -T app \
+  php -r '(new PDO("sqlite:/app/data/app.sqlite"))->exec("VACUUM INTO \"/app/data/backup-" . date("Ymd-His") . ".sqlite\"");'
+```
+
+Containers restart automatically after a reboot. Data in `/srv/habi/data` survives redeploys, reboots and image rebuilds. Deleting the VM or its boot disk deletes the shop.
+
+Verify: `https://<domain>/` returns 200, `/admin` signs in with the hashed password, and an order or stock change survives `update.sh` and `sudo reboot`.
+
+### Render (alternative)
+
+`render.yaml` defines a Docker web service with a 1 GB persistent disk at `/app/data`, health check `/`, and deploys after checks pass. **New → Blueprint** → this repository, then enter the prompted `ADMIN_SEED_*` values (hash without quotes). Persistent disks need a paid instance type. A free instance has no disk, so its data is lost on every deploy.
+
 ## Architecture and scope
+
+```mermaid
+flowchart LR
+  Browser -->|HTTPS| Proxy["Caddy on the e2-micro VM (or Render proxy)"]
+  Proxy --> Server["php -S (router: public/index.php)"]
+  Server -->|files in public/| Static[CSS, JS, fonts, SVG, Three.js]
+  Server --> Slim[Slim 4 middleware: headers, errors, first-boot init, CSRF, admin auth]
+  Slim --> Controllers[Storefront / cart / checkout / admin / upload controllers]
+  Controllers --> Services[Services: catalog, cart, orders, stock, auth, payment simulator]
+  Controllers --> Twig[Twig 3 views]
+  Services --> DB[(SQLite app.sqlite)]
+  Controllers --> Uploads[(data/uploads)]
+  DB -.-> Volume["Persistent volume /app/data"]
+  Uploads -.-> Volume
+```
 
 `public/index.php` → Slim 4 → storefront/cart/checkout/admin controllers → services/PDO → Twig 3; PSR-4 `Habi\` classes live in `src/`. Support helpers load environment settings and provide PDO SQLite, with transactional initialization and idempotent upgrades. Templates autoescape HTML. Global middleware protects every POST with a per-session CSRF token and redirects every `/admin` path except `/admin/login` to sign-in. Native PHP session cookies are session-only, HttpOnly and SameSite=Lax; Secure is set for HTTPS or `APP_ENV=production`. Admin sign-in regenerates the session ID and CSRF token. Responses are `no-store`.
 
@@ -164,4 +291,4 @@ contacted at runtime and no frontend build step is required. Geometry and
 canvas-generated material patterns are original Habi demo artwork, not supplied
 reference photographs or downloaded models.
 
-Requirements: [PRD](docs/PRD.md) · architecture: [SDD](docs/SDD.md) · [issue #3](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/3). N6 local execution is M0 scope; Docker, deployment and persistence on a hosted volume remain M8. No real payments are processed. Local implementation does not imply human PR review, merge or deployment.
+Requirements: [PRD](docs/PRD.md) · architecture: [SDD](docs/SDD.md) · deployment: [SDD §12](docs/SDD.md#12-deployment-design-n6-build-m8) · evidence: [BUILD](docs/BUILD.md). No real payments are processed. Local implementation does not imply human PR review, merge or deployment.

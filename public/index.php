@@ -33,6 +33,25 @@ use Slim\App;
 use Twig\Environment as TwigEnvironment;
 use Twig\Loader\FilesystemLoader;
 
+// php -S treats any request path containing a dot as a file: without a
+// router script PHP 8.2 answers 404 for /uploads/<name>.png without running
+// this front controller (php-src #12604). Started as the router
+// (`php -S … -t public public/index.php`), it hands real files under
+// public/ back to the server and routes everything else through Slim.
+if (PHP_SAPI === 'cli-server') {
+    $requestPath = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH));
+    // A decoded NUL byte makes realpath() throw; such paths are never files.
+    $requestFile = str_contains($requestPath, "\0") ? false : realpath(__DIR__ . $requestPath);
+    if (
+        $requestFile !== false
+        && $requestFile !== __FILE__
+        && str_starts_with($requestFile, __DIR__ . DIRECTORY_SEPARATOR)
+        && is_file($requestFile)
+    ) {
+        return false;
+    }
+}
+
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 // PHP diagnostics go to the server log only: a displayed warning would leak

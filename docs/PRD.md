@@ -46,7 +46,7 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
   order confirmation with order number (H- prefix).
 - REAL SQLite demo inventory: stock decrements atomically on successful (simulated) payment; goods are fictional.
 - Admin panel: login, product CRUD, stock management, order list + status.
-- Web deployment (Railway/Render via Docker) — see SDD §12, BUILD M8.
+- Web deployment (Docker on a Google Cloud Compute Engine e2-micro; Render alternative) — see SDD §12, BUILD M8.
 
 ### Out of scope
 - Real payment gateway integration, real shipping carrier integration, real email/SMS.
@@ -120,7 +120,7 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
   disclaimer on the payment step and confirmation page.
 - **N4** Privacy: store only order-necessary data; card numbers are **never stored** (only last4 + brand for display, or nothing at all — see SDD §9-10).
 - **N5** Browser support: last 2 versions of Chrome, Firefox, Safari, Edge.
-- **N6** Runs identically via `php -S localhost:8000 -t public` (dev) and in the production Docker image (Railway/Render — see SDD §12).
+- **N6** Runs identically via `php -S localhost:8000 -t public public/index.php` (dev) and in the production Docker image (Google Cloud VM / Render — see SDD §12).
 - **N7** Data: seeded demo catalog of **10 products** across ≥4 categories; prices in PHP pesos. **Demo origin labels are not factual.**
 - **N8** Code quality: PSR-12, `php -l` clean, Composer autoload (PSR-4), no committed vendor dir.
 
@@ -133,21 +133,21 @@ Habi is an **educational** e-commerce demonstration: a storefront showcasing han
 | Page performance | LCP < 3 s on throttled 4G (Lighthouse) |
 | Admin task time | Add product < 2 min; update stock < 30 s |
 | Accessibility | Lighthouse a11y score ≥ 90; keyboard-only checkout possible |
-| Deploy | Live URL on Railway/Render, HTTPS, SQLite persisted across restarts |
+| Deploy | Live URL on the Google Cloud VM (or Render), HTTPS, SQLite persisted across restarts and redeploys |
 
 ## 8. Constraints
 
 - Backend language **must be PHP** (course requirement); Composer allowed.
 - Checkout/payment is **simulated only** (N3).
-- Must be deployable to the web (Railway or Render via Docker) — target chosen in SDD §12.
+- Must be deployable to the web (Docker on Google Cloud Compute Engine, Render alternative) — target chosen in SDD §12.
 - Team of 4; build phased by feature, no fixed external deadline (BUILD.md).
 
 ## 9. Open Items / Placeholders
 
-- **Fonts and assets:** fonts and colors are approved via the design reference and implemented in `app.css` (DSD §2–3); later screen assets still require review.
+- **Fonts and assets:** resolved — fonts, colors and SVG artwork come from the approved published reference, implemented in `app.css`, with sources/licenses in DSD §6 (no open item recorded there). M7 checked published content and raster assets (BUILD M7). New assets need the same DSD §6 record and review-screen check.
 - **Product imagery:** published-reference SVG illustrations replace the previous poster-style seed artwork; original procedural exterior models/textures are M2 and lining/configured pockets are M3. Asset sources and licenses are recorded in DSD §6. **Supplied reference photographs remain inspiration/modeling references only, NOT publication assets or proof of Habi ownership/provenance.** Local R5 verification and outstanding DoD requirements belong in BUILD.
-- **Province list:** simplified region-level shipping map (R12); full PH province list is v2.
-- **Deployment:** Railway preferred; dev command uses `-t public` (N6). Privacy references SDD §9-10.
+- **Province list:** scheduled for v2 (post-course backlog) — v1 keeps the simplified region-level shipping map (R12).
+- **Deployment:** resolved — Google Cloud Compute Engine e2-micro with Caddy HTTPS and data on the VM disk; Render documented as the alternative (SDD §12, decision D6). Dev and the image share `php -S … -t public public/index.php` (N6). Privacy references SDD §9-10. Hosted acceptance status is recorded in BUILD M8.
 
 ### Prototype vs requirements
 

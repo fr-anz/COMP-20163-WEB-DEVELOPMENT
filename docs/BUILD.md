@@ -5,7 +5,7 @@
 | Version | 1.1 · 2026-11-09 |
 | Basis | [PRD.md](PRD.md) R#/N# · [SDD.md](SDD.md) architecture · [DSD.md](DSD.md) components · [USER-JOURNEY.md](USER-JOURNEY.md) flows |
 | Team | **4 people**, feature-phased milestones (no fixed deadline) |
-| Stack | PHP 8.2+, Composer, Slim 4, Twig 3, PDO SQLite, vendored Three.js, Docker → Railway/Render |
+| Stack | PHP 8.2+, Composer, Slim 4, Twig 3, PDO SQLite, vendored Three.js, Docker → Google Cloud e2-micro (Render alternative) |
 
 ---
 
@@ -16,7 +16,7 @@
 | **A — Backend & Data** | PHP/Slim/PDO, models, migrations, seed, cart/checkout/order services, inventory transactions, payment simulator, auth, middleware | `src/` (all), `migrations/`, `seed/`, `tests/` |
 | **B — 3D Viewer** | Three.js procedural bag factory, orbit + peek-inside, per-product configs, fallback | `public/assets/js/viewer3d.js`, `bagFactory.js`; proposes `three_config` seed values (R4–R6, R27) — A integrates |
 | **C — Storefront UI** | DSD implementation, all storefront Twig views, cart drawer, checkout UX, responsive + a11y | `public/assets/css/app.css` (shared admin tokens), `views/storefront/`, `public/assets/js/cart.js`, `checkout.js` (R1–R3, R7–R17, R24–R26) |
-| **D — Admin & DevOps** | Admin panel UI, Docker, Railway/Render deploy, CI, README | `views/admin/`, `Dockerfile`, `railway.json`/`render.yaml`, `.github/workflows/` (R18–R23, N2, N6) |
+| **D — Admin & DevOps** | Admin panel UI, Docker, Google Cloud/Render deploy, CI, README | `views/admin/`, `Dockerfile`, `.dockerignore`, `deploy/gce/`, `render.yaml`, `.github/workflows/` (R18–R23, N2, N6) |
 
 Integration points: A+B meet at `GET /api/product/{slug}/3d`; A+C meet at cart/checkout
 endpoints; C+D meet at admin templates; all meet at DSD tokens in `app.css`.
@@ -901,12 +901,120 @@ read the wrong `$_SERVER` key, so proxied HTTPS produced `http://` canonical/OG 
 reads `HTTP_X_FORWARDED_PROTO` (and treats `APP_ENV=production` as HTTPS, like the session).
 
 ### M8 — Deploy & CI (D lead)
-- D: `Dockerfile` (php:8.2-cli, composer install --no-dev, `php -S 0.0.0.0:$PORT -t public`),
-  `.dockerignore`, `railway.json` + volume at `/app/data` (SQLite persists), Render `render.yaml` alt,
-  GitHub Actions CI (composer validate, php -l, PHPUnit, docker build), auto-deploy on main.
+- D: `Dockerfile` (php:8.2-cli, composer install --no-dev, `php -S 0.0.0.0:$PORT -t public public/index.php`),
+  `.dockerignore`, Google Cloud e2-micro stack `deploy/gce/` (Compose + Caddy HTTPS, data on the VM
+  disk at `/app/data`), Render `render.yaml` alt, GitHub Actions CI (composer validate, php -l, PSR-12,
+  PHPUnit, docker build) and SSH deploy of `main` after CI. Railway was replaced by Google Cloud (D6).
 - A: env-driven DSN (`DB_DSN`), boot migration on empty volume, admin seeded from env secrets.
 - All: README final (run, deploy, test cards, architecture diagram), PRD §9 items resolved or scheduled.
-- **Done when:** live HTTPS URL on Railway; restart container → data persists (N6); CI green on main.
+- **Done when:** live HTTPS URL on the Google Cloud VM; restart/redeploy → data persists (N6); CI green on main.
+
+M8 implementation ([issue #9](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/issues/9),
+branch `ad/m8-deploy`, 2026-11-10). Decisions: `.context/decisions.md` D5 (router), D6 (Google Cloud).
+
+Implementation checklist:
+
+- [x] `Dockerfile` (php:8.2-cli, production `php.ini`, `composer install --no-dev`, optimized
+  autoload, `PHP_CLI_SERVER_WORKERS=4`, `CMD php -S 0.0.0.0:${PORT} -t public public/index.php`)
+  and an allowlist `.dockerignore`. The image contains no `.env`, `data/*.sqlite`, uploads, `.git` or dev
+  dependencies, and has `pdo_sqlite`, `mbstring`, `zlib` and `fileinfo` on PHP 8.2.35.
+- [x] Google Cloud e2-micro: `deploy/gce/compose.yaml` (app + Caddy, `/srv/habi/data` → `/app/data`,
+  raw env files, rotated logs), `caddy/Caddyfile`, idempotent `setup.sh`, and `update.sh` (also the SSH
+  forced command; deploy lock, refuses commits without the deploy files, reloads Caddy).
+  The README runbook covers `gcloud`, DNS, deploy key, setup and GitHub variables.
+  Railway was first configured, then replaced by the owner's choice (D6). Render alternative:
+  `render.yaml` (paid plan + disk) validates against Render's JSON schema.
+- [x] `DB_DSN` comes from the environment (image default `sqlite:/app/data/app.sqlite`); seed
+  credentials only from `ADMIN_SEED_*`. An empty volume initializes once; nothing reseeds it.
+- [x] `.github/workflows/ci.yml`: composer validate, `php -l`, PSR-12, PHPUnit, Docker build +
+  empty-volume boot/routing/restart smoke; `deploy` job (push to `main`, after both jobs, only when
+  `GCE_HOST` is set) runs `update.sh <sha>` over SSH with a pinned host key, then checks HTTPS `/`.
+- [x] README run/deploy/test-card/architecture (Mermaid) sections; PRD §9: fonts/assets and
+  deployment resolved, province list scheduled for v2.
+
+**Defect found and fixed (N6, R23).** Under PHP 8.2's built-in server, the image and course version,
+`/uploads/<hex>.png` returned the server's own 404 without running the app. Any missing dotted
+path is treated as a static file (php-src #12604). Local PHP 8.5 routed it, which is why M6
+observed 200. `public/index.php` is now also the router script: real files under `public/` are
+passed back to the server; all other paths reach Slim. Uploaded images now serve `200 image/png`
+after a redeploy. Traversal (`/../.env`, `/%2e%2e/.env`, `/../composer.json` with `--path-as-is`)
+gets the Habi 404, and `/index.php` and missing assets also get the Habi 404. Review found that a
+`%00` path made `realpath()` throw an uncaught `ValueError`. NUL paths now skip the passthrough:
+`/%00` and `/assets/%00.css` get the Habi 404, with no fatal error in the log. Also removed two
+stale "Checkout arrives in a later milestone" sentences from the product page (checkout is live
+since M5).
+
+Container verification (local Docker 2026-11-10, image `habi:m8`, named volume, isolated admin hash;
+throwaway scripts in `/tmp/habi-m8/`):
+
+- [x] Health: `GET /` → 200 from the container; Secure, HttpOnly, SameSite=Lax session cookie;
+  `no-store` and security headers present.
+- [x] Simulated payments over real HTTP: `4242…4242` → Review → Place → `H-20261110-0001`, Sinag
+  12 → 11; `…0002` → 422 "declined (simulated)"; `…9995` → 422 "Insufficient funds (simulated)".
+  Neither decline created an order or changed stock.
+- [x] Admin: sign-in, two-step +5 adjustment (Alon 15 → 20, audit row with reason/note), image
+  upload served from `/uploads/…png`, and the order list shows the browser-placed order.
+- [x] Stock race: Gabi set to 1 via admin; 8 sessions reached Review, then 8 parallel Place
+  requests → exactly **1** order (`H-20261110-0002`), 7 redirected to the bag; stock 0, never negative.
+- [x] Persistence (N6): snapshot of all product stock, orders, audit count and admins was identical
+  after `docker restart`, after container removal + new container with a **different**
+  `ADMIN_SEED_*` (no reseed; original admin still signs in), and after rebuild + recreate (uploaded
+  file still served).
+- [x] Fresh empty volume without seed variables → generic 500, no tables created, nothing leaked;
+  stderr names the missing variables. Same volume with variables → 200, 10 products / 4 categories.
+- [x] Dev/production parity: 16 routes (pages, APIs, 404/303, static, gzip'd Three.js adapter,
+  dotted upload path, `/index.php`) return identical status + content type from
+  `php -S … -t public public/index.php` (PHP 8.5, temp DB) and the container (PHP 8.2).
+- [x] Browser (managed Chromium, container): 360 px reduced motion, first Tab = skip link, no
+  overflow on home/product/order; Add to bag → shipping → 4242 → Review → Place → order page with
+  simulation notice; Lupa 3D viewer ready 256 ms (360, dialog) / 278 ms (1280, inline) after load
+  including the toggle; Esc returns focus to 3D; no page errors. Admin at 1440 signs in.
+- [x] Lighthouse 13.6.0 accessibility (mobile defaults) on the container: home, listing, product,
+  admin sign-in all **100**. Checkout Lighthouse was not run on the container (it was run in M7).
+
+Code checks (final working tree): `composer validate --strict`, `composer cs`, `composer lint` clean;
+`vendor/bin/phpunit` **118 tests / 953 assertions** OK on PHP 8.5 and in `php:8.2-cli`; actionlint
+(with shellcheck) clean; CI Docker step executed locally → pass; `contextspine check` 0 failures /
+31 existing warnings. No new permanent test: the change is start-command/routing behavior, covered
+by the CI container smoke (static file + dotted application path).
+
+Google Cloud VM rehearsal (2026-11-10). This ran on a privileged `debian:13` container standing in for
+the VM: Docker 29.9.3 / Compose v5.7.0 inside it, the branch cloned from GitHub, and `HABI_DOMAIN=localhost`,
+so Caddy used its internal CA rather than Let's Encrypt:
+
+- [x] `setup.sh` created `/srv/habi/{app,data}`, both env files (mode 600, owner `deploy`), and the forced-command
+  key. It deployed `c7e8ec5` → "healthy". Re-running it with different seed values kept both env files,
+  did not duplicate the key, and left the data unchanged.
+- [x] HTTPS via Caddy: `https://localhost/` 200 over HTTP/2. `http://` gives 308 to `https://`. Canonical is
+  `https://localhost/`, and `app.css` is served with gzip. The 60-character bcrypt hash reached the
+  app intact (`format: raw`); without `raw`, Compose truncated `$2y$10$…` to `$2y$10`.
+- [x] Admin sign-in (303 → `/admin`) and a +3 stock adjustment (Alon 15 → 18). The stock and audit row
+  were unchanged after `update.sh`, after `compose down` + `up`, and after re-running setup.
+- [x] SSH forced command: no argument → deploys the branch head; `ls; id` and `deadbeef` → "expected a
+  40-character commit SHA"; an unknown 40-hex SHA → "is not on <branch>"; the real SHA deploys. A
+  PTY request is refused (`restrict`).
+- [x] Review fixes (re-run on the same VM):
+  - `ssh … c7e8ec5…` (a branch commit without `caddy/Caddyfile`) → "predates …; refusing", and the
+    checkout stayed at `876e90c`.
+  - Two concurrent `update.sh` runs serialized on `flock`: B finished after A.
+  - Caddy reads `/etc/caddy` as a directory mount, and `caddy reload` runs on each deploy; HTTPS 200,
+    stock still 18.
+  - The README backup command ran twice and wrote two timestamped files.
+- [ ] Not exercised in the rehearsal: swap creation (`swapon` is not permitted in a container; it was
+  shimmed), Docker starting at boot under systemd, Let's Encrypt issuance, Google firewall/IP, and the
+  GitHub `deploy` job itself (it only runs on `main` once `GCE_HOST` is set). actionlint and
+  shellcheck pass for the workflow and both scripts.
+
+Acceptance status:
+
+- [ ] Live HTTPS URL on the Google Cloud VM with `/` 200: **not done**. The owner must create the VM,
+  DNS record, and GitHub secret/variables (README runbook); no `gcloud` access in this session.
+- [ ] Persistence across reboot/redeploy **on the VM**: blocked on the live VM. Verified on local
+  Docker volumes and in the Debian rehearsal above.
+- [ ] CI green on `main`: pending review/merge of PR #19. CI passed on the PR, both jobs
+  ([run 42804495037](https://github.com/fr-anz/COMP-20163-WEB-DEVELOPMENT/actions/runs/42804495037)).
+- [ ] Cross-track PR review (§2.5): pending.
+- [ ] Real-device/screen-reader pass: not run (emulated touch only, as in M7).
 
 ## 2. Definition of Done (per milestone)
 
@@ -923,7 +1031,7 @@ M0 setup contract (see [README](../README.md) for requirements and password-hash
 ```bash
 composer install                 # pinned dependencies
 cp .env.example .env             # configure ADMIN_SEED_EMAIL/PASSWORD_HASH before first boot
-php -S localhost:8000 -t public   # run (auto-migrates + seeds on first request)
+php -S localhost:8000 -t public public/index.php   # run (auto-migrates + seeds on first request)
 php seed/seed.php --force        # destructive reset; never run against data you need
 vendor/bin/phpunit               # isolated first-boot/preservation tests
 ```
@@ -939,7 +1047,7 @@ vendor/bin/phpunit               # isolated first-boot/preservation tests
 |---|---|
 | SQLite write contention under concurrent checkouts | `BEGIN IMMEDIATE` + guarded UPDATE + concurrency test in M5 (SDD §8); MySQL migration path documented (SDD §14) |
 | WebGL unsupported on some grader machine | R27 fallback image; document in README |
-| Railway/Render free tier sleeps | Note cold-start in README; paid tier optional |
+| e2-micro limits (1 GB RAM, 1 GB/month free egress, billed IPv4) | 1 GB swap; Caddy compression; budget alert; README cost note. Render alternative if the VM is outgrown |
 | Asset/font drift | Use the approved published artwork and exact local variable fonts; record sources/licenses in DSD §6. Supplied photographs remain unpublished inspiration. |
 | Modeling constraints for procedural bags | Follow the published viewer presentation (DSD §4), retain procedural configs/textures and verify actual rendering/performance; no downloaded model substitution. |
 | Three.js vendored file goes stale | Pin version in README; upgrade = replace 2 files in `public/assets/vendor/three/` |

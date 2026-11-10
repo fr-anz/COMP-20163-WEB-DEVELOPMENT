@@ -168,7 +168,6 @@
               <p class="font-semibold">This bag is sold out</p>
               <p class="mt-1 text-small text-ink-2">Demo inventory isn't restocked automatically. Explore similar weaves in the collection.</p>
               <a class="btn btn--secondary mt-4" href="/products">Browse the collection</a>
-              <p class="mt-4 text-small text-ink-2">Checkout arrives in a later milestone — browsing stays fully open.</p>
             {% else %}
               {# R7: native POST /cart/add; cart.js intercepts for JSON and
                  re-renders from the server, the native post is the fallback. #}
@@ -189,7 +188,6 @@
                 <button type="submit" class="btn btn--primary btn--lg min-w-[200px] flex-1">
                   {{ icons.icon('bag', 20) }}<span>Add to bag &middot; &#8369;{{ price }}</span>
                 </button>
-                <p class="w-full text-small text-ink-2">Checkout arrives in a later milestone &mdash; your bag is saved for this demo session only.</p>
               </form>
             {% endif %}
           </div>

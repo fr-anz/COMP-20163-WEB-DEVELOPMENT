@@ -1,0 +1,53 @@
+# Production stack on the Google Cloud e2-micro VM (SDD §12): the Habi image
+# behind Caddy, which obtains and renews the HTTPS certificate.
+# Run from the repository checkout: docker compose -f deploy/gce/compose.yaml up -d --build
+name: habi
+
+services:
+  app:
+    build: ../..
+    image: habi:latest
+    restart: unless-stopped
+    env_file:
+      # raw: no ${…} interpolation, so the bcrypt hash's `$` survive intact.
+      # Values must therefore be unquoted.
+      - path: /srv/habi/habi.env
+        format: raw
+    volumes:
+      # SQLite database and administrator uploads; survives rebuilds/reboots.
+      - /srv/habi/data:/app/data
+    expose:
+      - "8080"
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    env_file:
+      - path: /srv/habi/caddy.env
+        format: raw
+    volumes:
+      # A directory mount: git replaces files on checkout, and a single-file
+      # bind mount would keep showing the old inode. update.sh reloads Caddy.
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:
