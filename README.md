@@ -98,7 +98,7 @@ gcloud compute instances create habi --zone "$ZONE" --machine-type e2-micro \
 
 Keep `--boot-disk-type pd-standard`: the default balanced disk is not free. GitHub Actions deploys over SSH, which needs the default network's `default-allow-ssh` rule (port 22). Check it with `gcloud compute firewall-rules list`.
 
-**2. DNS.** At your domain registrar, add an **A record** for your hostname (for example `shop.example.com`) pointing to the address printed above. Wait until `dig +short shop.example.com` returns it. Caddy can only obtain the certificate after that.
+**2. DNS.** At your domain registrar, add an **A record** for your hostname (for example `shop.example.com`) pointing to the address printed above. Wait until `dig +short shop.example.com` returns it. Caddy can only obtain the certificate after that. On **Cloudflare**, set the record to **DNS only** (grey cloud): a proxied record hides the VM's address, which breaks the SSH deploy and the certificate setup.
 
 **3. Deploy key** (for GitHub Actions), in Cloud Shell:
 
@@ -107,7 +107,7 @@ ssh-keygen -t ed25519 -N '' -C habi-deploy -f habi_deploy
 cat habi_deploy.pub
 ```
 
-**4. Set up the VM.** Generate the admin password hash as in [Local setup](#local-setup--three-steps) step 2. Then open a shell on the VM with `gcloud compute ssh habi --zone "$ZONE"` and run:
+**4. Set up the VM.** Generate the admin password hash as in [Local setup](#local-setup--three-steps) step 2. In Cloud Shell, which has Docker, you can use `read -rsp 'Admin password: ' P; echo; docker run --rm -e P="$P" php:8.2-cli php -r 'echo password_hash(getenv("P"), PASSWORD_DEFAULT), PHP_EOL;'; unset P`. Then open a shell on the VM with `gcloud compute ssh habi --zone "$ZONE"` and run:
 
 ```sh
 sudo apt-get update && sudo apt-get install -y git
