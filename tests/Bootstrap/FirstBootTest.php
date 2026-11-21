@@ -97,6 +97,73 @@ final class FirstBootTest extends IsolatedDatabaseTestCase
         }
     }
 
+    public function testSeededContentIsSourcedPlainTextWithoutDraftWording(): void
+    {
+        $pdo = $this->database();
+        Initializer::initialize($pdo, $this->migrationsDir());
+
+        $articles = $pdo->query(
+            "SELECT slug, title, excerpt, body, sources FROM journal_articles WHERE status = 'published'"
+        )->fetchAll(PDO::FETCH_ASSOC);
+        $weavers = $pdo->query(
+            'SELECT slug, display_name, community, region, fibers, techniques, story FROM weavers WHERE is_active = 1'
+        )->fetchAll(PDO::FETCH_ASSOC);
+        $products = $pdo->query(
+            'SELECT slug, name, description, materials, place_of_make, community, region, technique, story
+             FROM products'
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        self::assertGreaterThanOrEqual(3, count($articles));
+        // Shared format: one source per line, "Author. Title. Publisher, Year. URL".
+        $sourceLine = '/^\S.*\. \S.*\. \S.*, (?:\d{4}\.|n\.d\.) https?:\/\/\S+$/u';
+        foreach ($articles as $article) {
+            $lines = array_values(array_filter(
+                array_map('trim', explode("\n", (string) $article['sources'])),
+                static fn (string $line): bool => $line !== ''
+            ));
+            self::assertGreaterThanOrEqual(2, count($lines), $article['slug']);
+            foreach ($lines as $line) {
+                self::assertMatchesRegularExpression($sourceLine, $line, $article['slug']);
+            }
+        }
+
+        $longText = array_merge(
+            array_map(static fn (array $a): array => [$a['slug'], $a['body']], $articles),
+            array_map(static fn (array $a): array => [$a['slug'], $a['excerpt']], $articles),
+            array_map(static fn (array $w): array => [$w['slug'], $w['story']], $weavers),
+            array_map(static fn (array $p): array => [$p['slug'], $p['story']], $products)
+        );
+        foreach ($longText as [$slug, $text]) {
+            $text = (string) $text;
+            self::assertNotSame('', trim($text), $slug);
+            self::assertDoesNotMatchRegularExpression('/[<>]/', $text, $slug . ': no HTML');
+            // Paragraphs are separated by exactly one blank line; no hard-wrapped lines.
+            self::assertDoesNotMatchRegularExpression('/(?<!\n)\n(?!\n)|\n{3,}/', $text, $slug);
+        }
+
+        self::assertCount(
+            count($weavers),
+            array_unique(array_column($weavers, 'community')),
+            'Weaver communities are distinct.'
+        );
+
+        $customerFacing = [];
+        foreach ([$articles, $weavers, $products] as $rows) {
+            foreach ($rows as $row) {
+                foreach ($row as $field => $value) {
+                    $customerFacing[] = [$row['slug'] . '.' . $field, (string) $value];
+                }
+            }
+        }
+        foreach ($customerFacing as [$label, $value]) {
+            self::assertDoesNotMatchRegularExpression(
+                '/placeholder|sample|demo|fictional|simulat/i',
+                $value,
+                $label
+            );
+        }
+    }
+
     public function testSeededAdminMatchesEnvironmentCredentials(): void
     {
         $pdo = $this->database();

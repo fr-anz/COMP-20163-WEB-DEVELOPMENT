@@ -1069,12 +1069,19 @@ M10, M12 and M14 can run in parallel once M9 lands. Each milestone keeps the §2
 - [x] In-place v1 → v2 upgrade preserving inventory, orders and admins, with the status mapping
   and placeholder-weaver rule (SDD §15.9); PHPUnit on a v1 fixture database (`HeritageUpgradeTest`).
 - [x] Seed rewrite (N7): Sinag buri, Lupa tikog, Tala abaca, Maya pandan (no leather bodies);
-  descriptions match the illustrations; 4 categories; 4 fictional weavers (Quezon, Basey Samar,
-  Catanduanes, Bohol); 3 journal articles; fictional transfer accounts (README). 3D viewer has
+  descriptions match the illustrations; 4 categories; 4 fictional weavers (Sampaloc Quezon, Basey
+  Samar, Catanduanes, Luisiana Laguna; originally Bohol, see content review); 3 journal articles; fictional transfer accounts (README). 3D viewer has
   per-fiber plait/fibre textures.
-- [ ] **Content review (open):** weaver stories and article bodies are placeholders and article
-  `sources` are empty (owner's choice for M9). Communities are plausible fiber associations, not
-  verified. Must be written from cited secondary sources before M10 shows them.
+- [x] **Content review (#22, branch `docs/22-sourced-content`):** weaver stories (3 paragraphs),
+  three journal articles (357–383 words, 5–10 sources each) and the four product stories rewritten
+  from secondary sources fetched and read during the review; weavers stay fictional (invented
+  first names, no real person's name, photo or likeness). Shared format for M10/M13: stories and
+  bodies are plain text, paragraphs separated by one blank line, no HTML/Markdown; `sources` is one
+  line per source, `Author or Organisation. Title. Publisher, Year. URL` (`n.d.` when undated).
+  Technique for abaca corrected to "Handloom weaving" (sources describe handloom weaving, not a
+  named striped technique). Existing databases keep their old seed rows; only fresh installs (or an
+  owner-approved reseed) get the new content.
+- [ ] Owner's final truthfulness review of the M9 content (not run).
 - [x] v1 code adapted (owner's choice): `listing_status` replaces `is_active`; checkout places
   `pending` card orders (`payment_status = paid`); admin flow pending → confirmed → packed →
   shipped → delivered, cancel from confirmed/packed; admin-created products get the placeholder
@@ -1096,11 +1103,66 @@ M9 evidence (2026-11-21, branch `feat/22-schema-v2`, PHP 8.5.12, SQLite 3.54.1):
 - [ ] Not run: production migration. Releasing `dev` → `main` deploys and upgrades the live
   database on the next request; needs owner approval and a backup (M15).
 
+M9 content evidence (2026-11-21, branch `docs/22-sourced-content`):
+- [x] Sources consulted (all cited in `SampleContent::articles()`): National Museum of the
+  Philippines "Mats and Baskets"; PNS/BAFS 180:2016 abaca grading standard (PhilFIDA site);
+  RA 11700 (Lawphil); ILO (2023) and SWITCH-Asia (2024) on Basey tikog weaving; Philstar (2009
+  bayong exhibit; Freeman 2008 NCCA banig exhibit); Mangyan Heritage Center (bay-ong sinuluyan);
+  Kaagi "Banig: Reed Weaving"; ABS-CBN (2026) and Rappler (2026) on Sampaloc buri; Springer
+  (2026, abstract only) and Mata Asia Press Photo (2026) on Luisiana pandan; HABI Philippine
+  Textile Council (2025) on Panganiban handloom weaving; Daily Tribune (2026) on Catanduanes abaca.
+- [x] Community changes: Quezon narrowed to Sampaloc, Quezon (documented buri town); Basey, Samar
+  (tikog) and Catanduanes (abaca) confirmed; Bohol → Luisiana, Laguna for pandan (Bohol sources
+  found point to buri/raffia loom weaving; the only Bohol pandan reference was a DTI blog post,
+  while Luisiana's pandan weaving is documented). Slug/email `carmen-bohol` kept because
+  `ProductCatalog` references it; renaming is a follow-up for the owner.
+- [x] Not supported, so not claimed: a dated origin of the bayong, bayong etymology, waterproofing,
+  natural-dye claims for buri/pandan, and a long-standing abaca handloom tradition in Catanduanes
+  (sources describe 2025 training). DTI and PIA pages for Luisiana, PNA Baras and NCCA pages could
+  not be fetched (404/403) and are not cited.
+- [x] `FirstBootTest` asserts ≥ 2 well-formed source lines with URLs per published article, no `<`/`>`
+  or hard-wrapped lines in stories/bodies, distinct weaver communities, and no
+  placeholder/sample/demo/fictional/simulat wording in customer-facing seed text.
+
 #### M10 — Heritage storefront (C lead, A services, E content)
-- [ ] Material (fiber) and region filters (R2); shipping rates on product page (R3).
-- [ ] Museum-style story section (R29); products without 3D config hide the 3D control (R4).
-- [ ] Meet the Weavers list/profile (R30); Heritage Journal list/article (R31); header/footer links.
+- [x] Material (fiber) and region filters (R2), allowlisted to values active bags carry and combined with
+  search/category/sort/Hide sold-out/pagination; shipping rates on the product page from `ShippingService` (R3).
+- [x] Museum-style story section (R29; only an active, public weaver is shown or linked, never the placeholder);
+  products without a 3D config drop the 3D control and `/api/product/{slug}/3d` answers 404 (R4).
+- [x] Meet the Weavers list/profile (R30); Heritage Journal list/article (R31); header, drawer and footer links.
+  Title/description/canonical/OG on every new page, indexable (R26). Home material scenes now use `products.fiber`.
+- [ ] N9: new strings are English only until M14 builds the Translator (listed in the M10 PR for M14).
+- [ ] Content: weaver stories, article bodies and sources are still the M9 placeholders (content review open in M9).
 - **Done when:** R2–R4, R29–R31 verified at 1440/768/360 px, keyboard and no-JS; review-screen guide applied.
+
+M10 evidence (2026-11-21, branch `feat/23-heritage-storefront`, PHP 8.5.12, SQLite 3.54.1):
+- [x] Tests first: the new tests failed before implementation (`vendor/bin/phpunit` → 9 errors, 2 failures:
+  missing `WeaverDirectoryService`, `JournalService`, `macros/content.twig`, `fiber`/`story` keys).
+- [x] `vendor/bin/phpunit` → OK (214 tests, 1741 assertions). New: `ProductServiceTest` (fiber/region allowlist and
+  combination with q/category/sort/hide sold-out/page, unknown and array values ignored, options from active bags
+  only, `byFiber`, `byWeaver` excludes pending/deactivated, story fields, weaver null when deactivated or the
+  placeholder, NULL/blank `three_config` → no config and `has_3d` false), `WeaverDirectoryServiceTest`,
+  `JournalServiceTest` (drafts hidden), `ContentMacrosTest` (paragraphs/sources escaped, only http(s) links), and
+  `HeritagePagesTest` (real controllers + Twig: weaver/journal pages, 404s, meta/OG, story, rates, 3D control and
+  config 404, filter options and pagination URL).
+- [x] `composer cs` and `composer lint` exit 0.
+- [x] HTTP smoke on a fresh temp DB (`DB_DSN=sqlite:/tmp/habi-m10/app.sqlite php -S 127.0.0.1:8110 -t public
+  public/index.php`, curl; fixtures set with `sqlite3`: placeholder weaver owning Maya with `three_config` NULL,
+  Rosa deactivated, one draft article, an article body with `<script>` and two sources, a two-paragraph Tala story),
+  53/53 checks passed: `/`, `/products`, `/weavers`, `/journal`, `/weavers/nena-quezon`,
+  `/journal/history-of-the-bayong`, both product pages and Sinag's 3D API → 200; `/weavers/rosa-basey`,
+  `/weavers/unassigned`, unknown weaver/article, the draft and Maya's 3D API → 404; `fiber=abaca` + Bicol region +
+  Hide sold-out → "1 bag" with both options selected; `fiber=leather&region=Nowhere` ignored ("4 bags"); Tala shows
+  the Lorna profile link, both story paragraphs, the four R12 rates and the 3D toggle; Maya has no `data-view*`,
+  import map or placeholder name and keeps its image; the weaver list omits Rosa and the placeholder; profile shows
+  "Bags by Nena" and `og:type` profile; the article escapes the script, links the source with `rel="noopener"`, has
+  `og:type` article; the draft is absent from `/journal`; all four new pages have canonical and description and no
+  `noindex`; header/footer link Weavers, Journal and Track order; home fiber scenes link to real bags. `/track`,
+  `/cart`, `/admin/login`, `/weaver/login` → 200. Server log had no PHP warnings; the server was stopped.
+- [x] No-JS: every new page and the filters are server-rendered GET pages (checked in the curl output); the
+  filter form keeps its Apply button. Template classes were checked against `app.css` with a script.
+- [ ] Not run: browser review at 1440/768/360 px with the review-screen guide, keyboard-only pass and reduced
+  motion (no browser in this environment); the `product.js` no-3D branch was only syntax-checked (`node --check`).
 
 #### M11 — Checkout v2, order lifecycle and tracking (A lead, C UI)
 - [x] Payment method choice: COD, transfer with proof upload (N11), card simulator (R13, R14).

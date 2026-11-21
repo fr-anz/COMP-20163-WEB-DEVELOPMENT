@@ -1,0 +1,38 @@
+{#-
+  Plain-text content helpers shared by the storefront (product and weaver
+  stories, journal articles) and any admin preview. Content is stored as
+  plain text and always rendered escaped; HTML in the database is shown
+  as text, never interpreted.
+  paragraphs(text, class): one <p> per block separated by a blank line;
+    single line breaks stay inside the paragraph.
+  sources(text, class): one source per line ("Author. Title. Publisher,
+    Year. URL"); a last token starting with http:// or https:// becomes a
+    link with rel="noopener". Renders nothing when there are no sources.
+-#}
+{% macro paragraphs(text, class = '') %}
+{%- for block in (text|default('')|replace({"\r\n": "\n", "\r": "\n"})|split("\n\n")) -%}
+{%- set block = block|trim -%}
+{%- if block != '' -%}<p{% if class != '' %} class="{{ class }}"{% endif %}>{{ block }}</p>
+{% endif -%}
+{%- endfor -%}
+{% endmacro %}
+
+{% macro sources(text, class = '') %}
+{%- set lines = [] -%}
+{%- for line in (text|default('')|replace({"\r\n": "\n", "\r": "\n"})|split("\n")) -%}
+{%- if line|trim != '' -%}{%- set lines = lines|merge([line|trim]) -%}{%- endif -%}
+{%- endfor -%}
+{%- if lines is not empty -%}
+<ol{% if class != '' %} class="{{ class }}"{% endif %}>
+{% for line in lines -%}
+{%- set last = line|split(' ')|last -%}
+{%- if last starts with 'https://' or last starts with 'http://' -%}
+{%- set label = line|slice(0, line|length - last|length)|trim -%}
+<li>{% if label != '' %}{{ label }} {% endif %}<a class="link" href="{{ last }}" rel="noopener">{{ last }}</a></li>
+{% else -%}
+<li>{{ line }}</li>
+{% endif -%}
+{%- endfor -%}
+</ol>
+{%- endif -%}
+{% endmacro %}

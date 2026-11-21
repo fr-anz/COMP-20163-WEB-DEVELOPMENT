@@ -1,0 +1,62 @@
+{#-
+  Weaver profile (R30): portrait left and name, data rows (Community,
+  Region, Fibers, Techniques) and story right from 900 px, stacked below;
+  then "Bags by {name}" with the standard product cards (omitted when the
+  weaver has no active bags). Receives weaver, products and fiber_art.
+-#}
+{% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "macros/content.twig" as content %}
+{% set active_nav = 'weavers' %}
+{% set fibers = weaver.fibers|split(',')|map(f => f|trim|capitalize)|filter(f => f != '')|join(', ') %}
+{% set place = [weaver.community, weaver.region]|filter(v => v != '')|join(', ') %}
+
+{% block title %}{{ weaver.display_name }}{% if weaver.community != '' %}, {{ weaver.community }}{% endif %} — {{ app_name }}{% endblock %}
+
+{% block description %}{% if weaver.story|trim != '' %}{% set lead = weaver.story|replace({"\r\n": "\n"})|split("\n\n")|first|trim %}{{ lead|length > 155 ? lead|slice(0, 154) ~ '…' : lead }}{% else %}{{ weaver.display_name }}{% if place != '' %} weaves in {{ place }}{% endif %}. See their bags on {{ app_name }}.{% endif %}{% endblock %}
+{% block og_type %}profile{% endblock %}
+
+{% block content %}
+  <div class="mx-auto max-w-[1280px] px-4 py-6 @3xl:px-8 @3xl:py-10">
+    <nav aria-label="Breadcrumb">
+      <ol class="flex flex-wrap items-center gap-1 text-small text-ink-2">
+        <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/">Home</a>{{ icons.icon('chevron-right', 16) }}</li>
+        <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/weavers">Weavers</a>{{ icons.icon('chevron-right', 16) }}</li>
+        <li class="flex items-center gap-1"><span class="font-medium text-ink" aria-current="page">{{ weaver.display_name }}</span></li>
+      </ol>
+    </nav>
+
+    <div class="mt-5 grid gap-8 @min-[900px]:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] @min-[900px]:gap-12">
+      <div>
+        {% include 'storefront/_weaver-portrait.twig' with { weaver: weaver, fiber_art: fiber_art, eager: true } only %}
+      </div>
+      <div>
+        <h1 class="mt-1 font-display text-[30px] font-bold @3xl:text-h1">{{ weaver.display_name }}</h1>
+        {% if weaver.community != '' or weaver.region != '' or fibers != '' or weaver.techniques != '' %}
+        <dl class="mt-5 grid grid-cols-[120px_1fr] gap-x-4 gap-y-2 border-y border-line py-5 text-[15px]">
+          {% if weaver.community != '' %}<dt class="text-ink-2">Community</dt><dd>{{ weaver.community }}</dd>{% endif %}
+          {% if weaver.region != '' %}<dt class="text-ink-2">Region</dt><dd>{{ weaver.region }}</dd>{% endif %}
+          {% if fibers != '' %}<dt class="text-ink-2">Fibers</dt><dd>{{ fibers }}</dd>{% endif %}
+          {% if weaver.techniques != '' %}<dt class="text-ink-2">Techniques</dt><dd>{{ weaver.techniques }}</dd>{% endif %}
+        </dl>
+        {% endif %}
+        {% if weaver.story|trim != '' %}
+        <div class="mt-5 max-w-[68ch] text-[17px]">
+          {{ content.paragraphs(weaver.story, 'mt-4') }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if products|length > 0 %}
+    <section class="mt-10 border-t border-line pt-6" aria-labelledby="weaver-bags">
+      <h2 id="weaver-bags" class="font-display text-h2 font-bold">Bags by {{ weaver.display_name }}</h2>
+      <ul class="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 @3xl:grid-cols-3 @5xl:grid-cols-4 @5xl:gap-x-6">
+        {% for product in products %}
+          {% include 'storefront/_product-card.twig' with { product: product, csrf_token: csrf_token } only %}
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -35,7 +35,15 @@ final class ProductCatalog
                 'weaver' => 'nena-quezon',
                 'fiber' => 'buri',
                 'technique' => 'Checker plaiting',
-                'story' => '',
+                'story' => SampleContent::prose(<<<'TXT'
+                    Nena plaits the Sinag Tote in Sampaloc, Quezon, from buri palm leaf that is
+                    stripped, sun-dried, boiled and flattened before it is cut into strips. The
+                    two-tone checker is the over-under plait of the market bayong, with the
+                    coloured mosaic bands worked in as the body rises.
+
+                    Buri leaves are prized for their strength, and the close checker gives the
+                    tote firm sides for a full morning-market load.
+                    TXT),
                 'description' => 'A roomy morning-market tote in a two-tone checker of buri strips, '
                     . 'with mosaic bands of rust, gold, green and blue.',
                 'materials' => 'Buri palm strips, cotton lining',
@@ -74,7 +82,12 @@ final class ProductCatalog
                 'weaver' => 'rosa-basey',
                 'fiber' => 'tikog',
                 'technique' => 'Banig plaiting',
-                'story' => '',
+                'story' => SampleContent::prose(<<<'TXT'
+                    Rosa plaits the Lupa Satchel in Basey, Samar, known as the banig capital of
+                    the Philippines, from tikog grown in the town, pulled by hand, dyed and pressed
+                    flat. The fine checker and the green, gold and cream bands come from the same
+                    plaiting tradition as Basey's patterned mats.
+                    TXT),
                 'description' => 'A structured satchel in a fine tikog checker with a single top handle '
                     . 'and green, gold and cream mosaic bands.',
                 'materials' => 'Tikog grass, brass-style hardware, cotton twill lining',
@@ -112,8 +125,13 @@ final class ProductCatalog
                 'category' => 'Sling',
                 'weaver' => 'lorna-catanduanes',
                 'fiber' => 'abaca',
-                'technique' => 'Striped loom weaving',
-                'story' => '',
+                'technique' => 'Handloom weaving',
+                'story' => SampleContent::prose(<<<'TXT'
+                    Lorna weaves the Tala Sling on a handloom in Catanduanes, the Abaca Capital
+                    of the Philippines. The abaca is stripped from the outer layer of the plant's
+                    leafsheath and dried before it reaches the loom, where the dark brown, cream
+                    and indigo stripes are woven into the rust-red cloth.
+                    TXT),
                 'description' => 'A compact crossbody sling in rust-red abaca, woven with stripes '
                     . 'of dark brown, cream and indigo, on a tan strap.',
                 'materials' => 'Abaca fiber, abaca strap, cotton lining',
@@ -150,7 +168,12 @@ final class ProductCatalog
                 'weaver' => 'carmen-bohol',
                 'fiber' => 'pandan',
                 'technique' => 'Pattern plaiting',
-                'story' => '',
+                'story' => SampleContent::prose(<<<'TXT'
+                    Carmen plaits the Maya Clutch in Luisiana, Laguna, a town that weaves bayong
+                    and banig from pandan. The leaves are stripped by hand and sun-dried, and the
+                    indigo diamond motif is plaited into the golden body strip by strip rather
+                    than painted on.
+                    TXT),
                 'description' => 'A slim pandan clutch in golden yellow with an indigo diamond motif, '
                     . 'cream accents and a dark edge binding.',
                 'materials' => 'Pandan leaves, cotton backing, magnetic closure',

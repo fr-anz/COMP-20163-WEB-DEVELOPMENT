@@ -14,13 +14,16 @@ use Habi\Controllers\AdminRoutes;
 use Habi\Controllers\AdminWeaverController;
 use Habi\Controllers\CartController;
 use Habi\Controllers\CheckoutController;
+use Habi\Controllers\JournalController;
 use Habi\Controllers\StorefrontController;
+use Habi\Controllers\StorefrontResponder;
 use Habi\Controllers\TrackController;
 use Habi\Controllers\UploadController;
 use Habi\Controllers\WeaverController;
 use Habi\Controllers\WeaverProductController;
 use Habi\Controllers\WeaverResponder;
 use Habi\Controllers\WeaverRoutes;
+use Habi\Controllers\WeaversController;
 use Habi\Middleware\ErrorHandler;
 use Habi\Middleware\AdminAuthMiddleware;
 use Habi\Middleware\CsrfMiddleware;
@@ -34,12 +37,14 @@ use Habi\Services\CategoryService;
 use Habi\Services\CustomerService;
 use Habi\Services\EarningsService;
 use Habi\Services\ImageUploadService;
+use Habi\Services\JournalService;
 use Habi\Services\ProductService;
 use Habi\Services\OrderService;
 use Habi\Services\PaymentProofService;
 use Habi\Services\PaymentSimulator;
 use Habi\Services\StockService;
 use Habi\Services\TrackingService;
+use Habi\Services\WeaverDirectoryService;
 use Habi\Services\WeaverOrderService;
 use Habi\Services\WeaverProductService;
 use Habi\Services\WeaverService;
@@ -479,6 +484,48 @@ $app->get('/product/{slug}', fn (
     ResponseInterface $response,
     array $args
 ): ResponseInterface => $storefront()->product($request, $response, $args));
+
+// Meet the Weavers (R30) and Heritage Journal (R31): public, indexable pages.
+$heritageView = static fn (): StorefrontResponder => new StorefrontResponder(
+    $twig,
+    new CartService(Database::connection(), Session::store())
+);
+
+$app->get('/weavers', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => (new WeaversController(
+    $heritageView(),
+    new WeaverDirectoryService(Database::connection()),
+    new ProductService(Database::connection())
+))->index($request, $response));
+
+$app->get('/weavers/{slug}', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => (new WeaversController(
+    $heritageView(),
+    new WeaverDirectoryService(Database::connection()),
+    new ProductService(Database::connection())
+))->show($request, $response, $args));
+
+$app->get('/journal', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => (new JournalController(
+    $heritageView(),
+    new JournalService(Database::connection())
+))->index($request, $response));
+
+$app->get('/journal/{slug}', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response,
+    array $args
+): ResponseInterface => (new JournalController(
+    $heritageView(),
+    new JournalService(Database::connection())
+))->show($request, $response, $args));
 
 $app->get('/cart', fn (
     ServerRequestInterface $request,

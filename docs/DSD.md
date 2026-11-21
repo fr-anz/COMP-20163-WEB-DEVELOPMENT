@@ -120,9 +120,9 @@ heading only, plus one sentence per material. Scenes (`.story-*` in `app.css`):
 2. **The weave** (`#craft`) — sticky stage: "One strand." → "Over, then under." →
    "Row by row, a pattern." while one inline loom SVG builds (lead warp strand, plain
    weave, then diagonal accent pattern). Scroll progress sets `data-step`.
-3. **Materials** (`#materials`) — "Four materials." then Natural fiber / Flat strip /
-   Yarn inlay / Loom cloth as alternating swatch + name scenes; each links to one real
-   product using that material.
+3. **Materials** (`#materials`) — "Four materials." then Buri / Tikog / Pandan / Abaca
+   as alternating swatch + name scenes (M10: the strip, fiber, yarn and loom swatches);
+   each links to the first active product of that fiber (`products.fiber`).
 4. **The bag** — "Then, a bag." on fiber inset: first featured product large (name,
    price, View bag), next two as image/name/price links.
 5. **Finale** — dark brown "{N} bags. Find yours." with cream Shop the collection action
@@ -305,6 +305,21 @@ at 1440, 768 and 360 px. Record new APIs in §5 when they ship.
   use the admin table; weaver and article forms are page panels composed like the weaver Profile
   (`views/admin/_error-summary.twig` shares the error alert); password, deactivate and category
   dialogs use `_dialog.twig`. Not yet reviewed in a browser (BUILD M13).
+
+**Implemented in M10 (R2–R4, R29–R31)** — composed from the catalog card, product open
+sections and breadcrumb; no new tokens or colors. New utilities in the `app.css` M10 block:
+`aspect-[16/9]`, `max-w-[68ch]`, `object-cover`, `list-decimal`, `@5xl:grid-cols-3`, the 900 px
+2:3 profile split and the 1024 px 2:1:1:1:1 filter grid.
+
+| API / source | Contract |
+|---|---|
+| `views/macros/content.twig` | `paragraphs(text, class)`: escaped plain text, one `<p>` per blank-line block. `sources(text, class)`: one `<li>` per non-empty line in an `<ol>`; a last token starting with `http://`/`https://` becomes a `.link` with `rel="noopener"`; nothing renders for empty sources. Never renders stored HTML. Reusable by admin previews. |
+| `storefront/_weaver-portrait.twig` | 4:5 framed portrait (`weaver`, `fiber_art`, optional `eager`): the stored photo/illustration, else the woven swatch of the weaver's first fiber; decorative (`alt=""`) because the name sits beside it. |
+| `storefront/weavers.twig`, `weaver.twig` | List: catalog grid (2/3/4 columns), portrait, name (stretched link), community · region, fibers · techniques. Profile: breadcrumb, portrait left and name, labeled rows and story (68ch) right at 900 px (2:3), stacked below; "Bags by {name}" with `_product-card.twig`, omitted when empty. |
+| `storefront/journal.twig`, `article.twig` | List: 1/2/3-column cards with a 16:9 cover (woven band when none), title link, excerpt and `<time>`. Article: 720 px column, breadcrumb, 30→48 px display title, date, optional cover, body at 68ch, "Sources" list (omitted when empty). |
+| `product.twig` story and shipping | Story section between Materials and Dimensions, titled with the weaver's name ("Story" without a public weaver): Weaver (link), Community, Region, Fiber (omitted for "other"), Technique, story paragraphs; omitted when there is no data. Shipping cards come from `ShippingService` (`shipping_rates`, `free_shipping_above`). `product.has_3d` false drops the toggle, viewer, 3D dialog and import map; `product.js` then wires the gallery only. |
+| Catalog filters | Material and Region selects after Category: 2:1:1 at 768 px (wrapping to a second row), 2:1:1:1:1 from 1024 px, stacked below; same native GET form and auto-submit. |
+| Shell | Desktop nav and mobile drawer: Discover / Collection / Weavers / Journal (`active_nav` `weavers`/`journal`); footer adds Weavers and Journal after Track order. The language control is M14. |
 
 ## 5. Implemented component APIs and compositions
 

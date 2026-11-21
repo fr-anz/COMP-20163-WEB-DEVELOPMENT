@@ -7,6 +7,7 @@ namespace Habi\Controllers;
 use Habi\Middleware\ErrorHandler;
 use Habi\Services\CartService;
 use Habi\Services\ProductService;
+use Habi\Services\ShippingService;
 use Habi\Support\Env;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -21,16 +22,16 @@ use Twig\Environment as TwigEnvironment;
 final class StorefrontController
 {
     /**
-     * Home material scenes link to one real product each: SQL LIKE patterns
-     * matched against the seeded material text, first match in id order.
+     * Home material scenes (artwork id => fiber); each links to the first
+     * active product of that fiber, in id order (R1).
      *
-     * @var array<string, list<string>>
+     * @var array<string, string>
      */
-    private const MATERIAL_SEEN_IN = [
-        'fiber' => ['%straw%', '%raffia%', '%rattan%', '%buri%', '%abaca%', '%fiber%'],
-        'strip' => ['%strip%', '%weave%', '%panels%'],
-        'yarn' => ['%yarn%', '%rope%', '%webbing%'],
-        'loom' => ['%canvas%', '%twill%', '%cloth%', '%loom%'],
+    public const MATERIAL_FIBERS = [
+        'fiber' => 'tikog',
+        'strip' => 'buri',
+        'yarn' => 'pandan',
+        'loom' => 'abaca',
     ];
 
     public function __construct(
@@ -48,8 +49,8 @@ final class StorefrontController
         $listing = $this->products->list(['sort' => 'featured']);
 
         $materialsSeen = [];
-        foreach (self::MATERIAL_SEEN_IN as $materialId => $patterns) {
-            $materialsSeen[$materialId] = $this->products->byMaterials($patterns, 1);
+        foreach (self::MATERIAL_FIBERS as $materialId => $fiber) {
+            $materialsSeen[$materialId] = $this->products->byFiber($fiber, 1);
         }
 
         return $this->render($response, 'storefront/home.twig', [
@@ -68,6 +69,8 @@ final class StorefrontController
         $listing = $this->products->list([
             'q' => $query['q'] ?? '',
             'category' => $query['category'] ?? '',
+            'fiber' => $query['fiber'] ?? '',
+            'region' => $query['region'] ?? '',
             'sort' => $query['sort'] ?? '',
             'page' => $query['page'] ?? 1,
             'hide_soldout' => ($query['hide_sold_out'] ?? '') === '1',
@@ -86,9 +89,13 @@ final class StorefrontController
             'per_page' => $listing['per_page'],
             'q' => $listing['q'],
             'category' => $listing['category'],
+            'fiber' => $listing['fiber'],
+            'region' => $listing['region'],
             'sort' => $listing['sort'],
             'hide_sold_out' => $listing['hide_soldout'],
             'categories' => $this->products->categories(),
+            'fibers' => $this->products->fibers(),
+            'regions' => $this->products->regions(),
             'previous_url' => $this->pageUrl($request, $listing, $listing['page'] - 1),
             'next_url' => $this->pageUrl($request, $listing, $listing['page'] + 1),
             'page_urls' => $pageUrls,
@@ -105,8 +112,15 @@ final class StorefrontController
             return $this->notFound($response);
         }
 
+        $shippingRates = [];
+        foreach (ShippingService::REGIONS as $region => $label) {
+            $shippingRates[$region] = ['label' => $label, 'fee_centavos' => ShippingService::fee($region, 0)];
+        }
+
         return $this->render($response, 'storefront/product.twig', [
             'product' => $product,
+            'shipping_rates' => $shippingRates,
+            'free_shipping_above' => ShippingService::FREE_THRESHOLD_CENTAVOS,
         ]);
     }
 
@@ -193,6 +207,8 @@ final class StorefrontController
         $params = array_filter([
             'q' => $listing['q'],
             'category' => $listing['category'],
+            'fiber' => $listing['fiber'],
+            'region' => $listing['region'],
             'sort' => $listing['sort'] !== 'featured' ? $listing['sort'] : '',
             'hide_sold_out' => !empty($listing['hide_soldout']) ? '1' : '',
             'page' => $page !== 1 ? (string) $page : '',
