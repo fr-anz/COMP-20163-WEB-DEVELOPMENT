@@ -1069,12 +1069,19 @@ M10, M12 and M14 can run in parallel once M9 lands. Each milestone keeps the §2
 - [x] In-place v1 → v2 upgrade preserving inventory, orders and admins, with the status mapping
   and placeholder-weaver rule (SDD §15.9); PHPUnit on a v1 fixture database (`HeritageUpgradeTest`).
 - [x] Seed rewrite (N7): Sinag buri, Lupa tikog, Tala abaca, Maya pandan (no leather bodies);
-  descriptions match the illustrations; 4 categories; 4 fictional weavers (Quezon, Basey Samar,
-  Catanduanes, Bohol); 3 journal articles; fictional transfer accounts (README). 3D viewer has
+  descriptions match the illustrations; 4 categories; 4 fictional weavers (Sampaloc Quezon, Basey
+  Samar, Catanduanes, Luisiana Laguna; originally Bohol, see content review); 3 journal articles; fictional transfer accounts (README). 3D viewer has
   per-fiber plait/fibre textures.
-- [ ] **Content review (open):** weaver stories and article bodies are placeholders and article
-  `sources` are empty (owner's choice for M9). Communities are plausible fiber associations, not
-  verified. Must be written from cited secondary sources before M10 shows them.
+- [x] **Content review (#22, branch `docs/22-sourced-content`):** weaver stories (3 paragraphs),
+  three journal articles (357–383 words, 5–10 sources each) and the four product stories rewritten
+  from secondary sources fetched and read during the review; weavers stay fictional (invented
+  first names, no real person's name, photo or likeness). Shared format for M10/M13: stories and
+  bodies are plain text, paragraphs separated by one blank line, no HTML/Markdown; `sources` is one
+  line per source, `Author or Organisation. Title. Publisher, Year. URL` (`n.d.` when undated).
+  Technique for abaca corrected to "Handloom weaving" (sources describe handloom weaving, not a
+  named striped technique). Existing databases keep their old seed rows; only fresh installs (or an
+  owner-approved reseed) get the new content.
+- [ ] Owner's final truthfulness review of the M9 content (not run).
 - [x] v1 code adapted (owner's choice): `listing_status` replaces `is_active`; checkout places
   `pending` card orders (`payment_status = paid`); admin flow pending → confirmed → packed →
   shipped → delivered, cancel from confirmed/packed; admin-created products get the placeholder
@@ -1095,6 +1102,27 @@ M9 evidence (2026-11-21, branch `feat/22-schema-v2`, PHP 8.5.12, SQLite 3.54.1):
   checkout. Patterned seed bodies keep their pattern texture; the fiber shows on trim and roughness.
 - [ ] Not run: production migration. Releasing `dev` → `main` deploys and upgrades the live
   database on the next request; needs owner approval and a backup (M15).
+
+M9 content evidence (2026-11-21, branch `docs/22-sourced-content`):
+- [x] Sources consulted (all cited in `SampleContent::articles()`): National Museum of the
+  Philippines "Mats and Baskets"; PNS/BAFS 180:2016 abaca grading standard (PhilFIDA site);
+  RA 11700 (Lawphil); ILO (2023) and SWITCH-Asia (2024) on Basey tikog weaving; Philstar (2009
+  bayong exhibit; Freeman 2008 NCCA banig exhibit); Mangyan Heritage Center (bay-ong sinuluyan);
+  Kaagi "Banig: Reed Weaving"; ABS-CBN (2026) and Rappler (2026) on Sampaloc buri; Springer
+  (2026, abstract only) and Mata Asia Press Photo (2026) on Luisiana pandan; HABI Philippine
+  Textile Council (2025) on Panganiban handloom weaving; Daily Tribune (2026) on Catanduanes abaca.
+- [x] Community changes: Quezon narrowed to Sampaloc, Quezon (documented buri town); Basey, Samar
+  (tikog) and Catanduanes (abaca) confirmed; Bohol → Luisiana, Laguna for pandan (Bohol sources
+  found point to buri/raffia loom weaving; the only Bohol pandan reference was a DTI blog post,
+  while Luisiana's pandan weaving is documented). Slug/email `carmen-bohol` kept because
+  `ProductCatalog` references it; renaming is a follow-up for the owner.
+- [x] Not supported, so not claimed: a dated origin of the bayong, bayong etymology, waterproofing,
+  natural-dye claims for buri/pandan, and a long-standing abaca handloom tradition in Catanduanes
+  (sources describe 2025 training). DTI and PIA pages for Luisiana, PNA Baras and NCCA pages could
+  not be fetched (404/403) and are not cited.
+- [x] `FirstBootTest` asserts ≥ 2 well-formed source lines with URLs per published article, no `<`/`>`
+  or hard-wrapped lines in stories/bodies, distinct weaver communities, and no
+  placeholder/sample/demo/fictional/simulat wording in customer-facing seed text.
 
 #### M10 — Heritage storefront (C lead, A services, E content)
 - [ ] Material (fiber) and region filters (R2); shipping rates on product page (R3).
