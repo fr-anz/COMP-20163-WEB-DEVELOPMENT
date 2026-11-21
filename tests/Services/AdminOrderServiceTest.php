@@ -127,7 +127,7 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
         $this->assertStock($tote, 8);
         $this->assertStock($clutch, 4);
 
-        $this->orders->cancel($number, $this->adminId);
+        $this->orders->cancel($number, $this->adminId, 'Customer request');
 
         self::assertSame('cancelled', $this->statusOf($number));
         $this->assertStock($tote, 10);
@@ -159,14 +159,14 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
 
         // packed is still cancellable.
         $this->orders->advanceStatus($number, 'packed');
-        $this->orders->cancel($number, $this->adminId);
+        $this->orders->cancel($number, $this->adminId, 'Customer request');
         self::assertSame('cancelled', $this->statusOf($number));
         $this->assertStock($product, 6);
         self::assertCount(1, $this->cancelAuditRows($number));
 
         // A cancelled order can no longer be cancelled again.
         try {
-            $this->orders->cancel($number, $this->adminId);
+            $this->orders->cancel($number, $this->adminId, 'Customer request');
             self::fail('Expected an AdminActionException when cancelling a cancelled order.');
         } catch (AdminActionException) {
             self::assertSame('cancelled', $this->statusOf($number));
@@ -183,7 +183,7 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
         $this->assertStock($product, 5);
 
         try {
-            $this->orders->cancel($number, $this->adminId);
+            $this->orders->cancel($number, $this->adminId, 'Customer request');
             self::fail('Expected an AdminActionException when cancelling a shipped order.');
         } catch (AdminActionException) {
             self::assertSame('shipped', $this->statusOf($number));
@@ -216,7 +216,7 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
         );
 
         try {
-            $this->orders->cancel($number, $this->adminId);
+            $this->orders->cancel($number, $this->adminId, 'Customer request');
             self::fail('Expected the trigger to abort the cancellation.');
         } catch (PDOException) {
             // Expected: the mid-cancel failure must roll everything back.
@@ -300,7 +300,7 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
         $number = (string) $order['order_number'];
         $this->orders->advanceStatus($number, 'confirmed', $this->adminId);
         $this->orders->advanceStatus($number, 'packed', $this->adminId);
-        $this->orders->cancel($number, $this->adminId);
+        $this->orders->cancel($number, $this->adminId, 'Customer request');
 
         $statement = $this->database()->prepare(
             'SELECT field, old_value, new_value, actor_role, actor_id FROM order_events

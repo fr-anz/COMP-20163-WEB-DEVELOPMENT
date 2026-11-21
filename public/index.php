@@ -3,10 +3,15 @@
 declare(strict_types=1);
 
 use Habi\Bootstrap\Initializer;
+use Habi\Controllers\AdminCategoryController;
 use Habi\Controllers\AdminController;
+use Habi\Controllers\AdminCustomerController;
+use Habi\Controllers\AdminJournalController;
 use Habi\Controllers\AdminOrderController;
 use Habi\Controllers\AdminProductController;
 use Habi\Controllers\AdminResponder;
+use Habi\Controllers\AdminRoutes;
+use Habi\Controllers\AdminWeaverController;
 use Habi\Controllers\CartController;
 use Habi\Controllers\CheckoutController;
 use Habi\Controllers\StorefrontController;
@@ -20,9 +25,13 @@ use Habi\Middleware\ErrorHandler;
 use Habi\Middleware\AdminAuthMiddleware;
 use Habi\Middleware\CsrfMiddleware;
 use Habi\Middleware\WeaverAuthMiddleware;
+use Habi\Services\AdminJournalService;
 use Habi\Services\AdminProductService;
+use Habi\Services\AdminWeaverService;
 use Habi\Services\AuthService;
 use Habi\Services\CartService;
+use Habi\Services\CategoryService;
+use Habi\Services\CustomerService;
 use Habi\Services\EarningsService;
 use Habi\Services\ImageUploadService;
 use Habi\Services\ProductService;
@@ -122,7 +131,8 @@ $cart = static function () use ($twig): CartController {
     );
 };
 
-// Proofs of payment live in data/proofs/, outside public/; no route serves them (N11).
+// Proofs of payment live in data/proofs/, outside public/; only the admin
+// proof route (AdminRoutes, behind AdminAuthMiddleware) streams them (N11).
 $checkout = static function () use ($twig, $repoRoot): CheckoutController {
     $session = Session::store();
     $proofs = new PaymentProofService($repoRoot . '/data/proofs');
@@ -168,8 +178,12 @@ $adminCatalog = static function () use ($adminView, $adminProducts, $uploads): A
     );
 };
 
-$adminOrders = static fn (): AdminOrderController =>
-    new AdminOrderController($adminView(), new OrderService(Database::connection()));
+$adminOrders = static fn (): AdminOrderController => new AdminOrderController(
+    $adminView(),
+    new OrderService(Database::connection()),
+    new PaymentProofService($repoRoot . '/data/proofs'),
+    $psr17Factory
+);
 
 // Slim executes middleware last-added first: response headers, error handler,
 // database initialization, CSRF, weaver and administrator authorization, then routing.
@@ -345,6 +359,29 @@ $app->post('/admin/orders/{number}/cancel', fn (
     ResponseInterface $response,
     array $args
 ): ResponseInterface => $adminOrders()->cancel($request, $response, $args));
+
+// Admin v2 (M13, R18–R23, R40–R44, N11): order/payment transitions, proofs,
+// listing approval, weavers, categories, customers and journal; routes live
+// in AdminRoutes so AdminRoutesTest covers exactly these.
+AdminRoutes::register(
+    $app,
+    $adminOrders,
+    $adminCatalog,
+    static fn (): AdminWeaverController => new AdminWeaverController(
+        $adminView(),
+        new AdminWeaverService(Database::connection()),
+        $uploads()
+    ),
+    static fn (): AdminCategoryController =>
+        new AdminCategoryController($adminView(), new CategoryService(Database::connection())),
+    static fn (): AdminCustomerController =>
+        new AdminCustomerController($adminView(), new CustomerService(Database::connection())),
+    static fn (): AdminJournalController => new AdminJournalController(
+        $adminView(),
+        new AdminJournalService(Database::connection()),
+        $uploads()
+    )
+);
 
 // Weaver module (M12, R34–R39). WeaverAuthMiddleware requires an active
 // weaver on every /weaver path except /weaver/login; routes live in

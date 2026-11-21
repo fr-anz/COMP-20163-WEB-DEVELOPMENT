@@ -50,6 +50,15 @@ final class OrderService
     /** Statuses shown in admin filters (SDD §15.4). */
     public const ADMIN_STATUSES = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'rejected', 'cancelled'];
 
+    /** Payment statuses shown in admin filters (SDD §15.4). */
+    public const PAYMENT_STATUSES = ['unpaid', 'for_verification', 'paid', 'rejected'];
+
+    /** Statuses from which cash on delivery can be marked paid. */
+    public const COD_PAYABLE = ['shipped', 'delivered'];
+
+    /** Longest reject, cancel or refuse reason. */
+    public const MAX_REASON_LENGTH = 300;
+
     public const ADMIN_PER_PAGE = 25;
 
     private const MAX_BRAND_LENGTH = 30;
@@ -239,25 +248,32 @@ final class OrderService
     }
 
     /**
-     * Orders for the admin list, newest first, filtered by status and an
-     * inclusive created_at date range (YYYY-MM-DD, UTC as stored).
+     * Orders for the admin list, newest first, filtered by status, payment
+     * status, payment method and an inclusive created_at date range
+     * (YYYY-MM-DD, UTC as stored). Unknown filter values are ignored.
      *
-     * @param array<string, mixed> $filters status, from, to, page
+     * @param array<string, mixed> $filters status, payment, method, from, to, page
      *
-     * @return array{orders: list<array<string, mixed>>, status: string, from: string, to: string,
-     *     page: int, pages: int, total: int}
+     * @return array{orders: list<array<string, mixed>>, status: string, payment: string, method: string,
+     *     from: string, to: string, page: int, pages: int, total: int}
      */
     public function listForAdmin(array $filters): array
     {
-        $status = is_string($filters['status'] ?? null) && in_array($filters['status'], self::ADMIN_STATUSES, true)
-            ? $filters['status'] : '';
+        $pick = static fn (string $key, array $allowed): string =>
+            is_string($filters[$key] ?? null) && in_array($filters[$key], $allowed, true) ? $filters[$key] : '';
+        $status = $pick('status', self::ADMIN_STATUSES);
+        $payment = $pick('payment', self::PAYMENT_STATUSES);
+        $method = $pick('method', array_keys(self::PAYMENT_METHODS));
         $from = self::dateFilter($filters['from'] ?? null);
         $to = self::dateFilter($filters['to'] ?? null);
         $conditions = [];
         $parameters = [];
-        if ($status !== '') {
-            $conditions[] = 'o.status = :status';
-            $parameters['status'] = $status;
+        $columns = ['status' => $status, 'payment_status' => $payment, 'payment_method' => $method];
+        foreach ($columns as $column => $value) {
+            if ($value !== '') {
+                $conditions[] = "o.{$column} = :{$column}";
+                $parameters[$column] = $value;
+            }
         }
         if ($from !== '') {
             $conditions[] = 'o.created_at >= :from';
@@ -277,8 +293,8 @@ final class OrderService
         $page = min(max(1, $page), $pages);
 
         $statement = $this->pdo->prepare(
-            'SELECT o.id, o.order_number, o.status, o.customer_name, o.shipping_region,
-                    o.total_centavos, o.created_at,
+            'SELECT o.id, o.order_number, o.status, o.payment_method, o.payment_status, o.customer_name,
+                    o.shipping_region, o.total_centavos, o.created_at,
                     (SELECT COALESCE(SUM(i.qty), 0) FROM order_items i WHERE i.order_id = o.id) AS items
              FROM orders o' . $where . '
              ORDER BY o.created_at DESC, o.id DESC
@@ -294,6 +310,8 @@ final class OrderService
         return [
             'orders' => $statement->fetchAll(),
             'status' => $status,
+            'payment' => $payment,
+            'method' => $method,
             'from' => $from,
             'to' => $to,
             'page' => $page,
@@ -303,23 +321,46 @@ final class OrderService
     }
 
     /**
-     * Dashboard counts and the five most recent orders.
+     * Dashboard order and sales summaries (R18) and the five most recent
+     * orders. Sales are order totals (items plus shipping) of every order
+     * that is not rejected or cancelled, by UTC placement date.
      *
-     * @return array{to_fulfil: int, today: int, recent: list<array<string, mixed>>}
+     * @return array{to_fulfil: int, today: int, to_confirm: int, payments_to_verify: int, sales_today: int,
+     *     sales_month: int, sales_total: int, by_status: array<string, int>, recent: list<array<string, mixed>>}
      */
     public function adminSummary(): array
     {
         $counts = $this->pdo->query(
             "SELECT COALESCE(SUM(status IN ('pending', 'confirmed', 'packed')), 0) AS to_fulfil,
-                    COALESCE(SUM(date(created_at) = date('now')), 0) AS today
+                    COALESCE(SUM(date(created_at) = date('now')), 0) AS today,
+                    COALESCE(SUM(status = 'pending'), 0) AS to_confirm,
+                    COALESCE(SUM(payment_method = 'transfer' AND payment_status = 'for_verification'
+                        AND status NOT IN ('rejected', 'cancelled')), 0) AS payments_to_verify,
+                    COALESCE(SUM(CASE WHEN status NOT IN ('rejected', 'cancelled')
+                        AND date(created_at) = date('now') THEN total_centavos END), 0) AS sales_today,
+                    COALESCE(SUM(CASE WHEN status NOT IN ('rejected', 'cancelled')
+                        AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
+                        THEN total_centavos END), 0) AS sales_month,
+                    COALESCE(SUM(CASE WHEN status NOT IN ('rejected', 'cancelled')
+                        THEN total_centavos END), 0) AS sales_total
              FROM orders"
         )->fetch();
+        $byStatus = array_fill_keys(self::ADMIN_STATUSES, 0);
+        foreach ($this->pdo->query('SELECT status, COUNT(*) AS n FROM orders GROUP BY status')->fetchAll() as $row) {
+            $byStatus[(string) $row['status']] = (int) $row['n'];
+        }
         $recent = $this->pdo->query(
-            'SELECT order_number, status, shipping_region, total_centavos, created_at
+            'SELECT order_number, status, payment_method, payment_status, shipping_region, total_centavos, created_at
              FROM orders ORDER BY created_at DESC, id DESC LIMIT 5'
         )->fetchAll();
 
-        return ['to_fulfil' => (int) $counts['to_fulfil'], 'today' => (int) $counts['today'], 'recent' => $recent];
+        $summary = ['by_status' => $byStatus, 'recent' => $recent];
+        $keys = ['to_fulfil', 'today', 'to_confirm', 'payments_to_verify', 'sales_today', 'sales_month', 'sales_total'];
+        foreach ($keys as $key) {
+            $summary[$key] = (int) $counts[$key];
+        }
+
+        return $summary;
     }
 
     /**
@@ -328,20 +369,19 @@ final class OrderService
      * it is cash on delivery. The guarded UPDATE rejects a stale form; the
      * change is recorded in order_events (actor admin, R44).
      *
+     * @param ?string $expected "status/payment_status" the form was rendered for; a mismatch is stale
+     *
      * @throws AdminActionException
      */
-    public function advanceStatus(string $orderNumber, string $target, ?int $adminId = null): void
-    {
-        $this->pdo->exec('BEGIN IMMEDIATE');
-        try {
-            $order = $this->lockedOrder($orderNumber);
+    public function advanceStatus(
+        string $orderNumber,
+        string $target,
+        ?int $adminId = null,
+        ?string $expected = null,
+    ): void {
+        $this->transition($orderNumber, $expected, function (array $order) use ($orderNumber, $target, $adminId): void {
             if ((self::NEXT_STATUS[$order['status']] ?? null) !== $target) {
-                throw new AdminActionException(sprintf(
-                    'Order %s is %s, so it cannot be marked %s. Reload to see its current status.',
-                    $orderNumber,
-                    $order['status'],
-                    $target
-                ));
+                throw self::changed($orderNumber, $order);
             }
             if ($target === 'confirmed' && $order['payment_method'] !== 'cod' && $order['payment_status'] !== 'paid') {
                 throw new AdminActionException(sprintf(
@@ -349,79 +389,171 @@ final class OrderService
                     $orderNumber
                 ));
             }
-            $update = $this->pdo->prepare(
-                "UPDATE orders SET status = ?, status_changed_at = datetime('now'), updated_at = datetime('now')
-                 WHERE id = ? AND status = ?"
-            );
-            $update->execute([$target, $order['id'], $order['status']]);
-            if ($update->rowCount() !== 1) {
-                throw new AdminActionException('The order changed during the update. Reload and try again.');
-            }
+            $this->guardedStatus($order, $target, null);
             $this->recordEvent($order['id'], 'status', $order['status'], $target, 'admin', $adminId);
-            $this->pdo->exec('COMMIT');
-        } catch (Throwable $exception) {
-            $this->rollBackQuietly();
-
-            throw $exception;
-        }
+        });
     }
 
     /**
-     * Cancels a confirmed or packed order and restores every item's stock in the
-     * same transaction, with one stock_audit row per item
-     * (reason "order_cancelled: H-…", acting administrator) and an
-     * order_events row. Any failure leaves the order and stock untouched.
+     * Rejects a pending order (reason required, shown to the customer when
+     * tracking) and restores every item's stock with one stock_audit row
+     * each (reason "order_rejected: H-…"), all in one transaction.
      *
      * @throws AdminActionException
      */
-    public function cancel(string $orderNumber, int $adminId): void
+    public function reject(string $orderNumber, int $adminId, string $reason, ?string $expected = null): void
     {
-        $this->pdo->exec('BEGIN IMMEDIATE');
-        try {
-            $order = $this->lockedOrder($orderNumber);
+        $reason = self::reason($reason);
+        $this->transition($orderNumber, $expected, function (array $order) use ($orderNumber, $adminId, $reason): void {
+            if ($order['status'] !== 'pending') {
+                throw self::changed($orderNumber, $order);
+            }
+            $this->restoreStock($order['id'], 'order_rejected: ' . $orderNumber, $adminId);
+            $this->guardedStatus($order, 'rejected', $reason);
+            $this->recordEvent($order['id'], 'status', 'pending', 'rejected', 'admin', $adminId, $reason);
+        });
+    }
+
+    /**
+     * Cancels a confirmed or packed order (reason required, kept on the
+     * event) and restores every item's stock in the same transaction, with
+     * one stock_audit row per item (reason "order_cancelled: H-…", acting
+     * administrator). Any failure leaves the order and stock untouched.
+     *
+     * @throws AdminActionException
+     */
+    public function cancel(string $orderNumber, int $adminId, string $reason, ?string $expected = null): void
+    {
+        $reason = self::reason($reason);
+        $this->transition($orderNumber, $expected, function (array $order) use ($orderNumber, $adminId, $reason): void {
             if (!in_array($order['status'], self::CANCELLABLE, true)) {
                 throw new AdminActionException(sprintf(
-                    'Order %s is %s and can no longer be cancelled.',
+                    'Order %s is %s and can no longer be cancelled. Review it again.',
                     $orderNumber,
                     $order['status']
                 ));
             }
+            $this->restoreStock($order['id'], 'order_cancelled: ' . $orderNumber, $adminId);
+            $this->guardedStatus($order, 'cancelled', null);
+            $this->recordEvent($order['id'], 'status', $order['status'], 'cancelled', 'admin', $adminId, $reason);
+        });
+    }
 
-            $items = $this->pdo->prepare(
-                'SELECT i.product_id, i.qty, p.stock FROM order_items i
-                 JOIN products p ON p.id = i.product_id WHERE i.order_id = ? ORDER BY i.id'
-            );
-            $items->execute([$order['id']]);
-            $restore = $this->pdo->prepare(
-                "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ? AND stock = ?"
-            );
-            $audit = $this->pdo->prepare(
-                'INSERT INTO stock_audit (product_id, admin_id, old_stock, new_stock, reason) VALUES (?, ?, ?, ?, ?)'
-            );
-            foreach ($items->fetchAll() as $item) {
-                $old = (int) $item['stock'];
-                $restore->execute([(int) $item['qty'], (int) $item['product_id'], $old]);
-                if ($restore->rowCount() !== 1) {
-                    throw new RuntimeException('Stock changed while restoring a cancelled order.');
-                }
-                $audit->execute([
-                    (int) $item['product_id'],
-                    $adminId,
-                    $old,
-                    $old + (int) $item['qty'],
-                    'order_cancelled: ' . $orderNumber,
-                ]);
-            }
+    /**
+     * Accepts a transfer's proof of payment: for_verification → paid, and
+     * the proof is marked reviewed by this administrator.
+     *
+     * @throws AdminActionException
+     */
+    public function acceptPayment(string $orderNumber, int $adminId, ?string $expected = null): void
+    {
+        $this->reviewTransfer($orderNumber, $adminId, 'paid', null, $expected);
+    }
 
-            $update = $this->pdo->prepare(
-                "UPDATE orders SET status = 'cancelled', status_changed_at = datetime('now'),
-                     updated_at = datetime('now') WHERE id = ? AND status = ?"
-            );
-            $update->execute([$order['id'], $order['status']]);
-            if ($update->rowCount() !== 1) {
-                throw new RuntimeException('The order changed while it was being cancelled.');
+    /**
+     * Refuses a transfer's proof (reason required): for_verification →
+     * rejected. The order stays pending so it can then be rejected.
+     *
+     * @throws AdminActionException
+     */
+    public function refusePayment(string $orderNumber, int $adminId, string $reason, ?string $expected = null): void
+    {
+        $this->reviewTransfer($orderNumber, $adminId, 'rejected', self::reason($reason), $expected);
+    }
+
+    /**
+     * Records cash collected on delivery: unpaid → paid, only once the
+     * order is shipped or delivered.
+     *
+     * @throws AdminActionException
+     */
+    public function markCodPaid(string $orderNumber, int $adminId, ?string $expected = null): void
+    {
+        $this->transition($orderNumber, $expected, function (array $order) use ($orderNumber, $adminId): void {
+            if ($order['payment_method'] !== 'cod' || $order['payment_status'] !== 'unpaid') {
+                throw self::changed($orderNumber, $order);
             }
-            $this->recordEvent($order['id'], 'status', $order['status'], 'cancelled', 'admin', $adminId);
+            if (!in_array($order['status'], self::COD_PAYABLE, true)) {
+                throw new AdminActionException(sprintf(
+                    'Order %s is %s. Cash on delivery is marked paid once it has shipped or been delivered.',
+                    $orderNumber,
+                    $order['status']
+                ));
+            }
+            $this->guardedPayment($order, 'paid');
+            $this->recordEvent($order['id'], 'payment_status', 'unpaid', 'paid', 'admin', $adminId);
+        });
+    }
+
+    /**
+     * Every status and payment-status change of an order, oldest first,
+     * with the acting administrator's email when there is one (R44).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function events(int $orderId): array
+    {
+        $statement = $this->pdo->prepare(
+            "SELECT e.id, e.field, e.old_value, e.new_value, e.actor_role, e.actor_id, e.note, e.created_at,
+                    a.email AS actor_email
+             FROM order_events e LEFT JOIN admins a ON e.actor_role = 'admin' AND a.id = e.actor_id
+             WHERE e.order_id = ? ORDER BY e.id ASC"
+        );
+        $statement->execute([$orderId]);
+
+        return $statement->fetchAll();
+    }
+
+    /**
+     * The order's proof-of-payment row, or null (N11: the file itself is
+     * only streamed by the admin proof route).
+     *
+     * @return array{path: string, sender_reference: string, uploaded_at: string,
+     *     reviewed_by_admin_id: ?int, reviewed_at: ?string, review_note: ?string}|null
+     */
+    public function proofFor(int $orderId): ?array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT path, sender_reference, uploaded_at, reviewed_by_admin_id, reviewed_at, review_note
+             FROM payment_proofs WHERE order_id = ?'
+        );
+        $statement->execute([$orderId]);
+        $row = $statement->fetch();
+        if ($row === false) {
+            return null;
+        }
+
+        return [
+            'path' => (string) $row['path'],
+            'sender_reference' => (string) $row['sender_reference'],
+            'uploaded_at' => (string) $row['uploaded_at'],
+            'reviewed_by_admin_id' => $row['reviewed_by_admin_id'] === null ? null : (int) $row['reviewed_by_admin_id'],
+            'reviewed_at' => $row['reviewed_at'] === null ? null : (string) $row['reviewed_at'],
+            'review_note' => $row['review_note'] === null ? null : (string) $row['review_note'],
+        ];
+    }
+
+    /** The "status/payment_status" token a form sends back to detect a stale view. */
+    public static function stateToken(array $order): string
+    {
+        return $order['status'] . '/' . $order['payment_status'];
+    }
+
+    /**
+     * Runs one transition inside BEGIN IMMEDIATE on the locked order; a
+     * mismatching expected state is refused before anything is written.
+     *
+     * @param callable(array{id: int, status: string, payment_method: string, payment_status: string}): void $work
+     */
+    private function transition(string $orderNumber, ?string $expected, callable $work): void
+    {
+        $this->pdo->exec('BEGIN IMMEDIATE');
+        try {
+            $order = $this->lockedOrder($orderNumber);
+            if ($expected !== null && $expected !== self::stateToken($order)) {
+                throw self::changed($orderNumber, $order);
+            }
+            $work($order);
             $this->pdo->exec('COMMIT');
         } catch (Throwable $exception) {
             $this->rollBackQuietly();
@@ -430,6 +562,111 @@ final class OrderService
         }
     }
 
+    private function reviewTransfer(
+        string $orderNumber,
+        int $adminId,
+        string $target,
+        ?string $note,
+        ?string $expected,
+    ): void {
+        $this->transition($orderNumber, $expected, function (array $order) use (
+            $orderNumber,
+            $adminId,
+            $target,
+            $note
+        ): void {
+            if (
+                $order['payment_method'] !== 'transfer' || $order['payment_status'] !== 'for_verification'
+                || in_array($order['status'], ['rejected', 'cancelled'], true)
+            ) {
+                throw self::changed($orderNumber, $order);
+            }
+            $this->guardedPayment($order, $target);
+            $this->pdo->prepare(
+                "UPDATE payment_proofs SET reviewed_by_admin_id = ?, reviewed_at = datetime('now'), review_note = ?
+                 WHERE order_id = ?"
+            )->execute([$adminId, $note, $order['id']]);
+            $this->recordEvent($order['id'], 'payment_status', 'for_verification', $target, 'admin', $adminId, $note);
+        });
+    }
+
+    /** @param array{id: int, status: string} $order */
+    private function guardedStatus(array $order, string $target, ?string $rejectionReason): void
+    {
+        $update = $this->pdo->prepare(
+            "UPDATE orders SET status = ?, rejection_reason = COALESCE(?, rejection_reason),
+                 status_changed_at = datetime('now'), updated_at = datetime('now')
+             WHERE id = ? AND status = ?"
+        );
+        $update->execute([$target, $rejectionReason, $order['id'], $order['status']]);
+        if ($update->rowCount() !== 1) {
+            throw new AdminActionException('The order changed during the update. Review it again.');
+        }
+    }
+
+    /** @param array{id: int, payment_status: string} $order */
+    private function guardedPayment(array $order, string $target): void
+    {
+        $update = $this->pdo->prepare(
+            "UPDATE orders SET payment_status = ?, updated_at = datetime('now') WHERE id = ? AND payment_status = ?"
+        );
+        $update->execute([$target, $order['id'], $order['payment_status']]);
+        if ($update->rowCount() !== 1) {
+            throw new AdminActionException('The order changed during the update. Review it again.');
+        }
+    }
+
+    /**
+     * Guarded per-item stock restore plus one stock_audit row each; any
+     * mismatch or failure aborts the caller's transaction.
+     */
+    private function restoreStock(int $orderId, string $reason, int $adminId): void
+    {
+        $items = $this->pdo->prepare(
+            'SELECT i.product_id, i.qty, p.stock FROM order_items i
+             JOIN products p ON p.id = i.product_id WHERE i.order_id = ? ORDER BY i.id'
+        );
+        $items->execute([$orderId]);
+        $restore = $this->pdo->prepare(
+            "UPDATE products SET stock = stock + ?, updated_at = datetime('now') WHERE id = ? AND stock = ?"
+        );
+        $audit = $this->pdo->prepare(
+            'INSERT INTO stock_audit (product_id, admin_id, old_stock, new_stock, reason) VALUES (?, ?, ?, ?, ?)'
+        );
+        foreach ($items->fetchAll() as $item) {
+            $old = (int) $item['stock'];
+            $restore->execute([(int) $item['qty'], (int) $item['product_id'], $old]);
+            if ($restore->rowCount() !== 1) {
+                throw new RuntimeException('Stock changed while restoring an order.');
+            }
+            $audit->execute([(int) $item['product_id'], $adminId, $old, $old + (int) $item['qty'], $reason]);
+        }
+    }
+
+    /** A required reason: whitespace collapsed, 1–MAX_REASON_LENGTH characters. */
+    private static function reason(string $reason): string
+    {
+        $reason = trim((string) preg_replace('/\s+/u', ' ', $reason));
+        if ($reason === '' || mb_strlen($reason) > self::MAX_REASON_LENGTH) {
+            throw new AdminActionException(
+                sprintf('Enter a reason of up to %d characters.', self::MAX_REASON_LENGTH),
+                'reason'
+            );
+        }
+
+        return $reason;
+    }
+
+    /** @param array{status: string, payment_status: string} $order */
+    private static function changed(string $orderNumber, array $order): AdminActionException
+    {
+        return new AdminActionException(sprintf(
+            'Order %s changed: it is now %s with payment %s. Review it again.',
+            $orderNumber,
+            $order['status'],
+            str_replace('_', ' ', $order['payment_status'])
+        ));
+    }
     /**
      * @return array{id: int, status: string, payment_method: string, payment_status: string}
      */
@@ -625,11 +862,12 @@ final class OrderService
         string $new,
         string $actorRole,
         ?int $actorId,
+        ?string $note = null,
     ): void {
         $this->pdo->prepare(
-            'INSERT INTO order_events (order_id, field, old_value, new_value, actor_role, actor_id)'
-            . ' VALUES (?, ?, ?, ?, ?, ?)'
-        )->execute([$orderId, $field, $old, $new, $actorRole, $actorId]);
+            'INSERT INTO order_events (order_id, field, old_value, new_value, actor_role, actor_id, note)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )->execute([$orderId, $field, $old, $new, $actorRole, $actorId, $note]);
     }
 
     /**

@@ -64,17 +64,10 @@ final class AdminProductServiceTest extends IsolatedDatabaseTestCase
         self::assertSame(165050, (int) $row['price_centavos']);
         self::assertSame(5, (int) $row['stock']);
         self::assertSame('active', $row['listing_status']);
-        // Until the M13 form assigns weavers, new products go to the inactive placeholder.
-        self::assertSame(
-            (int) $this->database()->query("SELECT id FROM weavers WHERE slug = 'unassigned'")->fetchColumn(),
-            (int) $row['weaver_id']
-        );
-        self::assertSame('other', $row['fiber'], 'A v1 material look is not a native fiber.');
-        self::assertSame(
-            [['id' => $id, 'name' => $row['name']]],
-            $this->products->metrics()['unassigned'],
-            'The dashboard lists products still owned by the placeholder weaver.'
-        );
+        // The M13 form assigns the chosen weaver; nothing lands on the placeholder.
+        self::assertSame($this->weaverId(), (int) $row['weaver_id']);
+        self::assertSame('other', $row['fiber']);
+        self::assertSame([], $this->products->metrics()['unassigned']);
         self::assertSame(
             'Tote',
             (string) $this->database()
@@ -215,7 +208,11 @@ final class AdminProductServiceTest extends IsolatedDatabaseTestCase
             [
                 'name' => 'Test Tote',
                 'sku' => 'HBI-TST-001',
-                'category' => 'Tote',
+                'weaver_id' => (string) $this->weaverId(),
+                'category_id' => (string) $this->database()
+                    ->query("SELECT id FROM categories WHERE name = 'Tote'")->fetchColumn(),
+                'fiber' => 'other',
+                'has_3d' => '1',
                 'description' => 'A test bag.',
                 'materials' => 'Canvas',
                 'place_of_make' => 'Manila',
@@ -237,6 +234,11 @@ final class AdminProductServiceTest extends IsolatedDatabaseTestCase
             ],
             $overrides
         );
+    }
+
+    private function weaverId(): int
+    {
+        return (int) $this->database()->query("SELECT id FROM weavers WHERE slug = 'rosa-basey'")->fetchColumn();
     }
 
     /** @return array<string, mixed> */

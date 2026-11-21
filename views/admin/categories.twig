@@ -1,0 +1,79 @@
+{#-
+  Admin Categories (R41): table (name with filter slug, live/total products,
+  status chip) with Rename and Deactivate/Reactivate. Categories are never
+  deleted; one with live products (active or pending review) cannot be
+  deactivated, so its button explains why instead. The Add/Rename dialog is
+  server-rendered (dialog.category null = add).
+  Receives: categories, dialog, max_name.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'categories' %}
+{% set dialog_open = dialog is not null %}
+
+{% block title %}Categories{% endblock %}
+
+{% block content %}
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-h2 font-semibold">Categories</h1>
+    <a class="btn btn--primary btn--sm" href="/admin/categories/new">{{ icons.icon('plus', 18) }}<span>Add category</span></a>
+  </div>
+  <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+    <table class="w-full min-w-[420px] text-left text-small">
+      <caption class="sr-only">Categories</caption>
+      <thead>
+        <tr>
+          {% for heading in ['Category', 'Products', 'Status'] %}
+            <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+          {% endfor %}
+          <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-right"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for category in categories %}
+          <tr class="hover:bg-page">
+            <td class="border-b border-line px-3 py-2.5 align-middle"><span class="font-semibold">{{ category.name }}</span><span class="block text-caption text-ink-2">{{ category.slug }}</span></td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ category.live }} live · {{ category.products }} total</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.active_chip(category.is_active) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle text-right">
+              <div class="flex flex-wrap items-center justify-end gap-1">
+                <a href="/admin/categories/{{ category.id }}/edit" aria-label="Rename {{ category.name }}" title="Rename {{ category.name }}" class="icon-btn relative">{{ icons.icon('edit') }}</a>
+                <form method="post" action="/admin/categories/{{ category.id }}/{{ category.is_active ? 'deactivate' : 'reactivate' }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  {% if category.is_active and category.live > 0 %}
+                    <button type="submit" class="btn btn--tertiary btn--sm" aria-describedby="cat-{{ category.id }}-live" disabled>Deactivate</button>
+                    <span id="cat-{{ category.id }}-live" class="sr-only">Not available while it has live products.</span>
+                  {% else %}
+                    <button type="submit" class="btn {{ category.is_active ? 'btn--tertiary' : 'btn--secondary' }} btn--sm">{{ category.is_active ? 'Deactivate' : 'Reactivate' }}<span class="sr-only"> {{ category.name }}</span></button>
+                  {% endif %}
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-2 text-caption text-ink-2">A category with live products cannot be deactivated. Deactivated categories leave the catalog filter and are not offered for new products.</p>
+{% endblock %}
+
+{% block dialog %}
+  {% if dialog %}
+    {% embed 'admin/_dialog.twig' with {
+      dialog_id: 'category-dialog',
+      title: dialog.category ? 'Rename ' ~ dialog.category.name : 'Add category',
+      close_href: '/admin/categories',
+      form_action: dialog.category ? '/admin/categories/' ~ dialog.category.id : '/admin/categories',
+    } %}
+      {% import "admin/_macros.twig" as ui %}
+      {% block body %}
+        {{ ui.input('name', 'Name', dialog.values.name, dialog.errors, {required: true, maxlength: max_name}) }}
+      {% endblock %}
+      {% block footer %}
+        <a class="btn btn--secondary" href="{{ close_href }}"><span>Cancel</span></a>
+        <button type="submit" class="btn btn--primary"><span>{{ dialog.category ? 'Save name' : 'Add category' }}</span></button>
+      {% endblock %}
+    {% endembed %}
+  {% endif %}
+{% endblock %}

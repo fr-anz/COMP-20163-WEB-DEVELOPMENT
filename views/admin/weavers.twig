@@ -1,0 +1,96 @@
+{#-
+  Admin Weavers (R40): table of weaver accounts (name with profile slug,
+  sign-in email, community · region, products with pending reviews linking
+  to the Pending review product filter, status chip) with Edit, Set
+  password… and Deactivate…/Reactivate. Dialogs are server-rendered:
+  dialog.type 'password' (enter a password or leave empty to generate one)
+  or 'deactivate'. Receives: weavers, dialog, min_password.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'weavers' %}
+{% set dialog_open = dialog is not null %}
+
+{% block title %}Weavers{% endblock %}
+
+{% block content %}
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-h2 font-semibold">Weavers</h1>
+    <a class="btn btn--primary btn--sm" href="/admin/weavers/new">{{ icons.icon('plus', 18) }}<span>Add weaver</span></a>
+  </div>
+  <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+    <table class="w-full min-w-[640px] text-left text-small">
+      <caption class="sr-only">Weavers</caption>
+      <thead>
+        <tr>
+          {% for heading in ['Weaver', 'Sign-in email', 'Community', 'Products', 'Status'] %}
+            <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+          {% endfor %}
+          <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-right"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for weaver in weavers %}
+          <tr class="hover:bg-page">
+            <td class="border-b border-line px-3 py-2.5 align-middle"><span class="font-semibold">{{ weaver.display_name }}</span><span class="block text-caption text-ink-2">{{ weaver.slug }}</span></td>
+            <td class="border-b border-line px-3 py-2.5 align-middle break-words">{{ weaver.email }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ [weaver.community, weaver.region]|filter(v => v)|join(' · ') }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ weaver.products }}{% if weaver.pending %} · <a class="link" href="/admin/products?stock=pending">{{ weaver.pending }} pending</a>{% endif %}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.active_chip(weaver.is_active) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle text-right">
+              <div class="flex flex-wrap items-center justify-end gap-1">
+                <a href="/admin/weavers/{{ weaver.id }}/edit" aria-label="Edit {{ weaver.display_name }}" title="Edit {{ weaver.display_name }}" class="icon-btn relative">{{ icons.icon('edit') }}</a>
+                <a class="btn btn--tertiary btn--sm" href="/admin/weavers/{{ weaver.id }}/password">Set password<span class="sr-only"> for {{ weaver.display_name }}</span></a>
+                {% if weaver.is_active %}
+                  <a class="btn btn--tertiary btn--sm" href="/admin/weavers/{{ weaver.id }}/deactivate">Deactivate…<span class="sr-only"> {{ weaver.display_name }}</span></a>
+                {% else %}
+                  <form method="post" action="/admin/weavers/{{ weaver.id }}/reactivate">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn--secondary btn--sm">Reactivate<span class="sr-only"> {{ weaver.display_name }}</span></button>
+                  </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="px-3 py-2.5 text-ink-2">No weavers yet. <a class="link" href="/admin/weavers/new">Add the first weaver</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}
+
+{% block dialog %}
+  {% if dialog and dialog.type == 'password' %}
+    {% embed 'admin/_dialog.twig' with {
+      dialog_id: 'password-dialog',
+      title: 'Set password for ' ~ dialog.weaver.display_name,
+      description: 'The current password stops working. Leave the field empty to generate one; it is shown once.',
+      close_href: '/admin/weavers',
+      form_action: '/admin/weavers/' ~ dialog.weaver.id ~ '/password',
+    } %}
+      {% import "admin/_macros.twig" as ui %}
+      {% block body %}
+        {{ ui.input('password', 'New password', '', dialog.errors, {type: 'password', autocomplete: 'new-password', optional: true, hint: 'At least ' ~ min_password ~ ' characters.'}) }}
+      {% endblock %}
+      {% block footer %}
+        <a class="btn btn--secondary" href="{{ close_href }}"><span>Cancel</span></a>
+        <button type="submit" class="btn btn--primary"><span>Set password</span></button>
+      {% endblock %}
+    {% endembed %}
+  {% elseif dialog and dialog.type == 'deactivate' %}
+    {% embed 'admin/_dialog.twig' with {
+      dialog_id: 'deactivate-dialog',
+      title: 'Deactivate ' ~ dialog.weaver.display_name ~ '?',
+      description: 'They can no longer sign in and are signed out on their next request. Orders and products are kept; reactivate at any time.',
+      close_href: '/admin/weavers',
+      form_action: '/admin/weavers/' ~ dialog.weaver.id ~ '/deactivate',
+    } %}
+      {% block footer %}
+        <a class="btn btn--secondary" href="{{ close_href }}"><span>Cancel</span></a>
+        <button type="submit" class="btn btn--destructive"><span>Deactivate weaver</span></button>
+      {% endblock %}
+    {% endembed %}
+  {% endif %}
+{% endblock %}

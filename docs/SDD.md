@@ -219,6 +219,27 @@ Validation failures use POST/Redirect/GET with flashed values and field errors (
 passwords) shown once with 422. Dialog URLs carry the list's `q`/`stock` filters so closing
 or saving returns to the same list.
 
+M13 admin routes (registered by `AdminRoutes`, covered route-for-route by `AdminRoutesTest`;
+same auth/CSRF/PRG rules). M6 rows change as follows: `/admin/orders` also filters by
+`payment=` (unpaid/for_verification/paid/rejected) and `method=` (cod/transfer/card);
+`/status` confirms a pending order (`status=confirmed`) or moves one step forward; `/cancel`
+needs a `reason`; `/admin/products?stock=` adds `pending` (pending review) and `archived`
+now means archived or deactivated. Every order action posts `expected` (`status/payment_status`
+the page showed); a mismatch is refused with "Order … changed … Review it again." and writes nothing.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/admin/orders/{number}/reject`, `/refuse` | Reject / Refuse payment dialogs (reason required) |
+| POST | `/admin/orders/{number}/reject` | `reason`, `expected`; pending → rejected, stock restored |
+| POST | `/admin/orders/{number}/payment` | `action` = `accept` \| `refuse` (+`reason`) \| `cod_paid`; `expected` |
+| GET | `/admin/orders/{number}/proof` | Proof image (N11): detected MIME, `nosniff`, `no-store`, `Content-Disposition: inline`, `default-src 'none'; sandbox` CSP; 404 for unknown order, no proof or missing file |
+| POST | `/admin/products/{id}/approve`; GET/POST `/{id}/deactivate` | Listing approval: pending_review → active; pending/active → deactivated (Restore reactivates) |
+| GET/POST | `/admin/weavers`, `/new`, `/{id}/edit`, POST `/{id}` | Weaver accounts and profile (page form, optional photo) |
+| GET/POST | `/admin/weavers/{id}/password`, `/{id}/deactivate`; POST `/{id}/reactivate` | Set/generate password, deactivate (dialog), reactivate |
+| GET/POST | `/admin/categories`, `/new`, `/{id}/edit`, POST `/{id}`, `/{id}/deactivate`, `/{id}/reactivate` | Category add/rename (dialog), deactivate-not-delete |
+| GET | `/admin/customers?q=&page=`, `/admin/customers/{sha256}` | Customers grouped by checkout email; detail by opaque key |
+| GET/POST | `/admin/journal`, `/new`, `/{id}/edit`, POST `/{id}`, `/{id}/publish`, `/{id}/unpublish` | Journal articles (page form, optional cover) |
+
 ## 7. Cart & Checkout Flow (state machine)
 
 Payment-method branching (R13) is implemented since M11 (`POST /checkout/payment`).
@@ -290,18 +311,27 @@ On failure:
 
 - Guarded `UPDATE … WHERE stock >= ?` + affected-rows check = no oversell even under
   concurrent requests.
-- Admin cancel (R22) runs the reverse in one `BEGIN IMMEDIATE` transaction, only from `confirmed`
-  or `packed`: each item's stock is restored with a guarded update and a `stock_audit` row
-  (reason `order_cancelled: <order number>`, acting admin), then the status changes with a
-  guarded `WHERE status = ?`. Any failure rolls everything back; a repeat cancel is rejected.
+- Admin reject (from `pending`) and cancel (from `confirmed` or `packed`) (R22, M13) run the
+  reverse in one `BEGIN IMMEDIATE` transaction with a required reason (1–300 characters,
+  whitespace collapsed): each item's stock is restored with a guarded update and a `stock_audit`
+  row (reason `order_rejected: <number>` / `order_cancelled: <number>`, acting admin), then the
+  status changes with a guarded `WHERE id = ? AND status = ?` and an `order_events` row carries
+  the reason as `note`. Reject also stores the reason in `orders.rejection_reason` (shown on
+  tracking); cancel keeps it on the event only. Any failure rolls everything back.
+- Payment transitions (M13) use the same transaction shape with a guarded
+  `WHERE payment_status = ?`: transfer `for_verification → paid` (Accept) or `→ rejected`
+  (Refuse, reason required) while the order is not rejected/cancelled, also stamping
+  `payment_proofs.reviewed_by_admin_id/reviewed_at/review_note`; COD `unpaid → paid` only from
+  `shipped` or `delivered`. A refused transfer stays `pending` and can only be rejected.
 - Admin adjustments (R21) are previewed, then applied in `BEGIN IMMEDIATE` only when stock
   still equals the reviewed `expected_stock`; otherwise the administrator re-reviews the new
   numbers. Results below zero are rejected. Reasons: Restock received, Damaged in storage,
   Count correction, Returned item (+ optional note). New products audit `initial_stock`.
   Fulfilment moves `pending → confirmed → packed → shipped → delivered` one step at a time;
   confirm requires `payment_status = paid` unless the method is COD (§15.4). Advance and
-  cancel append an `order_events` row (actor `admin`, admin id) in the same transaction;
-  reject and payment transitions arrive with M13.
+  every transition appends one `order_events` row (actor `admin`, admin id, optional note) in
+  the same transaction. `OrderService::transition()` locks the order, compares the optional
+  `expected` state token and runs the guarded writes; a stale or invalid state writes nothing.
 - M11 runs the no-oversell check for every method in PHPUnit (`PlacementV2Test`: six
   processes place the last unit concurrently per method → exactly one order, stock 0).
 - SQLite tuning: `PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;`.
@@ -335,6 +365,17 @@ On failure:
   correct password is not checked. Generic "Invalid email or password." for every failure;
   the lockout message names only the wait. Success clears the key. Behind one shared proxy IP
   the key is effectively per email.
+- Proofs of payment (N11, M13): stored in `data/proofs/`; only `GET /admin/orders/{number}/proof`
+  (behind `AdminAuthMiddleware`, so signed-out, customer and weaver-only sessions get the 303
+  sign-in redirect) streams them, with the MIME of the validated extension and `nosniff`.
+- Admin content (R43, M13): weaver profiles, product heritage fields/description and journal
+  articles are plain text (`Support\PlainText`). Text that looks like an HTML tag or comment is
+  refused with a field error, never stripped silently; multi-paragraph text is normalized to LF
+  with paragraphs separated by one blank line; journal sources are one per line and any URL-like
+  token must be a full `http(s)://` URL. Templates escape everything (no `|raw`).
+- Weaver passwords (R40, M13): set by an admin (10–72 bytes) or generated (16 characters from a
+  look-alike-free alphabet), stored only as `password_hash()`; a generated one appears once in
+  the next flash and is never kept in form feedback.
 - Uploads (R23): type detected from bytes (`getimagesizefromstring`), allowlist JPEG/PNG/WebP,
   ≤2 MB and ≤6000 px, random 32-hex name with the detected extension, stored in `data/uploads/`
   outside the document root, served only by `/uploads/{name}` with the mapped MIME and `nosniff`.
@@ -441,7 +482,8 @@ SQLite remains the current target; no migration implementation requested.
 
 Status: **M9 implemented** (data model §15.2, migration §15.9; facts moved to §5);
 **M11 implemented** (checkout v2 §15.5, placement §15.6, tracking; facts moved to §7–§9;
-the §6 endpoint table still lists v1 routes, see §15.3); the rest is design only. §§1–14 describe the implemented system. This
+the §6 endpoint table still lists v1 routes, see §15.3); **M12 implemented** (§15.1, §15.7);
+**M13 implemented** (admin rows of §15.3, §15.4; facts moved to §6, §8, §10); the rest is design only. §§1–14 describe the implemented system. This
 section is the design for the PRD 2.0 requirements tagged [v2-changed]/[v2-new]. When a
 milestone ships, move the implemented facts into the owning section above and shrink this one.
 Stack, deployment and security baseline (§§2, 10, 12) are unchanged; no new dependencies.
@@ -477,8 +519,9 @@ resources render the standalone `ErrorHandler::page(404)`; weaver responses carr
 
 *Implemented in M9 (see §5).* Deviations: `fiber` and category names are validated in PHP,
 not by CHECK constraints, so the lists can grow without another table rebuild; new
-products need `weaver_id`, and until the M13 form assigns weavers, admin-created products
-go to the placeholder weaver.
+products need `weaver_id`. Since M13 the admin product form requires an active real weaver
+for new products (an existing product may keep its current weaver, including the placeholder,
+until reassigned) and an active category; `three_config` is NULL when the 3D model is off.
 
 New tables:
 
@@ -506,6 +549,13 @@ Indexes added: `products(weaver_id)`, `products(category_id, listing_status)`,
 `orders(customer_email)`, `order_events(order_id, created_at)`.
 
 ### 15.3 Endpoints (new or changed)
+
+*Admin rows implemented in M13 (see §6 "M13 admin routes").* Deviations: confirm uses the
+existing `POST /admin/orders/{number}/status` (`status=confirmed`) instead of a separate
+`/confirm`; payment actions share `POST /payment` (`action=accept|refuse|cod_paid`) with a
+`GET /refuse` dialog; listing deactivation needs no note because `products` has no review-note
+column (no schema change in M13); the customer key is the SHA-256 of the lowercased email;
+journal articles also have an optional cover upload; weaver and article forms are pages, not dialogs.
 
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
@@ -535,9 +585,11 @@ then omits the 3D control (R4). Only `listing_status = active`, available-weaver
 
 ### 15.4 Order and payment state machines (R13, R15, R22, R44)
 
-*Partly implemented in M11:* placement sets the initial status/payment status per method and
-writes the opening events (§8); confirm/advance/cancel write `order_events` (actor admin).
-Reject, payment accept/refuse and Mark COD paid remain planned for M13.
+*Implemented in M11 (placement) and M13 (transitions); see §8* (tests: `OrderTransitionTest`,
+`AdminOrderServiceTest`, `AdminRoutesTest`). Deviations: cancel requires a reason too (kept on
+the event); a refused transfer leaves the order `pending` until an admin rejects it (no automatic
+reject); payment actions are refused once the order is rejected or cancelled; stale forms are
+detected by an `expected` state token as well as the guarded `UPDATE`.
 
 ```
 status:   pending ──confirm──▶ confirmed ──▶ packed ──▶ shipped ──▶ delivered
@@ -563,9 +615,8 @@ payment:  cod:      unpaid ──mark paid (at/after delivery)──▶ paid
 
 *Implemented in M11 (see §7, §8).* Deviations: the 24 h purge of staged proofs runs when a
 new proof is staged (not on boot); a revoked transfer choice deletes its staged file at once.
-`POST /api/payment/simulate` stays as a card-only alias of `POST /checkout/payment`. No route
-serves proofs yet: the admin proof view (`GET /admin/orders/{number}/proof`) is M13
-(`PaymentProofService::locate()` is ready for it).
+`POST /api/payment/simulate` stays as a card-only alias of `POST /checkout/payment`. The admin
+proof view (`GET /admin/orders/{number}/proof`, M13) is the only route that serves proofs (§10).
 
 ```
 [shipping] ──valid──▶ [payment: choose method]
@@ -673,6 +724,10 @@ each checkout method, language switch, weaver portal and the new admin screens a
 `src/Middleware/{WeaverAuthMiddleware, LocaleMiddleware}`, `src/Support/Translator.php`, `lang/{en,fil}.php`,
 `views/weaver/`, `views/storefront/{weavers,weaver,journal,article,track}.twig`, `migrations/003_heritage.sql`,
 `data/proofs/` (gitignored, outside the docroot). Names are planning proposals; follow existing conventions when implementing.
+M13 added `src/Controllers/{AdminRoutes, AdminWeaverController, AdminCategoryController, AdminCustomerController,
+AdminJournalController}`, `src/Services/{AdminWeaverService, CategoryService, CustomerService, AdminJournalService}`,
+`src/Support/PlainText.php` and `views/admin/{weavers, weaver-form, categories, customers, customer, journal,
+article-form, _error-summary}.twig`; order events are read by `OrderService::events()` (no `OrderEventService`).
 
 ---
 

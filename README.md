@@ -314,14 +314,33 @@ only confirmed or packed orders can be cancelled, which restores
 every item's stock in one transaction. Images must be real JPEG, PNG or WebP files
 up to 2 MB (checked by content); otherwise choose a seeded demo illustration.
 
+Admin v2 (M13): the dashboard shows orders to confirm, payments to verify, sales today,
+this month and overall (rejected and cancelled orders excluded) and orders by status.
+Orders filter by status, payment status, method and date; the detail groups items by
+weaver and lists every status/payment change. A pending order is confirmed (transfer
+orders only once their payment is accepted) or **rejected with a reason**; confirmed or
+packed orders can be **cancelled with a reason**; both restore stock with audit rows.
+Transfer proofs are viewable only by signed-in admins (`/admin/orders/{number}/proof`) and
+are accepted or refused (reason required); cash on delivery is marked paid once shipped or
+delivered. If another admin changed the order meanwhile, the action is refused ("Review
+it again").
+
+| Screen | Purpose |
+|---|---|
+| Products | Weaver (required for new bags), category, fiber, community, region, technique, story, optional 3D model; **Approve** or deactivate weavers' pending listings (filter *Pending review*) |
+| Weavers | Create accounts (enter a password or leave it empty to generate one, shown once), edit profiles, set a new password, deactivate/reactivate |
+| Categories | Add and rename; deactivate instead of delete — refused while the category has active or pending products |
+| Customers | Orders grouped by checkout email, with search |
+| Journal | Plain-text articles with sources (one per line, http(s) links), draft/publish |
+
+Profile stories, product stories and journal text are plain text: HTML is refused, and
+paragraphs are separated by a blank line.
+
 ### Weaver module
 
 Weavers sign in at `/weaver/login` (M12, PRD R34–R39). There is no self-registration:
-admins create weaver accounts (M13). Until then, give a weaver a password on a local
-or test database, for example
-`sqlite3 data/app.sqlite "UPDATE weavers SET password_hash = '<hash>' WHERE slug = 'rosa-basey'"`
-with a hash from the [Local setup](#local-setup--three-steps) command; seeded weavers
-start with an unusable hash. Sign-in uses the admin rules (generic error, five failures
+admins create weaver accounts and set or reset passwords under **Admin → Weavers** (M13);
+seeded weavers start with an unusable hash until an admin sets one. Sign-in uses the admin rules (generic error, five failures
 per email+IP lock it for 60 s) with separate counters, and a session holds one staff
 role: signing in as a weaver signs out the administrator and the reverse. Deactivated
 weavers cannot sign in and are signed out on their next request.

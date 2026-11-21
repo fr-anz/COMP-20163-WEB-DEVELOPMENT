@@ -1,0 +1,55 @@
+{#-
+  Admin Customers (R42): customers grouped by checkout email (no accounts),
+  searchable by email or name, with order count, total spent (rejected and
+  cancelled orders excluded) and last order date. Rows link to the detail.
+  Receives: customers, q, page, pages, total.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'customers' %}
+
+{% block title %}Customers{% endblock %}
+
+{% block content %}
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-h2 font-semibold">Customers</h1>
+    <form method="get" action="/admin/customers" role="search" class="flex flex-wrap items-end gap-3">
+      <div>
+        <label for="filter-q" class="field-label">Find by email or name</label>
+        <div class="relative">
+          {{ icons.icon('search', 20, 'pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-2') }}
+          <input id="filter-q" class="input pl-10" type="search" name="q" value="{{ q }}" placeholder="e.g. maria@example.com">
+        </div>
+      </div>
+      <button type="submit" class="btn btn--secondary">Search</button>
+    </form>
+  </div>
+  <p class="sr-only" role="status">{{ total }} {{ total == 1 ? 'customer' : 'customers' }} found</p>
+  <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+    <table class="w-full min-w-[640px] text-left text-small">
+      <caption class="sr-only">Customers</caption>
+      <thead>
+        <tr>
+          {% for heading in ['Customer', 'Phone', 'Orders', 'Spent', 'Last order'] %}
+            <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for customer in customers %}
+          <tr class="hover:bg-page">
+            <td class="border-b border-line px-3 py-2.5 align-middle"><a class="touch-link font-semibold underline-offset-4 hover:underline" href="/admin/customers/{{ customer.key }}">{{ customer.name }}</a><span class="block break-words text-caption text-ink-2">{{ customer.email }}</span></td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ customer.phone }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ customer.orders }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(customer.spent) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ customer.last_order_at|slice(0, 10) }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="px-3 py-2.5 text-ink-2">{% if q %}No customer matches “{{ q }}”. <a class="link" href="/admin/customers">Show all customers</a>{% else %}No customers yet. They appear here after their first order.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ ui.pagination('/admin/customers', {q: q}|filter(v => v), page, pages) }}
+{% endblock %}

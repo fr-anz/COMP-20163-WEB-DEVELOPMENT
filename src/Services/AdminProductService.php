@@ -5,12 +5,21 @@ declare(strict_types=1);
 namespace Habi\Services;
 
 use Habi\Bootstrap\HeritageUpgrade;
+use Habi\Support\PlainText;
 use PDO;
 use PDOException;
 use Throwable;
 
 /**
- * Administrator product management (PRD R20, R23).
+ * Administrator product management (PRD R20, R23, R29, R40).
+ *
+ * Every product belongs to a weaver: new products need an active, real
+ * weaver (never the inactive placeholder, which only keeps upgraded v1 and
+ * unassigned products until an admin reassigns them) and an active
+ * category. Heritage fields (fiber, community, region, technique, story)
+ * are plain text (N2). The 3D config is optional: without it three_config
+ * is NULL and the storefront omits the viewer (R4). Weaver listings start
+ * pending_review and are approved (→ active) or deactivated here.
  *
  * Products are created, edited and archived (listing_status) — never deleted,
  * so order items keep their product. Prices are entered in pesos and stored
@@ -54,7 +63,9 @@ final class AdminProductService
         'key_leash' => 'Key leash',
         'exterior_zip' => 'Exterior zip (outside, not modeled inside)',
     ];
-    public const STOCK_FILTERS = ['all', 'in', 'low', 'out', 'archived'];
+    public const STOCK_FILTERS = ['all', 'in', 'low', 'out', 'pending', 'archived'];
+    /** Heritage text field => maximum length (as WeaverProductService). */
+    public const HERITAGE_LIMITS = ['community' => 120, 'region' => 120, 'technique' => 120, 'story' => 4000];
     public const DEFAULT_ORIGIN = 'Handwoven in the Philippines';
     public const DEFAULT_MATERIALS = '';
     public const MAX_PRICE_CENTAVOS = 99_999_999;
@@ -89,16 +100,19 @@ final class AdminProductService
             'in' => "p.listing_status = 'active' AND p.stock > p.low_stock_threshold",
             'low' => "p.listing_status = 'active' AND p.stock > 0 AND p.stock <= p.low_stock_threshold",
             'out' => "p.listing_status = 'active' AND p.stock = 0",
-            'archived' => "p.listing_status <> 'active'",
+            'pending' => "p.listing_status = 'pending_review'",
+            'archived' => "p.listing_status IN ('archived', 'deactivated')",
             default => '1 = 1',
         };
 
         $statement = $this->pdo->prepare(
             'SELECT p.id, p.sku, p.slug, p.name, p.category, p.price_centavos, p.stock,
-                    p.low_stock_threshold, p.listing_status = \'active\' AS is_active,
+                    p.low_stock_threshold, p.listing_status = \'active\' AS is_active, p.listing_status,
+                    w.display_name AS weaver_name,
                     (SELECT pi.path FROM product_images pi WHERE pi.product_id = p.id
                      ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC LIMIT 1) AS image_path
-             FROM products p WHERE ' . implode(' AND ', $conditions) . '
+             FROM products p LEFT JOIN weavers w ON w.id = p.weaver_id
+             WHERE ' . implode(' AND ', $conditions) . '
              ORDER BY is_active DESC, p.id ASC'
         );
         $statement->execute($parameters);
@@ -114,6 +128,8 @@ final class AdminProductService
                 'stock' => (int) $row['stock'],
                 'low_stock_threshold' => (int) $row['low_stock_threshold'],
                 'is_active' => (int) $row['is_active'] === 1,
+                'listing_status' => (string) $row['listing_status'],
+                'weaver_name' => (string) ($row['weaver_name'] ?? ''),
                 'image_path' => $row['image_path'] === null ? null : (string) $row['image_path'],
             ], $statement->fetchAll()),
             'q' => $q,
@@ -185,15 +201,22 @@ final class AdminProductService
         );
         $images->execute([$id]);
         $dimensions = json_decode((string) $row['dimensions'], true);
-        $config = json_decode((string) $row['three_config'], true);
+        $config = $row['three_config'] === null ? null : json_decode((string) $row['three_config'], true);
 
         return [
             'id' => (int) $row['id'],
             'sku' => (string) $row['sku'],
             'slug' => (string) $row['slug'],
             'name' => (string) $row['name'],
+            'weaver_id' => (int) $row['weaver_id'],
+            'category_id' => (int) $row['category_id'],
             'category' => (string) $row['category'],
             'description' => (string) $row['description'],
+            'fiber' => (string) $row['fiber'],
+            'community' => (string) $row['community'],
+            'region' => (string) $row['region'],
+            'technique' => (string) $row['technique'],
+            'story' => (string) $row['story'],
             'materials' => (string) $row['materials'],
             'place_of_make' => (string) $row['place_of_make'],
             'price_centavos' => (int) $row['price_centavos'],
@@ -201,7 +224,9 @@ final class AdminProductService
             'low_stock_threshold' => (int) $row['low_stock_threshold'],
             'dimensions' => is_array($dimensions) ? $dimensions : [],
             'three_config' => is_array($config) ? $config : [],
+            'has_3d' => is_array($config),
             'is_active' => $row['listing_status'] === 'active',
+            'listing_status' => (string) $row['listing_status'],
             'images' => $images->fetchAll(),
         ];
     }
@@ -219,7 +244,9 @@ final class AdminProductService
         $demo = $this->demoImages();
         if ($product === null) {
             return [
-                'name' => '', 'sku' => '', 'category' => 'Tote', 'description' => '',
+                'name' => '', 'sku' => '', 'weaver_id' => '', 'category_id' => '', 'description' => '',
+                'fiber' => 'other', 'community' => '', 'region' => '', 'technique' => '', 'story' => '',
+                'has_3d' => true,
                 'materials' => self::DEFAULT_MATERIALS, 'place_of_make' => self::DEFAULT_ORIGIN,
                 'price' => '', 'stock' => '0', 'low_stock_threshold' => '3',
                 'width' => '', 'height' => '', 'depth' => '',
@@ -233,8 +260,11 @@ final class AdminProductService
         $dimensions = $product['dimensions'];
 
         return [
-            'name' => $product['name'], 'sku' => $product['sku'], 'category' => $product['category'],
+            'name' => $product['name'], 'sku' => $product['sku'],
+            'weaver_id' => (string) $product['weaver_id'], 'category_id' => (string) $product['category_id'],
             'description' => $product['description'], 'materials' => $product['materials'],
+            'fiber' => $product['fiber'], 'community' => $product['community'], 'region' => $product['region'],
+            'technique' => $product['technique'], 'story' => $product['story'], 'has_3d' => $product['has_3d'],
             'place_of_make' => $product['place_of_make'],
             'price' => self::formatPesos($product['price_centavos']),
             'stock' => (string) $product['stock'],
@@ -280,14 +310,41 @@ final class AdminProductService
             $errors['sku'] = 'Another product already uses this SKU.';
         }
 
-        $values['category'] = $text('category');
-        if (!in_array($values['category'], self::CATEGORIES, true)) {
-            $errors['category'] = 'Choose a category.';
+        $current = $productId === null ? null : $this->find($productId);
+        $values['weaver_id'] = $text('weaver_id');
+        if (
+            !ctype_digit($values['weaver_id'])
+            || !array_key_exists((int) $values['weaver_id'], $this->weaverOptions($current['weaver_id'] ?? null))
+        ) {
+            $errors['weaver_id'] = 'Choose the weaver who made this bag.';
+        }
+        $values['category_id'] = $text('category_id');
+        $categories = $this->categoryOptions($current['category_id'] ?? null);
+        if (!ctype_digit($values['category_id']) || !isset($categories[(int) $values['category_id']])) {
+            $errors['category_id'] = 'Choose a category.';
+        } else {
+            $values['category'] = $categories[(int) $values['category_id']];
+        }
+        $values['fiber'] = $text('fiber');
+        if (!in_array($values['fiber'], HeritageUpgrade::FIBERS, true)) {
+            $errors['fiber'] = 'Choose one of the listed fibers.';
+        }
+        foreach (self::HERITAGE_LIMITS as $key => $limit) {
+            $values[$key] = $key === 'story'
+                ? PlainText::paragraphs($text($key))
+                : trim((string) preg_replace('/\s+/u', ' ', $text($key)));
+            if (mb_strlen($values[$key]) > $limit) {
+                $errors[$key] = sprintf('Keep this under %s characters.', number_format($limit));
+            } elseif (PlainText::hasMarkup($values[$key])) {
+                $errors[$key] = 'Use plain text; HTML tags are not allowed.';
+            }
         }
 
         $values['description'] = $text('description');
         if (mb_strlen($values['description']) > 2000) {
             $errors['description'] = 'Keep the description under 2,000 characters.';
+        } elseif (PlainText::hasMarkup($values['description'])) {
+            $errors['description'] = 'Use plain text; HTML tags are not allowed.';
         }
         foreach (['materials' => 'materials label', 'place_of_make' => 'place-of-make label'] as $key => $label) {
             $values[$key] = preg_replace('/\s+/u', ' ', $text($key)) ?? '';
@@ -321,6 +378,8 @@ final class AdminProductService
             }
         }
 
+        $values['has_3d'] = ($input['has_3d'] ?? '') === '1';
+        $modelErrors = [];
         foreach (
             [
                 'shape' => self::SHAPES,
@@ -331,14 +390,14 @@ final class AdminProductService
         ) {
             $values[$key] = $text($key);
             if (!isset($allowed[$values[$key]])) {
-                $errors[$key] = 'Choose one of the listed options.';
+                $modelErrors[$key] = 'Choose one of the listed options.';
             }
         }
         if (
-            !isset($errors['shape']) && !isset($errors['handle_style'])
+            !isset($modelErrors['shape']) && !isset($modelErrors['handle_style'])
             && !in_array($values['handle_style'], self::SHAPE_HANDLES[$values['shape']], true)
         ) {
-            $errors['handle_style'] = sprintf(
+            $modelErrors['handle_style'] = sprintf(
                 'A %s model supports: %s.',
                 strtolower(self::SHAPES[$values['shape']]),
                 implode(' or ', array_map(
@@ -350,13 +409,17 @@ final class AdminProductService
         foreach (['color_body', 'color_trim', 'color_lining'] as $key) {
             $values[$key] = strtoupper($text($key));
             if (preg_match('/^#[0-9A-F]{6}$/', $values[$key]) !== 1) {
-                $errors[$key] = 'Use a hex colour such as #C9A47A.';
+                $modelErrors[$key] = 'Use a hex colour such as #C9A47A.';
             }
         }
         $pockets = is_array($input['pockets'] ?? null) ? $input['pockets'] : [];
         $values['pockets'] = array_values(array_intersect(array_keys(self::POCKETS), $pockets));
         if (count($values['pockets']) !== count(array_unique(array_filter($pockets, 'is_string')))) {
-            $errors['pockets'] = 'Choose pockets from the list.';
+            $modelErrors['pockets'] = 'Choose pockets from the list.';
+        }
+
+        if ($values['has_3d']) {
+            $errors += $modelErrors;
         }
 
         $values['demo_image'] = $text('demo_image');
@@ -379,17 +442,16 @@ final class AdminProductService
             $stock = (int) $values['stock'];
             $this->pdo->prepare(
                 "INSERT INTO products (sku, slug, name, weaver_id, category_id, category, description, materials,
-                     place_of_make, fiber, price_centavos, stock, low_stock_threshold, dimensions, three_config,
-                     listing_status)
-                 VALUES (?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?),
-                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')"
+                     place_of_make, fiber, community, region, technique, story, price_centavos, stock,
+                     low_stock_threshold, dimensions, three_config, listing_status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')"
             )->execute([
-                $values['sku'], $this->uniqueSlug($values['name']), $values['name'],
-                // Weaver assignment arrives with the M13 product form (R20).
-                HeritageUpgrade::placeholderWeaverId($this->pdo), $values['category'], $values['category'],
-                $values['description'], $values['materials'], $values['place_of_make'],
-                self::fiber($values), $values['price_centavos'], $stock, (int) $values['low_stock_threshold'],
-                $this->dimensionsJson($values), $this->configJson($values),
+                $values['sku'], $this->uniqueSlug($values['name']), $values['name'], (int) $values['weaver_id'],
+                (int) $values['category_id'], $values['category'], $values['description'], $values['materials'],
+                $values['place_of_make'], $values['fiber'], $values['community'], $values['region'],
+                $values['technique'], $values['story'], $values['price_centavos'], $stock,
+                (int) $values['low_stock_threshold'], $this->dimensionsJson($values),
+                $values['has_3d'] ? $this->configJson($values) : null,
             ]);
             $id = (int) $this->pdo->lastInsertId();
             $this->pdo->prepare(
@@ -416,19 +478,21 @@ final class AdminProductService
         $this->transaction(function () use ($id, $values, $newImagePath): void {
             $current = $this->pdo->prepare('SELECT three_config FROM products WHERE id = ?');
             $current->execute([$id]);
-            $existing = json_decode((string) $current->fetchColumn(), true);
+            $stored = $current->fetchColumn();
+            $existing = is_string($stored) ? json_decode($stored, true) : null;
             $update = $this->pdo->prepare(
-                "UPDATE products SET sku = ?, name = ?, category = ?,
-                     category_id = (SELECT id FROM categories WHERE name = ?), description = ?, materials = ?,
-                     place_of_make = ?, fiber = ?, price_centavos = ?, low_stock_threshold = ?, dimensions = ?,
+                "UPDATE products SET sku = ?, name = ?, weaver_id = ?, category_id = ?, category = ?,
+                     description = ?, materials = ?, place_of_make = ?, fiber = ?, community = ?, region = ?,
+                     technique = ?, story = ?, price_centavos = ?, low_stock_threshold = ?, dimensions = ?,
                      three_config = ?, updated_at = datetime('now')
                  WHERE id = ?"
             );
             $update->execute([
-                $values['sku'], $values['name'], $values['category'], $values['category'], $values['description'],
-                $values['materials'], $values['place_of_make'], self::fiber($values), $values['price_centavos'],
-                (int) $values['low_stock_threshold'], $this->dimensionsJson($values),
-                $this->configJson($values, is_array($existing) ? $existing : []), $id,
+                $values['sku'], $values['name'], (int) $values['weaver_id'], (int) $values['category_id'],
+                $values['category'], $values['description'], $values['materials'], $values['place_of_make'],
+                $values['fiber'], $values['community'], $values['region'], $values['technique'], $values['story'],
+                $values['price_centavos'], (int) $values['low_stock_threshold'], $this->dimensionsJson($values),
+                $values['has_3d'] ? $this->configJson($values, is_array($existing) ? $existing : []) : null, $id,
             ]);
             if ($update->rowCount() !== 1) {
                 throw new AdminActionException('That product no longer exists.');
@@ -444,12 +508,71 @@ final class AdminProductService
         });
     }
 
-    /** The fiber column follows the chosen 3D material; v1 looks count as "other". */
-    private static function fiber(array $values): string
+    /**
+     * Weavers a product may be assigned to (id => name): active real
+     * weavers, plus $currentId so an existing product keeps its weaver
+     * (even the placeholder) until an admin reassigns it.
+     *
+     * @return array<int, string>
+     */
+    public function weaverOptions(?int $currentId): array
     {
-        $material = (string) ($values['material'] ?? '');
+        $statement = $this->pdo->prepare(
+            'SELECT id, display_name, is_active FROM weavers
+             WHERE (is_active = 1 AND slug <> ?) OR id = ? ORDER BY display_name COLLATE NOCASE, id'
+        );
+        $statement->execute([HeritageUpgrade::PLACEHOLDER_WEAVER_SLUG, $currentId ?? 0]);
+        $options = [];
+        foreach ($statement->fetchAll() as $row) {
+            $options[(int) $row['id']] = (string) $row['display_name']
+                . ((int) $row['is_active'] === 1 ? '' : ' (inactive)');
+        }
 
-        return in_array($material, HeritageUpgrade::FIBERS, true) ? $material : 'other';
+        return $options;
+    }
+
+    /**
+     * Active categories (id => name), plus $currentId for an existing product.
+     *
+     * @return array<int, string>
+     */
+    public function categoryOptions(?int $currentId): array
+    {
+        return (new CategoryService($this->pdo))->activeOptions($currentId);
+    }
+
+    /**
+     * Approves a weaver's pending listing (pending_review → active, R40).
+     *
+     * @throws AdminActionException When the listing is no longer pending.
+     */
+    public function approve(int $id): void
+    {
+        $this->changeListing($id, ['pending_review'], 'active');
+    }
+
+    /**
+     * Deactivates a pending or active listing (R40); the weaver can no
+     * longer edit it and an admin restores it with Restore.
+     *
+     * @throws AdminActionException
+     */
+    public function deactivateListing(int $id): void
+    {
+        $this->changeListing($id, ['pending_review', 'active'], 'deactivated');
+    }
+
+    /** @param list<string> $from */
+    private function changeListing(int $id, array $from, string $to): void
+    {
+        $statement = $this->pdo->prepare(
+            "UPDATE products SET listing_status = ?, updated_at = datetime('now')
+             WHERE id = ? AND listing_status IN (" . implode(', ', array_fill(0, count($from), '?')) . ')'
+        );
+        $statement->execute(array_merge([$to, $id], $from));
+        if ($statement->rowCount() !== 1) {
+            throw new AdminActionException('That listing changed or no longer exists. Review it again.');
+        }
     }
 
     /** Archives (false) or restores (true) a product; history is kept. */
