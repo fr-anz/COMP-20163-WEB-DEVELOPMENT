@@ -2,7 +2,7 @@
   Admin order detail (R22). Composed from the published admin pieces (data
   table, status chip, surface panels, destructive dialog); the reference has
   no detail screen. Shows item snapshots and totals, customer, shipping
-  address and the simulated payment. Fulfilment moves one step forward at
+  address and the payment. Fulfilment moves one step forward at
   a time; Cancel order… (paid/packed only) opens a server-rendered
   confirmation that restores stock with an audit row per item.
   Receives: order (with items), next_status, cancellable, confirm_cancel,
@@ -94,8 +94,7 @@
       </section>
       <section aria-labelledby="pay-h" class="rounded-control border border-line bg-surface p-4 text-small">
         <h2 id="pay-h" class="mb-2 text-body font-semibold">Payment</h2>
-        <p class="flex items-center gap-2">{{ icons.icon('lock', 16, 'flex-none text-info') }}Simulated · {{ order.payment_brand|default('Card') }} ending {{ order.payment_last4|default('––––') }}</p>
-        <p class="mt-1 text-caption text-ink-2">No real payment was taken, so cancelling refunds nothing.</p>
+        <p class="flex items-center gap-2">{{ icons.icon('lock', 16, 'flex-none text-info') }}{{ order.payment_brand|default('Card') }} ending {{ order.payment_last4|default('––––') }}</p>
       </section>
     </div>
   </div>

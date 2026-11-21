@@ -4,8 +4,8 @@
   Dialogs are server-rendered: dialog.type 'product' (create when
   dialog.product is null, else edit) or 'archive'. The product form is the
   published Edit product dialog extended with every R20 field: SKU,
-  demonstration material/place-of-make labels, dimensions, threshold, the
-  procedural 3D config and validated image upload or a seeded demo
+  material/place-of-make labels, dimensions, threshold, the
+  procedural 3D config and validated image upload or a seeded
   illustration. Stock is set only on create; later changes go through
   Inventory so they are audited.
   Receives: products, q, stock, list_query, dialog, options, errors.
@@ -70,7 +70,7 @@
     {% embed 'admin/_dialog.twig' with {
       dialog_id: 'product-dialog',
       title: product ? 'Edit product' : 'Add product',
-      description: product ? product.name ~ ' · ' ~ product.sku : 'Fictional demo bag · every field is a demonstration label',
+      description: product ? product.name ~ ' · ' ~ product.sku : 'New bag',
       close_href: close,
       max_width: '520px',
       form_action: (product ? '/admin/products/' ~ product.id : '/admin/products') ~ list_query,
@@ -111,8 +111,8 @@
           </div>
           {{ ui.input('low_stock_threshold', 'Low-stock threshold', v.low_stock_threshold, e, {required: true, type: 'number', min: 0, max: 99, inputmode: 'numeric', hint: 'Shows “Only N left” and a dashboard alert at or below this.'}) }}
           {{ ui.input('description', 'Description', v.description, e, {textarea: true, rows: 3, maxlength: 2000}) }}
-          {{ ui.input('materials', 'Materials label', v.materials, e, {required: true, maxlength: 200, hint: 'Demonstration label — not a factual material claim.'}) }}
-          {{ ui.input('place_of_make', 'Place-of-make label', v.place_of_make, e, {required: true, maxlength: 200, hint: 'Keep it illustrative, e.g. “origin unverified”.'}) }}
+          {{ ui.input('materials', 'Materials label', v.materials, e, {required: true, maxlength: 200}) }}
+          {{ ui.input('place_of_make', 'Place-of-make label', v.place_of_make, e, {required: true, maxlength: 200}) }}
           <fieldset>
             <legend class="field-label">Dimensions (cm)</legend>
             <div class="grid grid-cols-3 gap-3">
@@ -163,7 +163,7 @@
             {{ ui.field_error('f-image', e.image|default(null)) }}
             {% set demo_options = {} %}
             {% for path in options.demo_images %}{% set demo_options = demo_options|merge({(path): path|split('/')|last|replace({'.svg': '', '-': ' '})|title ~ ' illustration'}) %}{% endfor %}
-            {{ ui.select('demo_image', product ? 'Or switch to a demo illustration' : 'Or use a demo illustration', v.demo_image, demo_options, e, {placeholder: product ? 'Keep the current image' : 'Choose an illustration', class: 'mt-3'}) }}
+            {{ ui.select('demo_image', product ? 'Or switch to an existing illustration' : 'Or use an existing illustration', v.demo_image, demo_options, e, {placeholder: product ? 'Keep the current image' : 'Choose an illustration', class: 'mt-3'}) }}
           </div>
           <p class="text-caption text-ink-2">{% if product %}Stock is changed from Inventory so every change is audited.{% else %}Starting stock is recorded in the stock audit; later changes happen in Inventory.{% endif %}</p>
         </div>

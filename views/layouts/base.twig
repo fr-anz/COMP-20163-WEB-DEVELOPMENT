@@ -3,11 +3,11 @@
   (multicolour mark + 26px wordmark, icon-only search, bag link with the
   server cart count that cart.js enhances into the accessible drawer),
   mobile menu as a native <dialog>, dark brown footer with inverse 34px
-  wordmark, three columns and selvedge strip.
+  wordmark, footer links and selvedge strip.
   Receives exactly: app_name (string), app_env (string), cart (CartService
   array), csrf_token (string). No catalog queries.
-  Anchors: #main-content, #craft, #materials. Navigation works without
-  JavaScript (footer links); the mobile dialog and material tabs enhance.
+  Anchors: #main-content, #craft. Navigation works without JavaScript
+  (footer links); the mobile dialog enhances.
   storefront.js is loaded on every page; child templates overriding the
   scripts block must keep it via {{ parent() }}.
   The <head> renders per-page SEO from the title, description, robots,
@@ -23,7 +23,7 @@
   {% set page_title %}{% block title %}{{ app_name }} — woven bags, woven with care{% endblock %}{% endset %}
   <title>{{ page_title|trim }}</title>
   {% block robots %}{% endblock %}
-  {% set page_description %}{% block description %}Explore Habi's fictional handwoven-style bags, inspect their 3D details, and try a clearly simulated guest checkout. An educational demo: nothing is charged or shipped.{% endblock %}{% endset %}
+  {% set page_description %}{% block description %}Habi makes handwoven totes, satchels, slings and clutches. Inspect every bag in 3D, then check out as a guest.{% endblock %}{% endset %}
   <meta name="description" content="{{ page_description|trim }}">
   <meta name="theme-color" content="#f8f4ea">
   <link rel="canonical" href="{{ site_url ~ canonical_path }}">
@@ -68,9 +68,6 @@
           <li>
             <a href="/products" class="relative flex h-11 items-center px-3 text-[15px] font-medium {% if active_nav|default('') == 'collection' %}text-ink{% else %}text-ink-2 hover:text-ink{% endif %}"{% if active_nav|default('') == 'collection' %} aria-current="page"{% endif %}>Collection{% if active_nav|default('') == 'collection' %}<span class="absolute inset-x-3 bottom-1.5 h-[3px] bg-action" aria-hidden="true"></span>{% endif %}</a>
           </li>
-          <li>
-            <a href="/#materials" class="relative flex h-11 items-center px-3 text-[15px] font-medium text-ink-2 hover:text-ink">Materials</a>
-          </li>
         </ul>
       </nav>
       <div class="ml-auto flex items-center gap-1">
@@ -100,7 +97,6 @@
         <ul class="p-2">
           <li><a href="/" class="flex h-14 w-full items-center justify-between rounded-control px-3 text-left font-display text-h3 font-semibold hover:bg-inset">Discover{{ icons.icon('chevron-right') }}</a></li>
           <li><a href="/products" class="flex h-14 w-full items-center justify-between rounded-control px-3 text-left font-display text-h3 font-semibold hover:bg-inset">Collection{{ icons.icon('chevron-right') }}</a></li>
-          <li><a href="/#materials" class="flex h-14 w-full items-center justify-between rounded-control px-3 text-left font-display text-h3 font-semibold hover:bg-inset">Materials{{ icons.icon('chevron-right') }}</a></li>
           <li class="mt-2 border-t border-line pt-2">
             <a href="/cart" data-cart-bag class="flex h-12 w-full items-center gap-3 rounded-control px-3 text-left font-medium hover:bg-inset">
               {{ icons.icon('bag') }} Your bag
@@ -123,37 +119,20 @@
     <div class="h-2.5" aria-hidden="true">
       <img src="/assets/img/reference/footer-selvedge.svg" alt="" class="block h-full w-full">
     </div>
-    <div class="mx-auto grid max-w-[1280px] gap-8 px-4 py-12 @3xl:grid-cols-[1.3fr_1fr_1fr] @3xl:px-8">
-      <div>
-        <span class="relative inline-flex items-baseline font-display font-bold leading-none" role="img" aria-label="{{ app_name }}"
-              style="font-size: 34px; color: var(--color-text-inverse); letter-spacing: -0.035em; font-variation-settings: 'opsz' 96;">
-          <span aria-hidden="true">hab</span>
-          <span aria-hidden="true" class="relative">ı<img src="/assets/img/reference/wordmark-tittle.svg" alt=""
-               class="absolute left-1/2 -translate-x-1/2 max-w-none" style="width: .2em; height: .2em; top: -.02em;"></span>
-        </span>
-        <p class="mt-3 max-w-xs text-small text-inverse/75">
-          Contemporary Filipino craft, explored one weave at a time.
-        </p>
-      </div>
+    <div class="mx-auto flex max-w-[1280px] flex-wrap items-end justify-between gap-8 px-4 py-12 @3xl:px-8">
+      <span class="relative inline-flex items-baseline font-display font-bold leading-none" role="img" aria-label="{{ app_name }}"
+            style="font-size: 34px; color: var(--color-text-inverse); letter-spacing: -0.035em; font-variation-settings: 'opsz' 96;">
+        <span aria-hidden="true">hab</span>
+        <span aria-hidden="true" class="relative">ı<img src="/assets/img/reference/wordmark-tittle.svg" alt=""
+             class="absolute left-1/2 -translate-x-1/2 max-w-none" style="width: .2em; height: .2em; top: -.02em;"></span>
+      </span>
       <nav aria-label="Footer">
-        <p class="text-caption font-semibold tracking-wider text-inverse/60 uppercase">Explore</p>
-        <ul class="mt-2 space-y-0.5 text-small">
-          <li><a href="/#craft" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Discover the weave</a></li>
-          <li><a href="/products" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">The collection</a></li>
+        <ul class="flex flex-wrap gap-x-6 gap-y-1 text-small">
+          <li><a href="/#craft" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">The weave</a></li>
+          <li><a href="/products" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Collection</a></li>
           <li><a href="/cart" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Your bag</a></li>
         </ul>
       </nav>
-      <div>
-        <p class="text-caption font-semibold tracking-wider text-inverse/60 uppercase">About this demo</p>
-        <div class="mt-3">
-          <p class="flex items-start gap-2 text-caption text-inverse/85">
-            {{ icons.icon('info', 16, 'mt-0.5 flex-none text-yellow-400') }}
-            <span>
-              <strong class="font-semibold text-inverse">Educational demo.</strong> Habi is a fictional brand. Products, prices, orders and material labels are illustrative; nothing is sold, shipped or charged, and no maker or origin is claimed.
-            </span>
-          </p>
-        </div>
-      </div>
     </div>
   </footer>
 

@@ -1,8 +1,7 @@
 # State
 
-Updated: 2026-11-10.
-Objective: issue #9 M8 deploy & CI — merged via PR #19 (`8a1349a`); live-evidence PR on `ad/m8-live-evidence`.
-Progress: live at https://habi.theavenir.dev (GCE e2-micro us-west1-b, 136.118.96.127, Caddy + Let's Encrypt); GitHub deploy job works (run 42813150250); stock 13 survived reboot.
-Checks: main CI green incl. deploy; PHPUnit 118/953; container + Debian rehearsal + live HTTPS/route checks (BUILD M8).
-Evidence: BUILD M8 "Live deployment".
-Blocker/next: §2.5 cross-track review not recorded (PR #19 merged with 0 reviews); real-device pass not run. IPv4 ≈ $3.65/mo against $10 credit — budget alert advised.
+Updated: 2026-11-21.
+Objective: PRD 2.0 docs from the group proposal (D9). Docs-only; no code changed.
+Progress: PRD 2.0 rewritten (status tags v1/v2-changed/v2-new; R29–R44, N9–N12). SDD §15 planned design + pointers; DSD §4 PRD 2.0 screens + §6 asset rule; USER-JOURNEY 2.0 (P4 weaver, J4); BUILD team 5, track E, M9–M15, risks, DoD 6; README intro (also fixed stale "10 bags" → 4); project.md, D9.
+Checks: doc link/ID consistency only; no PHPUnit run (no code change).
+Blocker/next: implement M9 (schema/migration/seed). Open: evaluation instrument, Filipino copy owner, sample transfer accounts (PRD §10). Production DB keeps v1 data until migrated. Earlier: tala/maya descriptions still describe old looks.

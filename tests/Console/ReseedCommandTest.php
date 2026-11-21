@@ -56,7 +56,7 @@ final class ReseedCommandTest extends IsolatedDatabaseTestCase
             (int) $this->scalar($pdo, "SELECT stock FROM products WHERE slug = 'sinag-tote'"),
             'Refused reset must not touch existing data.'
         );
-        self::assertSame(10, (int) $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
+        self::assertSame(4, (int) $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
     }
 
     public function testWithForceFlagTheResetWipesAndReseedsFromCurrentEnvironment(): void
@@ -71,7 +71,7 @@ final class ReseedCommandTest extends IsolatedDatabaseTestCase
         $exitCode = ReseedCommand::run(true, $this->tempRepo);
 
         self::assertSame(0, $exitCode);
-        self::assertSame(10, (int) $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
+        self::assertSame(4, (int) $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
         self::assertSame(
             12,
             (int) $this->scalar($pdo, "SELECT stock FROM products WHERE slug = 'sinag-tote'"),
@@ -96,7 +96,7 @@ final class ReseedCommandTest extends IsolatedDatabaseTestCase
         $exitCode = ReseedCommand::run(true, $this->tempRepo);
 
         self::assertNotSame(0, $exitCode, 'Forced reset without valid credentials must fail.');
-        self::assertSame(10, (int) $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
+        self::assertSame(4, (int) $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
         self::assertSame(1, (int) $this->scalar($pdo, 'SELECT COUNT(*) FROM admins'));
     }
 

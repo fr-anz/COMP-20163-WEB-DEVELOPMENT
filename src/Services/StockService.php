@@ -182,7 +182,7 @@ final class StockService
     public static function describeReason(string $reason): string
     {
         if ($reason === 'order_placed') {
-            return 'Order placed (simulated checkout)';
+            return 'Order placed';
         }
         if ($reason === 'initial_stock') {
             return 'Initial stock (new product)';

@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Version | 1.1 |
-| Date | 2026-11-09 |
-| Implements | [PRD.md](PRD.md) requirements **R1–R28, N1–N8** (cited inline) |
+| Version | 2.0 |
+| Date | 2026-11-21 |
+| Implements | [PRD.md](PRD.md) v2.0 requirements **R1–R44, N1–N12** (cited inline); §§1–14 describe the implemented v1 system, §15 the planned PRD 2.0 design |
 | Design language | [DSD.md](DSD.md) · Build order: [BUILD.md](BUILD.md) · Flows: [USER-JOURNEY.md](USER-JOURNEY.md) |
 
 ---
@@ -14,6 +14,8 @@
 Design a PHP e-commerce system that (a) satisfies every R#/N# in the PRD, (b) runs locally
 with zero install beyond PHP+Composer, and (c) deploys to the web unchanged via Docker
 (Google Cloud Compute Engine e2-micro; Render alternative). Checkout payment is simulated by design (N3).
+PRD 2.0 (from the group proposal, 2026-11-14) adds weavers, a Heritage Journal, more payment
+methods, a merged order lifecycle, tracking and English/Filipino; its design is §15 (planned).
 **UI authority:** the published Habi UI/design system is followed 1:1, replacing earlier visual interpretations (DSD §§1–4). Craft discovery remains skippable; shopping is optional.
 
 ## 2. Technology Stack
@@ -50,7 +52,7 @@ Browser (Twig pages + JS modules + vendored Three.js)
    ▼
 SQLite file  data/app.sqlite   (production: /srv/habi/data on the VM, mounted at /app/data; WAL mode)
    ▲
-   └── migrations/ + seed/  (schema + 10 products, R7/N7)
+   └── migrations/ + seed/  (schema + 4 products, R7/N7)
 
 Static: public/assets/{css,js,img,vendor/three}
 Admin: same app, routes under /admin behind AdminAuthMiddleware (R19)
@@ -82,7 +84,7 @@ Admin: same app, routes under /admin behind AdminAuthMiddleware (R19)
 ├── views/                  # Twig templates (layouts/, storefront/, admin/, emails n/a)
 ├── data/                   # app.sqlite (gitignored), uploads/ (product images, R23)
 ├── migrations/             # 001_schema.sql … (run idempotently on boot if missing)
-├── seed/                   # seed.php → 10 products w/ images + 3D configs (N7)
+├── seed/                   # seed.php → 4 products (one per category) w/ images + 3D configs (N7)
 ├── tests/                  # PHPUnit: services (OrderService stock atomicity, PaymentSimulator Luhn)
 ├── docs/                   # PRD, SDD, DSD, BUILD, USER-JOURNEY
 ├── Dockerfile  .dockerignore  render.yaml  .github/workflows/ci.yml  .env.example  composer.json  README.md
@@ -100,6 +102,8 @@ and consumed component/utility rules (DSD §2). Actual modules are `storefront.j
 with Twig views under `views/`. No React runtime, Tailwind build or CDN is required.
 
 ## 5. Data Model
+
+> PRD 2.0 adds weavers, categories, journal articles, order events, payment proofs and new order/payment statuses — see §15.2 (planned).
 
 Money is stored as **integer centavos** (₱1 = 100) to avoid float errors (N2-ish correctness).
 
@@ -131,6 +135,8 @@ Indexes: `products(slug)`, `products(category,is_active)`, `orders(order_number)
 **Order number:** `H-YYYYMMDD-NNNN` — date + daily sequence allocated inside the serialized SQLite write transaction, protected by a unique constraint. Not unguessable; confirmation additionally requires session ownership.
 
 ## 6. Endpoints
+
+> PRD 2.0 routes (weavers, journal, tracking, language, weaver module, new admin screens) — see §15.3 (planned).
 
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
@@ -164,7 +170,18 @@ category and optional `hide_sold_out=1`; pagination preserves these values. Sort
 the default. Newest uses creation date and ID. Out-of-range pages clamp to available pages.
 
 M2 config responses are the decoded per-product `three_config` object: `shape`,
-centimeter `dimensions`, `colors`, `handle_style`, `material`, `lining`, and `pockets`.
+centimeter `dimensions`, `colors`, `handle_style`, `material`, `lining`, and `pockets`,
+plus optional `pattern` (`checker` | `stripes` | `pixel` surface descriptor matching the
+product illustration) and optional `colors.handle`/`colors.handle_secondary`/`colors.binding`. Missing or
+invalid `pattern` falls back to the `material` texture; admin edits keep these extra keys.
+`three_config.dimensions` equals the listed product measurements (seeded and admin-saved
+together). Tala is 30 × 22 × 8 cm (wide bucket) and Maya 26 × 16 × 3 cm (slim envelope),
+matching their illustrations.
+Peek preserves the physical shell and rim anchors; its elevated camera looks through
+the opening. Tote handles fold outward about their fixed rim axis; side-anchored
+satchel/sling handles stay put. Maya's connected flap rotates about the back-top hinge.
+Pattern shells duplicate their back-centre UV seam with whole-circumference repeats;
+vertical stripe dye stays solid beneath fine, low-contrast woven threads.
 The endpoint uses `Cache-Control: no-store`; missing/inactive products return the same
 JSON 404 as stock. Sold-out products remain inspectable. Detail gallery images are
 ordered primary-first, then `sort_order` and ID; catalog queries do not load galleries
@@ -191,6 +208,8 @@ passwords) shown once with 422. Dialog URLs carry the list's `q`/`stock` filters
 or saving returns to the same list.
 
 ## 7. Cart & Checkout Flow (state machine)
+
+> PRD 2.0 payment-method branching (COD, transfer with proof, card) — see §15.5 (planned).
 
 ```
 [Browse] ──add──▶ [cart] ──checkout──▶ [shipping] ──valid──▶ [payment]
@@ -260,6 +279,8 @@ On failure:
 - SQLite tuning: `PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;`.
 
 ## 9. Simulated Payment (R13, R14, N3, N4)
+
+> In PRD 2.0 this simulator serves only the card method; COD and transfer are in §15.4–15.5 (planned).
 
 `PaymentSimulator` (M5):
 
@@ -387,6 +408,184 @@ All SQL goes through `Support/db()` PDO with DSN from `DB_DSN`. Schema written i
 adapt transaction dialect (BEGIN IMMEDIATE vs SELECT … FOR UPDATE) and verify services during migration.
 SQLite remains the current target; no migration implementation requested.
 
+## 15. Heritage Expansion Design — PRD 2.0 (planned, BUILD M9–M15)
+
+Status: **design only; not implemented.** §§1–14 describe the implemented v1 system. This
+section is the design for the PRD 2.0 requirements tagged [v2-changed]/[v2-new]. When a
+milestone ships, move the implemented facts into the owning section above and shrink this one.
+Stack, deployment and security baseline (§§2, 10, 12) are unchanged; no new dependencies.
+
+### 15.1 Roles and authentication (R19, R34, N2, N10)
+
+| Role | Session key | Routes | Middleware |
+|---|---|---|---|
+| Customer (guest) | `cart`, `checkout`, `completed_orders`, `lang` | storefront, `/track` | CSRF |
+| Weaver | `weaver_id` | `/weaver/*` except `/weaver/login` | `WeaverAuthMiddleware` (active weaver required) |
+| Admin/staff | `admin_id` (unchanged) | `/admin/*` except `/admin/login` | `AdminAuthMiddleware` (unchanged) |
+
+- `AuthService` gains a weaver path using the same `password_verify`, dummy-hash timing and
+  `login_attempts` throttle; throttle keys are scoped (`admin:`, `weaver:`, `track:` prefix
+  before hashing) so roles never share counters. Sign-in/out regenerate the session ID and CSRF token.
+- A session holds at most one staff role; signing in as one role clears the other.
+- **Ownership (N10):** every weaver query filters by `weaver_id = :current` in SQL
+  (`WeaverProductService`, `WeaverOrderService`, `EarningsService`); a miss returns 404, never 403,
+  so other weavers' IDs are not confirmed. Deactivation is checked on every weaver request.
+
+### 15.2 Data model changes
+
+New tables:
+
+| Table | Key columns |
+|---|---|
+| `weavers` | id, email UNIQUE, password_hash, slug UNIQUE, display_name, community, region, fibers, techniques, story, story_fil NULL, photo_path NULL, is_active, created_by_admin_id, created_at, updated_at |
+| `categories` | id, slug UNIQUE, name, name_fil NULL, sort_order, is_active |
+| `journal_articles` | id, slug UNIQUE, title, title_fil NULL, excerpt, excerpt_fil NULL, body, body_fil NULL, sources, cover_path NULL, status (`draft`/`published`), published_at NULL, updated_by_admin_id, created_at, updated_at |
+| `order_events` | id, order_id FK, field (`status`/`payment_status`), old_value NULL, new_value, actor_role (`customer`/`admin`/`system`), actor_id NULL, note NULL, created_at (R44) |
+| `payment_proofs` | id, order_id FK UNIQUE, path, sender_reference, uploaded_at, reviewed_by_admin_id NULL, reviewed_at NULL, review_note NULL (N11) |
+
+Changed tables:
+
+| Table | Additions / changes |
+|---|---|
+| `products` | `weaver_id` FK (required for new rows), `category_id` FK (the v1 `category` text stays until all readers move), `fiber` (controlled list, initially buri/pandan/tikog/abaca/other), `community`, `region` (Philippine administrative region), `technique`, `story`, `description_fil` NULL, `story_fil` NULL, `listing_status` (`pending_review`/`active`/`archived`/`deactivated`; replaces `is_active` semantics), `is_available` (weaver/admin sold-out switch, R37). `three_config` becomes nullable (R4). |
+| `orders` | status values become `pending`/`confirmed`/`packed`/`shipped`/`delivered`/`rejected`/`cancelled`; new `payment_method` (`cod`/`transfer`/`card`), `payment_status` (`unpaid`/`for_verification`/`paid`/`rejected`), `shipping_city` (if not already split), `status_changed_at`, `rejection_reason` NULL |
+| `order_items` | `weaver_id` and `weaver_name_snapshot` copied at placement (R44) |
+| `stock_audit` | `weaver_id` NULL alongside `admin_id` (exactly one actor or a system reason such as `order_placed`) |
+
+Translations use nullable `*_fil` columns on content fields instead of a generic translation
+table: few fields, simple queries, and the English fallback is `COALESCE(x_fil, x)` (R33).
+Indexes added: `products(weaver_id)`, `products(category_id, listing_status)`,
+`products(fiber)`, `products(region)`, `order_items(weaver_id)`, `orders(payment_status, created_at)`,
+`orders(customer_email)`, `order_events(order_id, created_at)`.
+
+### 15.3 Endpoints (new or changed)
+
+| Method | Path | Purpose | Auth |
+|---|---|---|---|
+| GET | `/products?q=&category=&fiber=&region=&sort=&hide_sold_out=&page=` | R2 filters (category by slug) | – |
+| GET | `/weavers`, `/weavers/{slug}` | Meet the Weavers list and profile with products (R30) | – |
+| GET | `/journal`, `/journal/{slug}` | Published articles (R31) | – |
+| POST | `/lang` | Set `en`/`fil` in session + `habi_lang` cookie, redirect back (same-origin path only) (R33) | CSRF |
+| GET | `/checkout/payment` | Method choice + card/transfer subforms (R13) | session, shipping done |
+| POST | `/checkout/payment` | Store chosen method; transfer: validate and store proof upload; card: delegates to the simulator | session + CSRF |
+| GET/POST | `/track` | Reference number + email lookup, throttled (R32) | CSRF on POST |
+| GET/POST | `/weaver/login`, POST `/weaver/logout` | Weaver auth (R34) | – |
+| GET | `/weaver` | Weaver dashboard: stock alerts, recent orders, earnings snapshot | weaver |
+| GET/POST | `/weaver/profile` | Own profile (R35) | weaver |
+| GET/POST | `/weaver/products…`, POST `/weaver/products/{id}/stock` | Own listings, availability, audited stock (R36, R37) | weaver |
+| GET | `/weaver/orders`, `/weaver/orders/{number}` | Own order items only (R38) | weaver |
+| GET | `/weaver/earnings?from=&to=` | Earnings summary (R39) | weaver |
+| GET/POST | `/admin/weavers…` (+ `/{id}/deactivate`, `/{id}/reactivate`, `/{id}/password`) | Weaver accounts (R40) | admin |
+| POST | `/admin/products/{id}/approve`, `/{id}/deactivate` | Listing approval (R40) | admin |
+| GET/POST | `/admin/categories…` | Category CRUD/deactivate (R41) | admin |
+| POST | `/admin/orders/{number}/confirm`, `/reject`, `/status`, `/cancel`, `/payment` | Order and payment transitions (R22) | admin |
+| GET | `/admin/orders/{number}/proof` | Proof image, `no-store`, admin only (N11) | admin |
+| GET | `/admin/customers`, `/admin/customers/{emailHash}` | Customer order records (R42) | admin |
+| GET/POST | `/admin/journal…` | Article CRUD, publish/unpublish (R43) | admin |
+
+`/api/product/{slug}/3d` returns JSON 404 for products without a config; the product page
+then omits the 3D control (R4). Only `listing_status = active`, available-weaver products are public.
+
+### 15.4 Order and payment state machines (R13, R15, R22, R44)
+
+```
+status:   pending ──confirm──▶ confirmed ──▶ packed ──▶ shipped ──▶ delivered
+          pending ──reject(reason)──▶ rejected          (restores stock)
+          confirmed|packed ──cancel(reason)──▶ cancelled (restores stock)
+
+payment:  cod:      unpaid ──mark paid (at/after delivery)──▶ paid
+          transfer: for_verification ──accept──▶ paid
+                    for_verification ──refuse(reason)──▶ rejected ──▶ order must be rejected/cancelled
+          card:     paid (set at placement after an approved simulation)
+```
+
+- Guards: confirm a transfer order only when `payment_status = paid`; mark COD paid only from
+  `shipped` or `delivered`; `delivered` is terminal for status; `rejected`/`cancelled` are terminal.
+- Every transition is one `BEGIN IMMEDIATE` transaction with a guarded
+  `UPDATE … WHERE id = ? AND status = ?` (or `payment_status = ?`), an `order_events` row and,
+  for reject/cancel, guarded stock restores with `stock_audit` rows (reason
+  `order_rejected:`/`order_cancelled: <number>`). A stale transition affects zero rows and is
+  reported as "order changed, review again".
+- v1 cancel (§8) generalizes to reject/cancel; v1 `paid → packed` becomes `confirmed → packed`.
+
+### 15.5 Checkout v2 flow (R10–R16)
+
+```
+[shipping] ──valid──▶ [payment: choose method]
+   cod      ──▶ [review]
+   transfer ──upload proof + sender ref (valid)──▶ [review]
+   card     ──simulate──▶ approved ──▶ [review] | declined/insufficient ──▶ [payment]
+[review] ──Place order──▶ [place] ──commit──▶ [confirmation] (status pending)
+```
+
+- `$_SESSION['checkout']['payment']` becomes `{method, …}`: card keeps the v1 non-sensitive
+  result; transfer stores the temporary proof path and sender reference; COD stores only the method.
+- The proof is written to `data/proofs/tmp/` at the payment step and moved to `data/proofs/` inside
+  placement; orphaned temp files older than 24 h are removed on boot/placement (best effort).
+- Changing the method, shipping or quantities revokes approval and the idempotency key exactly
+  as v1 does for card results. The review fingerprint includes the method.
+
+### 15.6 Placement transaction changes (R15, R44)
+
+The §8 pseudocode stays, with these differences inside the same transaction: the order is
+inserted as `pending` with `payment_method`/`payment_status`; each `order_items` row copies the
+product's `weaver_id` and display name; `stock_audit` rows use reason `order_placed: <number>`;
+an `order_events` row records `status: NULL → pending` (actor `customer`); for transfer, the
+`payment_proofs` row is inserted. Products must be `active`, `is_available` and owned by an active
+weaver at placement, otherwise the place fails like a stock conflict.
+
+### 15.7 Weaver module services (R35–R39)
+
+- `WeaverProductService` reuses `AdminProductService` validation minus 3D config and SKU
+  (generated); new rows get `listing_status = pending_review`. Edits to `deactivated` rows are refused.
+- `StockService` accepts an actor (`admin` or `weaver`); weaver adjustments use the same
+  two-step expected-stock review.
+- `WeaverOrderService` selects `order_items JOIN orders` by `order_items.weaver_id`, returning only
+  the R38 columns (never email, phone or address lines).
+- `EarningsService` sums `order_items.line_total_centavos` by weaver: earned = delivered and paid;
+  pending = all other non-rejected, non-cancelled orders; shipping is never included (R39).
+
+### 15.8 Internationalization (R33, N9)
+
+- `Support/Translator` loads `lang/en.php` and `lang/fil.php` (flat key → string arrays with
+  `{name}` placeholders). Twig gets a `t(key, params)` function; JavaScript gets the strings it needs
+  through a JSON `<script type="application/json" id="i18n">` block rendered per page.
+- `LocaleMiddleware` resolves the locale from session, then the `habi_lang` cookie, else `en`,
+  and sets `<html lang="en|fil">` (R26). Content getters return `COALESCE(field_fil, field)` for `fil`.
+- Service validation messages return keys, translated at render time. A PHPUnit test asserts
+  both catalogs have identical key sets and that templates reference only existing keys.
+
+### 15.9 Migration of existing databases
+
+`003_heritage.sql` plus `Initializer` checks (`PRAGMA table_info`) add tables and columns
+idempotently inside the existing `BEGIN IMMEDIATE` guard, preserving inventory, orders and admins:
+
+- `categories` are created from distinct `products.category`; `category_id` is backfilled.
+- v1 orders map `paid → confirmed`, keep `packed`/`shipped`/`delivered`/`cancelled`, with
+  `payment_method = card`, `payment_status = paid`; any `pending_payment`/`failed` rows (unused in v1)
+  map to `cancelled`. One `order_events` row (actor `system`, note `migrated from v1`) records the mapping.
+- Existing products get `listing_status` from `is_active`. Products without a weaver are assigned to
+  an inactive placeholder weaver and listed on the admin dashboard until an admin reassigns them;
+  the four seed SKUs map to the seeded sample weavers when those exist.
+- Fresh installs seed weavers, categories, articles and the native-fiber catalog directly (N7).
+
+### 15.10 Testing additions (§13)
+
+PHPUnit boundaries: order/payment transition guards and stock restore rollback; placement per
+method (COD, transfer with proof, card) including weaver snapshots and events; transfer confirm
+guard; tracking lookup (wrong email, throttle); weaver ownership 404s for every weaver route (N10);
+pending-review listings hidden from the storefront; earnings sums; category deactivation rules;
+translation catalog parity (N9); v1 → v2 migration on a v1 fixture database. Browser smoke covers
+each checkout method, language switch, weaver portal and the new admin screens at 360 px and wide.
+
+### 15.11 Directory additions
+
+`src/Controllers/{WeaverController, WeaverProductController, JournalController, TrackingController, AdminWeaverController, AdminCategoryController, AdminCustomerController, AdminJournalController}`,
+`src/Services/{WeaverService, WeaverProductService, WeaverOrderService, EarningsService, CategoryService, JournalService, TrackingService, PaymentProofService, OrderEventService}`,
+`src/Middleware/{WeaverAuthMiddleware, LocaleMiddleware}`, `src/Support/Translator.php`, `lang/{en,fil}.php`,
+`views/weaver/`, `views/storefront/{weavers,weaver,journal,article,track}.twig`, `migrations/003_heritage.sql`,
+`data/proofs/` (gitignored, outside the docroot). Names are planning proposals; follow existing conventions when implementing.
+
 ---
 
 > **Implementation boundary:** M0 supplies the PHP/Twig shell, environment/PDO bootstrap,
@@ -402,4 +601,4 @@ SQLite remains the current target; no migration implementation requested.
 > fulfilment/cancel). M8 adds the Docker image, router-script start command, the Google Cloud VM
 > stack (Caddy, SSH deploy), Render blueprint and CI; hosted acceptance is tracked in BUILD M8.
 > Review/merge status is tracked separately in BUILD.
-> PRD R1–R28, N1–N8 remain the target traceability baseline.
+> PRD 2.0 (R1–R44, N1–N12) is the target traceability baseline; §15 is planned, not implemented.

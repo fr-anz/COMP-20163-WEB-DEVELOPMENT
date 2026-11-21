@@ -41,7 +41,6 @@ final class ErrorHandlerTest extends TestCase
             $html
         );
         self::assertStringContainsString($message, $html);
-        self::assertStringContainsString("Error {$status}", $html);
         self::assertStringContainsString('href="/products"', $html);
         self::assertStringContainsString('href="/"', $html);
         self::assertStringContainsString('name="robots" content="noindex"', $html);

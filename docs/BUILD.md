@@ -2,21 +2,22 @@
 
 | | |
 |---|---|
-| Version | 1.1 · 2026-11-09 |
+| Version | 2.0 · 2026-11-21 (PRD 2.0 milestones M9–M15 added) |
 | Basis | [PRD.md](PRD.md) R#/N# · [SDD.md](SDD.md) architecture · [DSD.md](DSD.md) components · [USER-JOURNEY.md](USER-JOURNEY.md) flows |
-| Team | **4 people**, feature-phased milestones (no fixed deadline) |
+| Team | **5 people** (Group 1, BSIT 3-1N; leader Mel Carl A. Chacon), feature-phased milestones (no fixed deadline). M0–M8 used tracks A–D; track E is added for PRD 2.0. Track-to-person assignment is not recorded. |
 | Stack | PHP 8.2+, Composer, Slim 4, Twig 3, PDO SQLite, vendored Three.js, Docker → Google Cloud e2-micro (Render alternative) |
 
 ---
 
-## 0. Workstreams (4 tracks)
+## 0. Workstreams (5 tracks)
 
 | Track | Owner focus | Owns |
 |---|---|---|
 | **A — Backend & Data** | PHP/Slim/PDO, models, migrations, seed, cart/checkout/order services, inventory transactions, payment simulator, auth, middleware | `src/` (all), `migrations/`, `seed/`, `tests/` |
 | **B — 3D Viewer** | Three.js procedural bag factory, orbit + peek-inside, per-product configs, fallback | `public/assets/js/viewer3d.js`, `bagFactory.js`; proposes `three_config` seed values (R4–R6, R27) — A integrates |
 | **C — Storefront UI** | DSD implementation, all storefront Twig views, cart drawer, checkout UX, responsive + a11y | `public/assets/css/app.css` (shared admin tokens), `views/storefront/`, `public/assets/js/cart.js`, `checkout.js` (R1–R3, R7–R17, R24–R26) |
-| **D — Admin & DevOps** | Admin panel UI, Docker, Google Cloud/Render deploy, CI, README | `views/admin/`, `Dockerfile`, `.dockerignore`, `deploy/gce/`, `render.yaml`, `.github/workflows/` (R18–R23, N2, N6) |
+| **D — Admin & DevOps** | Admin panel UI, Docker, Google Cloud/Render deploy, CI, README | `views/admin/`, `Dockerfile`, `.dockerignore`, `deploy/gce/`, `render.yaml`, `.github/workflows/` (R18–R23, N2, N6); PRD 2.0: `views/weaver/`, new admin screens (R34–R43) |
+| **E — Content & i18n** (PRD 2.0) | Sample weaver profiles, product stories and journal articles from secondary sources; Filipino translations; evaluation instrument | `seed/` content data (A integrates), `lang/`, journal/weaver copy (R29–R31, R33, N7, N9, N12) |
 
 Integration points: A+B meet at `GET /api/product/{slug}/3d`; A+C meet at cart/checkout
 endpoints; C+D meet at admin templates; all meet at DSD tokens in `app.css`.
@@ -1036,6 +1037,83 @@ Acceptance status:
 - [ ] Cross-track PR review (§2.5): **not met**. The owner merged PR #19 with 0 reviews recorded.
 - [ ] Real-device/screen-reader pass: not run (emulated touch only, as in M7).
 
+### Cinematic discovery story + real-store copy (D7, 2026-11-10)
+
+- [x] Home rebuilt as five scenes (DSD §4): opening strands, sticky weave build (`data-step` 0→2),
+  four material scenes linking real products, featured bag, dark finale into `/products`.
+  Material tabs and their JS removed; `form_count` no longer passed.
+- [x] Eyebrows/filler removed site-wide (cards, product, catalog, cart, checkout, order, error page,
+  footer); all educational/demo/simulated notices removed from storefront and admin; seed copy
+  rewritten (`php seed/seed.php --force` needed on existing databases).
+- [x] Checked in headless Chromium: 1440 and 360 px story scenes (no horizontal scroll at 360),
+  weave steps 0/1/2 by scroll, reveals, reduced motion (no `story-motion`, final state, no sticky
+  height), catalog, product, cart, shipping, 404 render with no demo wording.
+- [x] PHPUnit 118 tests pass (one `Error {status}` wording assertion deleted); `composer cs`/`lint` clean.
+- [ ] Not run: no-JS home visual pass, real devices, Lighthouse.
+- [x] Continuity pass: one `.story` backdrop fading between scene tones, a scroll-drawn yellow thread
+  from the Scroll cue through the loom (as its lead warp), material/bag gutters and into the finale
+  pattern, opening title/strands drifting out. Materials removed from header and mobile nav.
+  Checked at 1440/360 px (no horizontal scroll; thread lane at 8 px on mobile) and reduced motion
+  (thread hidden, per-scene backgrounds).
+
+### PRD 2.0 heritage expansion — planned milestones (M9–M15)
+
+Source: the group proposal (2026-11-14) → PRD 2.0. **None of M9–M15 is implemented.** Design: SDD §15;
+screens: DSD §4 "PRD 2.0 screens"; flows: USER-JOURNEY J1–J4. Order is a dependency order;
+M10, M12 and M14 can run in parallel once M9 lands. Each milestone keeps the §2 Definition of Done.
+
+#### M9 — Data model v2, migration and sample content (A lead, E content)
+- [ ] `003_heritage.sql` + `Initializer` column checks: weavers, categories, journal_articles,
+  order_events, payment_proofs; new product/order/order_item/stock_audit columns (SDD §15.2).
+- [ ] In-place v1 → v2 upgrade preserving inventory, orders and admins, with the status mapping
+  and placeholder-weaver rule (SDD §15.9); PHPUnit on a v1 fixture database.
+- [ ] Seed rewrite (N7): 4 native-fiber bags (buri, pandan, tikog or similar; no leather bodies),
+  ≥ 4 sample weavers from distinct communities, ≥ 3 journal articles with sources, 4 categories,
+  sample transfer accounts. Content written from proposal references; no real people (PRD §8).
+- **Done when:** fresh install and v1 upgrade both boot; existing tests pass; N7 counts hold.
+
+#### M10 — Heritage storefront (C lead, A services, E content)
+- [ ] Material (fiber) and region filters (R2); shipping rates on product page (R3).
+- [ ] Museum-style story section (R29); products without 3D config hide the 3D control (R4).
+- [ ] Meet the Weavers list/profile (R30); Heritage Journal list/article (R31); header/footer links.
+- **Done when:** R2–R4, R29–R31 verified at 1440/768/360 px, keyboard and no-JS; review-screen guide applied.
+
+#### M11 — Checkout v2, order lifecycle and tracking (A lead, C UI)
+- [ ] Payment method choice: COD, transfer with proof upload (N11), card simulator (R13, R14).
+- [ ] Placement as `pending` with method/status, weaver item snapshots, events (R15, R44).
+- [ ] Confirmation additions (R16); `/track` with email check and throttle (R32).
+- [ ] Concurrency test re-run for all methods (R15).
+- **Done when:** J1 completes with each method; J2 v2 edge cases land on designed screens; no oversell.
+
+#### M12 — Weaver module (D lead, A services)
+- [ ] Weaver auth with scoped throttle (R34); `WeaverAuthMiddleware`; ownership filters (N10).
+- [ ] Profile (R35), listings with pending review (R36), stock/availability with audit (R37),
+  own order items (R38), earnings summary (R39).
+- [ ] Ownership tests: every weaver route returns 404 for another weaver's resource.
+- **Done when:** J4 passes on a 360 px phone viewport; N10 tests green.
+
+#### M13 — Admin v2 (D lead, A services)
+- [ ] Dashboard order/sales summaries (R18); order list filters and merged status/payment
+  transitions with reasons and events (R22); proof viewing (N11).
+- [ ] Weaver accounts and listing approval (R40); categories (R41); customer records (R42);
+  journal and weaver-profile content management (R43); product form v2 fields (R20, R23).
+- **Done when:** J3 passes end to end, including reject/cancel stock restores and audit rows.
+
+#### M14 — English/Filipino (E lead, C UI)
+- [ ] `Translator`, `LocaleMiddleware`, `POST /lang`, catalogs `lang/en.php` + `lang/fil.php` (R33, N9).
+- [ ] All storefront and checkout templates/JS strings moved to keys; `*_fil` content fallback; `<html lang>` (R26).
+- [ ] Catalog parity test; Filipino copy reviewed by a fluent team member.
+- **Done when:** every storefront page works in both languages; no hard-coded customer strings remain.
+
+#### M15 — Evaluation, refinement and redeploy (all)
+- [ ] Choose the evaluation instrument and respondent groups (PRD §10); seed evaluation accounts (N12).
+- [ ] Run the usability, functionality and design evaluation with customers, weavers and admins
+  (classmates, instructors, volunteers) on the deployed prototype; record results here.
+- [ ] Fix agreed findings; re-verify affected R#/N#; Lighthouse a11y ≥ 90 and LCP target.
+- [ ] Deploy to <https://habi.theavenir.dev/>; production data migrated (SDD §15.9) or explicitly
+  reset with user approval (`php seed/seed.php --force` is destructive).
+- **Done when:** PRD §7 metrics are checked and recorded; all PRD 2.0 R#/N# verified.
+
 ## 2. Definition of Done (per milestone)
 
 1. All cited R#s manually verified against PRD acceptance criteria.
@@ -1043,6 +1121,7 @@ Acceptance status:
 3. No secrets in repo; `.env.example` updated if env vars added.
 4. UI matches DSD tokens (spot-check colors/radius/motion); responsive at 360 px.
 5. PR reviewed by at least one other track owner; merged to `main`.
+6. PRD 2.0 milestones: new customer-facing strings exist in both language catalogs (N9); new weaver routes have ownership tests (N10).
 
 ## 3. Local Dev Commands
 
@@ -1071,4 +1150,10 @@ vendor/bin/phpunit               # isolated first-boot/preservation tests
 | Asset/font drift | Use the approved published artwork and exact local variable fonts; record sources/licenses in DSD §6. Supplied photographs remain unpublished inspiration. |
 | Modeling constraints for procedural bags | Follow the published viewer presentation (DSD §4), retain procedural configs/textures and verify actual rendering/performance; no downloaded model substitution. |
 | Three.js vendored file goes stale | Pin version in README; upgrade = replace 2 files in `public/assets/vendor/three/` |
-| Scope creep (accounts, reviews) | PRD §4 out-of-scope; park in backlog |
+| Scope creep (accounts, reviews, refunds, notifications) | PRD §4 out-of-scope; park in backlog |
+| PRD 2.0 roughly doubles the scope (weavers, journal, payments, i18n) | Dependency-ordered M9–M15; M9 first; parallel M10/M12/M14; if time runs short, defer Filipino content fields (English fallback) before UI-string translation |
+| v1 → v2 migration corrupts production data | Idempotent migration tested on a v1 fixture; back up `/srv/habi/data` before deploy; no `--force` reset without explicit approval |
+| Cross-weaver data leaks | SQL-level ownership filters + 404 tests on every weaver route (N10) |
+| Unverified transfer orders hold stock indefinitely | Dashboard "Payments to verify" count; admin rejects stale orders manually (PRD §8: manual statuses) |
+| Sample content mistaken for real weavers or uses real people | PRD §2/§8 truthfulness rule; illustrated portraits; sources cited; content review in M9 |
+| Filipino copy quality | Fluent team member reviews `lang/fil.php` and content before M15 |

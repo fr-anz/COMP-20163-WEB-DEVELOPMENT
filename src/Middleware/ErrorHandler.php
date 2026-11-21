@@ -67,7 +67,6 @@ final class ErrorHandler
 
         $escapedTitle = htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $escapedMessage = htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $code = (string) $status;
 
         return <<<HTML
         <!DOCTYPE html>
@@ -76,7 +75,7 @@ final class ErrorHandler
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>{$escapedTitle} — Habi</title>
-            <meta name="description" content="This page is unavailable; Habi is an educational demo.">
+            <meta name="description" content="This page is unavailable.">
             <meta name="robots" content="noindex">
             <link rel="stylesheet" href="/assets/css/app.css">
             <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
@@ -105,49 +104,42 @@ final class ErrorHandler
             <main id="main-content" tabindex="-1">
                 <div class="mx-auto max-w-[1280px] px-4 py-8 @3xl:px-8 @3xl:py-12">
                     <div class="max-w-2xl">
-                        <p class="text-caption font-medium tracking-wide text-ink-2 uppercase">Error {$code}</p>
-                        <h1 class="mt-1 font-display text-[30px] font-bold @3xl:text-h1">{$escapedTitle}</h1>
+                        <h1 class="font-display text-[30px] font-bold @3xl:text-h1">{$escapedTitle}</h1>
                         <p class="mt-3 text-body text-ink-2">{$escapedMessage}</p>
                         <div class="mt-6 flex flex-wrap items-center gap-3">
                             <a href="/products" class="btn btn--primary">Browse the collection</a>
-                            <a href="/" class="btn btn--secondary">Back to discovery</a>
+                            <a href="/" class="btn btn--secondary">Back to home</a>
                         </div>
                     </div>
                 </div>
             </main>
-
             <footer class="bg-brown-900 text-inverse">
                 <div class="h-2.5" aria-hidden="true">
                     <img src="/assets/img/reference/footer-selvedge.svg" alt="" class="block h-full w-full">
                 </div>
-                <div class="mx-auto grid max-w-[1280px] gap-8 px-4 py-12 @3xl:grid-cols-[1.3fr_1fr_1fr] @3xl:px-8">
-                    <div>
-                        <span class="relative inline-flex items-baseline font-display font-bold leading-none"
-                              role="img" aria-label="Habi"
-                              style="font-size: 34px; color: var(--color-text-inverse);
-                                     letter-spacing: -0.035em; font-variation-settings: 'opsz' 96;">
-                            <span aria-hidden="true">hab</span>
-                            <span aria-hidden="true" class="relative">ı<img
-                                 src="/assets/img/reference/wordmark-tittle.svg" alt=""
-                                 class="absolute left-1/2 -translate-x-1/2 max-w-none"
-                                 style="width: .2em; height: .2em; top: -.02em;"></span>
-                        </span>
-                        <p class="mt-3 max-w-xs text-small text-inverse/75">
-                            Contemporary Filipino craft, explored one weave at a time.
-                        </p>
-                    </div>
+                <div class="mx-auto flex max-w-[1280px] flex-wrap items-end justify-between gap-8 px-4 py-12
+                            @3xl:px-8">
+                    <span class="relative inline-flex items-baseline font-display font-bold leading-none"
+                          role="img" aria-label="Habi"
+                          style="font-size: 34px; color: var(--color-text-inverse);
+                                 letter-spacing: -0.035em; font-variation-settings: 'opsz' 96;">
+                        <span aria-hidden="true">hab</span>
+                        <span aria-hidden="true" class="relative">ı<img
+                             src="/assets/img/reference/wordmark-tittle.svg" alt=""
+                             class="absolute left-1/2 -translate-x-1/2 max-w-none"
+                             style="width: .2em; height: .2em; top: -.02em;"></span>
+                    </span>
                     <nav aria-label="Footer">
-                        <p class="text-caption font-semibold tracking-wider text-inverse/60 uppercase">Explore</p>
-                        <ul class="mt-2 space-y-0.5 text-small">
+                        <ul class="flex flex-wrap gap-x-6 gap-y-1 text-small">
                             <li>
                                 <a href="/#craft"
                                    class="touch-link inline-block py-1.5 underline-offset-4 hover:underline"
-                                   >Discover the weave</a>
+                                   >The weave</a>
                             </li>
                             <li>
                                 <a href="/products"
                                    class="touch-link inline-block py-1.5 underline-offset-4 hover:underline"
-                                   >The collection</a>
+                                   >Collection</a>
                             </li>
                             <li>
                                 <a href="/cart"
@@ -156,27 +148,6 @@ final class ErrorHandler
                             </li>
                         </ul>
                     </nav>
-                    <div>
-                        <p class="text-caption font-semibold tracking-wider text-inverse/60 uppercase"
-                           >About this demo</p>
-                        <div class="mt-3">
-                            <p class="flex items-start gap-2 text-caption text-inverse/85">
-                                <svg class="icon mt-0.5 flex-none text-yellow-400"
-                                     width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                     stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
-                                     aria-hidden="true" focusable="false">
-                                    <circle cx="12" cy="12" r="9"/>
-                                    <path d="M12 11v5.5M12 7.5v.01"/>
-                                </svg>
-                                <span>
-                                    <strong class="font-semibold text-inverse">Educational demo.</strong>
-                                    Habi is a fictional brand. Products, prices, orders and material labels
-                                    are illustrative; nothing is sold, shipped or charged, and no maker or
-                                    origin is claimed.
-                                </span>
-                            </p>
-                        </div>
-                    </div>
                 </div>
             </footer>
         </body>

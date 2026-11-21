@@ -16,7 +16,7 @@
  *   - dispose() releases geometry, materials, textures, controls, observer,
  *     listeners and the frame loop; it also runs on pagehide.
  *
- * Reversible interior inspection with shell cutaway and applicable flap opening.
+ * Reversible interior inspection with rim-hinged handles and envelope flap.
  * Dispatches 'viewchange', 'contextlost' and 'contextrestored' events.
  */
 import * as THREE from 'three';
@@ -26,6 +26,7 @@ import { buildBag } from './bagFactory.js';
 const IDLE_DELAY_MS = 3000;
 const AUTO_ROTATE_DEG_PER_SEC = 1.5;
 const MAX_PIXEL_RATIO = 2;
+const FLAP_OPEN_ANGLE = -Math.PI * 0.98;
 
 // Published --ease-weave: cubic-bezier(.2, .7, .2, 1).
 function viewEase(progress) {
@@ -68,6 +69,42 @@ function makeContactShadowTexture() {
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
+}
+
+/**
+ * Procedural equirect studio environment (original asset): warm-to-neutral
+ * vertical gradient with softbox highlights, PMREM'd into scene.environment
+ * so metal hardware and weave get believable reflections.
+ */
+function makeEnvironmentCanvas() {
+    const width = 512;
+    const height = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    const sky = ctx.createLinearGradient(0, 0, 0, height);
+    sky.addColorStop(0, '#fff6e8');
+    sky.addColorStop(0.45, '#dfe4ec');
+    sky.addColorStop(0.75, '#9a938a');
+    sky.addColorStop(1, '#57504a');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, width, height);
+    const softbox = (x, y, r, alpha) => {
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gradient.addColorStop(0, `rgba(255,255,255,${alpha})`);
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+    };
+    softbox(width * 0.3, height * 0.22, width * 0.16, 0.95);
+    softbox(width * 0.72, height * 0.3, width * 0.12, 0.8);
+    softbox(width * 0.5, height * 0.12, width * 0.1, 0.9);
+    softbox(width * 0.12, height * 0.35, width * 0.08, 0.6);
+    softbox(width * 0.9, height * 0.4, width * 0.08, 0.6);
+    return canvas;
 }
 
 export class BagViewer extends THREE.EventDispatcher {
@@ -116,7 +153,6 @@ export class BagViewer extends THREE.EventDispatcher {
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.05;
-        renderer.localClippingEnabled = true;
 
         const canvas = renderer.domElement;
         canvas.setAttribute('role', 'img');
@@ -131,6 +167,7 @@ export class BagViewer extends THREE.EventDispatcher {
         const backdrop = viewerStyle.getPropertyValue('--color-bg-surface').trim();
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(backdrop);
+        this._applyEnvironment();
 
         this.camera = new THREE.PerspectiveCamera(35, 1, 0.1, 1000);
 
@@ -142,19 +179,35 @@ export class BagViewer extends THREE.EventDispatcher {
         this._resize();
 
         this.bag = buildBag(config);
+        // Shadows on everything except deliberate no-shadow detail (stitch
+        // dashes, decals), and max anisotropy (capped) on every bag texture so
+        // the weave stays crisp at grazing angles.
+        const maxAnisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
         this.bag.traverse((node) => {
-            if (node.isMesh) node.castShadow = true;
+            if (!node.isMesh) return;
+            node.castShadow = !node.userData.noShadow;
+            node.receiveShadow = true;
+            const list = Array.isArray(node.material) ? node.material : [node.material];
+            for (const material of list) {
+                if (!material) continue;
+                for (const value of Object.values(material)) {
+                    if (value && value.isTexture) value.anisotropy = maxAnisotropy;
+                }
+            }
         });
         this.scene.add(this.bag);
         const interior = this.bag.userData;
         const dims = interior.bodyDimensions;
-        this._insideTarget = this.bag.localToWorld(interior.interiorTarget.clone());
         this._bodyRadius = Math.hypot(dims.width, dims.height, dims.depth) / 2;
-        this._cutaway = new THREE.Plane(
-            new THREE.Vector3(0, -1, 0),
-            this.bag.position.y + dims.height * 0.68,
-        );
-        this._cutawayPlanes = [this._cutaway];
+        // Frame the physical inspection pose, including stationary side
+        // handles and the opened clutch flap, rather than cropping their tops.
+        for (const { pivot, openAngle } of interior.handles ?? []) pivot.rotation.x = openAngle;
+        if (interior.flap) interior.flap.rotation.x = FLAP_OPEN_ANGLE;
+        const inspectionBox = new THREE.Box3().setFromObject(this.bag);
+        this._inspectionRadius = inspectionBox.getBoundingSphere(new THREE.Sphere()).radius;
+        this._inspectionTarget = inspectionBox.getCenter(new THREE.Vector3());
+        for (const { pivot } of interior.handles ?? []) pivot.rotation.x = 0;
+        if (interior.flap) interior.flap.rotation.x = 0;
         const box = new THREE.Box3().setFromObject(this.bag);
         const sphere = box.getBoundingSphere(new THREE.Sphere());
         const radius = Math.max(sphere.radius, 1);
@@ -184,23 +237,37 @@ export class BagViewer extends THREE.EventDispatcher {
 
     /* -------------------------------------------------- scene assembly */
 
-    _addStudioLights() {
-        this.scene.add(new THREE.HemisphereLight(0xfff3e0, 0x8a7355, 0.65));
-        this.scene.add(new THREE.AmbientLight(0xfff2e0, 0.3));
+    _applyEnvironment() {
+        // PMREMGenerator is core three (vendored r160); no extra addons. The
+        // env map only feeds PBR reflections — lighting stays explicit.
+        const pmrem = new THREE.PMREMGenerator(this.renderer);
+        const source = new THREE.CanvasTexture(makeEnvironmentCanvas());
+        source.mapping = THREE.EquirectangularReflectionMapping;
+        source.colorSpace = THREE.SRGBColorSpace;
+        const envMap = pmrem.fromEquirectangular(source).texture;
+        source.dispose();
+        pmrem.dispose();
+        this.scene.environment = envMap;
+        this._environmentMap = envMap;
+    }
 
-        const key = new THREE.DirectionalLight(0xffe9c9, 2.2);
+    _addStudioLights() {
+        this.scene.add(new THREE.HemisphereLight(0xfff3e0, 0x8a7355, 0.55));
+        this.scene.add(new THREE.AmbientLight(0xfff2e0, 0.22));
+
+        const key = new THREE.DirectionalLight(0xffe9c9, 2.4);
         key.castShadow = true;
-        key.shadow.mapSize.set(1024, 1024);
-        key.shadow.bias = -0.0005;
-        key.shadow.radius = 4;
+        key.shadow.mapSize.set(2048, 2048);
+        key.shadow.bias = -0.0004;
+        key.shadow.radius = 6;
         this.scene.add(key);
         this._keyLight = key;
 
-        const rim = new THREE.DirectionalLight(0xffd9a0, 0.8);
+        const rim = new THREE.DirectionalLight(0xffd9a0, 1.1);
         this.scene.add(rim);
         this._rimLight = rim;
 
-        const fill = new THREE.DirectionalLight(0xe8eef8, 0.45);
+        const fill = new THREE.DirectionalLight(0xe8eef8, 0.55);
         this.scene.add(fill);
         this._fillLight = fill;
     }
@@ -394,19 +461,19 @@ export class BagViewer extends THREE.EventDispatcher {
         this.controls.maxPolarAngle = inside ? 1.25 : 1.45;
         this.controls.minDistance = inside ? this._bodyRadius * 1.1 : 0;
         this.controls.maxDistance = inside ? this._insideDistance() * 1.8 : Infinity;
-        if (inside) this._setCutaway(true);
         this._transition = {
             elapsed: 0,
             fromCamera: this.camera.position.clone(),
             fromTarget: this.controls.target.clone(),
             toCamera: inside ? this._insidePosition() : this._exteriorView.camera.clone(),
-            toTarget: inside ? this._insideTarget : this._exteriorView.target,
+            toTarget: inside ? this._inspectionTarget : this._exteriorView.target,
             fromFlap: this.bag.userData.flap?.rotation.x ?? 0,
-            toFlap: inside ? -Math.PI : 0,
+            toFlap: inside ? FLAP_OPEN_ANGLE : 0,
+            fromHandles: (this.bag.userData.handles ?? []).map(({ pivot }) => pivot.rotation.x),
         };
         this.controls.enabled = false;
         this.renderer.domElement.setAttribute('aria-label', inside
-            ? 'Procedural bag interior cutaway. Lining and configured pockets. Drag or use the rotation buttons to inspect.'
+            ? 'Procedural bag interior. Lining and configured pockets. Drag or use the rotation buttons to inspect.'
             : 'Procedural bag exterior. Drag or use the rotation buttons to inspect.');
         if (!animate || this._reducedMotion || !this._shouldRun()) this._finishTransition();
         this.dispatchEvent({ type: 'viewchange', inside });
@@ -415,21 +482,15 @@ export class BagViewer extends THREE.EventDispatcher {
     _insideDistance() {
         const vertical = THREE.MathUtils.degToRad(this.camera.fov);
         const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * this.camera.aspect);
-        return this._bodyRadius / Math.sin(Math.min(vertical, horizontal) / 2);
+        return this._inspectionRadius * 1.06 / Math.sin(Math.min(vertical, horizontal) / 2);
     }
 
     _insidePosition() {
         return new THREE.Vector3().setFromSphericalCoords(
             this._insideDistance(), 0.55, 0.25,
-        ).add(this._insideTarget);
+        ).add(this._inspectionTarget);
     }
 
-    _setCutaway(enabled) {
-        for (const material of this.bag.userData.cutawayMaterials) {
-            material.clippingPlanes = enabled ? this._cutawayPlanes : null;
-            material.clipShadows = enabled;
-        }
-    }
 
     _clearInertia() {
         const damping = this.controls.enableDamping;
@@ -457,6 +518,11 @@ export class BagViewer extends THREE.EventDispatcher {
                 transition.fromFlap, transition.toFlap, amount,
             );
         }
+        (this.bag.userData.handles ?? []).forEach(({ pivot, openAngle }, index) => {
+            pivot.rotation.x = THREE.MathUtils.lerp(
+                transition.fromHandles[index], this.isInside ? openAngle : 0, amount,
+            );
+        });
         if (progress === 1) {
             this._transitionDestination = {
                 camera: transition.toCamera.clone(),
@@ -466,7 +532,6 @@ export class BagViewer extends THREE.EventDispatcher {
             this._transition = null;
             this.controls.enabled = this._active;
             if (!this.isInside) {
-                this._setCutaway(false);
                 this._exteriorView = null;
             }
         }
@@ -538,7 +603,7 @@ export class BagViewer extends THREE.EventDispatcher {
         this._finishTransition();
         this._clearInertia();
         this.camera.position.copy(this.isInside ? this._insidePosition() : this._initialCameraPosition);
-        this.controls.target.copy(this.isInside ? this._insideTarget : this._initialTarget);
+        this.controls.target.copy(this.isInside ? this._inspectionTarget : this._initialTarget);
         this._lastInteraction = performance.now();
         this.controls.update();
     }
@@ -591,6 +656,9 @@ export class BagViewer extends THREE.EventDispatcher {
         canvas.removeEventListener('webglcontextlost', this._onContextLost);
         canvas.removeEventListener('webglcontextrestored', this._onContextRestored);
         window.removeEventListener('pagehide', this._onPageHide);
+
+        this.scene.environment = null;
+        this._environmentMap?.dispose();
 
         this._disposeObject(this.scene);
         this.scene.clear();

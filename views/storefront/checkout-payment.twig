@@ -1,13 +1,12 @@
 {#-
   Habi checkout step 2 — payment (/checkout/payment, POST /api/payment/simulate),
-  matching the published Checkout example's payment form 1:1, including the
-  verbatim "SIMULATED PAYMENT — no real transaction occurs" banner (N3).
+  matching the published Checkout example's payment form 1:1.
   Validation is server-side (PaymentSimulator): inline field errors plus the
   decline/insufficient-funds alert. Card inputs are never repopulated (the
   controller renders them empty after a failure) and never stored — they use
   autocomplete="off" and nothing is written to storage (N4). checkout.js adds
-  a spinner + polite status during the server's simulated 1.5–2.5 s gateway
-  wait; without JavaScript the form posts natively and works unchanged.
+  a spinner + polite status during the server's gateway wait; without
+  JavaScript the form posts natively and works unchanged.
   Receives exactly: app_name, app_env, cart, csrf_token, shipping (array),
   regions (key => label), shipping_fee_centavos (int), total_centavos (int),
   payment (result/last4/brand), idempotency_key, errors (field => message),
@@ -21,7 +20,7 @@
 
 {% block title %}Checkout · Payment — {{ app_name }}{% endblock %}
 
-{% block description %}Habi checkout, step 2 of 4: simulated payment. Educational demo — no real gateway is contacted and nothing is charged.{% endblock %}
+{% block description %}Habi checkout, step 2 of 4: payment details.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 
 {% block content %}
@@ -32,7 +31,7 @@
         <span>Back to Shipping</span>
       </a>
       <span class="flex items-center gap-1.5 text-caption text-ink-2">
-        {{ icons.icon('lock', 16) }} Demo checkout
+        {{ icons.icon('lock', 16) }} Secure checkout
       </span>
     </div>
 
@@ -46,13 +45,6 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <h1 id="pay-h" tabindex="-1" class="mb-4 font-display text-h2 font-semibold focus:outline-none">Payment</h1>
 
-          <div class="flex items-center gap-3 rounded-control border-[1.5px] border-dashed border-info bg-info-bg px-4 py-3 text-info">
-            {{ icons.icon('lock', 20, 'flex-none') }}
-            <p class="text-small font-bold tracking-wide">SIMULATED PAYMENT &mdash; no real transaction occurs</p>
-          </div>
-
-          <div class="mt-4"></div>
-
           <div class="grid gap-5 @2xl:grid-cols-2">
             <div class="@2xl:col-span-2">
               <label for="p-holder" class="field-label">Name on card</label>
@@ -60,16 +52,16 @@
                 <input id="p-holder" autocomplete="off" readonly class="input"
                        value="{{ shipping.name }}" aria-describedby="p-holder-hint">
               </div>
-              <p id="p-holder-hint" class="field-hint">Uses your shipping name for this simulation. Change it in Shipping.</p>
+              <p id="p-holder-hint" class="field-hint">Uses your shipping name. Change it in Shipping.</p>
             </div>
             <div class="@2xl:col-span-2">
               <label for="p-card" class="field-label">Card number<span class="ml-1 text-error" aria-hidden="true">*</span></label>
               <div class="relative">
-                <input id="p-card" name="card_number" inputmode="numeric" autocomplete="off" placeholder="4242 4242 4242 4242" required aria-required="true"
+                <input id="p-card" name="card_number" inputmode="numeric" autocomplete="off" placeholder="1234 5678 9012 3456" required aria-required="true"
                        class="input" value=""
                        {% if errors.card_number %}aria-invalid="true" aria-describedby="p-card-hint p-card-err"{% else %}aria-describedby="p-card-hint"{% endif %}>
               </div>
-              <p id="p-card-hint" class="field-hint">Use a 13–19 digit Luhn-valid test number. 4242 4242 4242 4242 approves; 4000 0000 0000 0002 declines; 4000 0000 0000 9995 reports insufficient funds.</p>
+              <p id="p-card-hint" class="field-hint">13&ndash;19 digits.</p>
               {% if errors.card_number %}
                 <p id="p-card-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
                   {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.card_number }}
@@ -115,7 +107,7 @@
           {% endif %}
 
           <p class="mt-4 flex items-center gap-2 text-caption text-ink-2">
-            {{ icons.icon('lock', 16) }} Full card number, expiry and security code are used only for this simulation and never saved.
+            {{ icons.icon('lock', 16) }} Full card details are never stored.
           </p>
 
           <button type="submit" class="btn btn--primary btn--lg mt-6" data-checkout-submit>

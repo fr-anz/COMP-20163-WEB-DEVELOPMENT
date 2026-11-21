@@ -99,8 +99,8 @@ final class CheckoutController
         $result = $this->payments->simulate($this->body($request));
         if ($result['result'] !== 'approved') {
             $message = match ($result['result']) {
-                'declined' => 'Card declined (simulated) — try another test card. Your bag and shipping are intact.',
-                'insufficient_funds' => 'Insufficient funds (simulated) — try another test card.',
+                'declined' => 'Card declined — try another card. Your bag and shipping are intact.',
+                'insufficient_funds' => 'Insufficient funds — try another card.',
                 default => 'Check the highlighted card details and try again.',
             };
 
@@ -240,7 +240,7 @@ final class CheckoutController
     private function changedCart(ResponseInterface $response): ResponseInterface
     {
         $this->clearApproval();
-        $this->cart->setMessage('Your bag or its prices changed. Review the current bag and simulate payment again.');
+        $this->cart->setMessage('Your bag or its prices changed. Review the current bag and pay again.');
 
         return $this->redirect($response, '/cart');
     }
@@ -303,7 +303,7 @@ final class CheckoutController
             'idempotency_key' => $state['idempotency_key'] ?? '',
             'errors' => [],
             'message' => null,
-            'delivery_estimate' => 'Simulated estimate: 3–7 business days. Nothing will actually be shipped.',
+            'delivery_estimate' => 'Arrives in 3–7 business days.',
         ], $data)));
 
         return $response->withHeader('Content-Type', 'text/html; charset=UTF-8');

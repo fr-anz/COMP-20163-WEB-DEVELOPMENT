@@ -6,14 +6,13 @@
 
 {% block title %}The collection — {{ app_name }}{% endblock %}
 
-{% block description %}Browse the Habi collection: woven-style bags across {{ categories|length }} categories. Search, filter by category, and sort by featured, date or price — no purchase required.{% endblock %}
+{% block description %}Browse the Habi collection: woven-style bags across {{ categories|length }} categories. Search, filter by category, and sort by featured, date or price.{% endblock %}
 
 {% block content %}
   <div class="mx-auto max-w-[1280px] px-4 py-8 @3xl:px-8 @3xl:py-12">
     <div class="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
       <div>
         <h1 class="font-display text-[30px] font-bold @3xl:text-h1">The collection</h1>
-        <p class="mt-1 text-ink-2">{{ total }} fictional handbags across {{ categories|length }} forms.</p>
       </div>
     </div>
 

@@ -23,7 +23,7 @@ final class PreservationTest extends IsolatedDatabaseTestCase
         // product removal, administrator rename.
         $pdo->exec('UPDATE products SET price_centavos = 999999 WHERE slug = \'sinag-tote\'');
         $pdo->exec('UPDATE products SET stock = 1 WHERE slug = \'sinag-tote\'');
-        $pdo->exec('DELETE FROM products WHERE slug = \'dahon-sling\'');
+        $pdo->exec('DELETE FROM products WHERE slug = \'tala-sling\'');
         $pdo->exec('UPDATE admins SET name = \'Renamed administrator\'');
 
         Initializer::initialize($pdo, $this->migrationsDir());
@@ -39,14 +39,14 @@ final class PreservationTest extends IsolatedDatabaseTestCase
             'Later boot must not overwrite changed stock.'
         );
         self::assertSame(
-            9,
+            3,
             (int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn(),
             'Later boot must not reinsert removed products.'
         );
         self::assertSame(
             0,
             (int) $pdo->query(
-                "SELECT COUNT(*) FROM products WHERE slug = 'dahon-sling'"
+                "SELECT COUNT(*) FROM products WHERE slug = 'tala-sling'"
             )->fetchColumn()
         );
         self::assertSame(

@@ -1,7 +1,7 @@
 {#-
   Habi checkout step 1 — shipping details (/checkout, POST /checkout/shipping),
   matching the published Checkout application example 1:1: 1180px shell, back
-  link + "Demo checkout" tag, desktop stepper (compact "Step N of 4" below the
+  link + "Secure checkout" tag, desktop stepper (compact "Step N of 4" below the
   768px container breakpoint), collapsible order summary (sticky aside at
   ≥896px container; native <details> below it so it stays reachable without
   JavaScript) and the two-column field grid. Validation is server-side
@@ -20,7 +20,7 @@
 
 {% block title %}Checkout · Shipping — {{ app_name }}{% endblock %}
 
-{% block description %}Habi checkout, step 1 of 4: shipping details. Educational demo — a clearly simulated order; nothing is charged or shipped.{% endblock %}
+{% block description %}Habi checkout, step 1 of 4: shipping details.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 
 {% block content %}
@@ -31,7 +31,7 @@
         <span>Back to bag</span>
       </a>
       <span class="flex items-center gap-1.5 text-caption text-ink-2">
-        {{ icons.icon('lock', 16) }} Demo checkout
+        {{ icons.icon('lock', 16) }} Secure checkout
       </span>
     </div>
 
@@ -80,9 +80,8 @@
               <div class="relative">
                 <input id="s-email" name="email" autocomplete="email" required aria-required="true" type="email"
                        class="input" value="{{ shipping.email|default('') }}"
-                       {% if errors.email %}aria-invalid="true" aria-describedby="s-email-hint s-email-err"{% else %}aria-describedby="s-email-hint"{% endif %}>
+                       {% if errors.email %}aria-invalid="true" aria-describedby="s-email-err"{% endif %}>
               </div>
-              <p id="s-email-hint" class="field-hint">For the demo receipt only.</p>
               {% if errors.email %}
                 <p id="s-email-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
                   {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.email }}

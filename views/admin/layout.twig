@@ -1,9 +1,9 @@
 {#-
   Habi admin shell, matching the published Admin application example:
   232px surface sidebar above the 896px container breakpoint (woven mark,
-  22px wordmark, Admin tag, 40px nav items (44px on touch), Log out pinned last), a
-  horizontally scrolling nav row below it, dashed demo-data notice and
-  14px-dense content. No storefront header/footer or woven textures.
+  22px wordmark, Admin tag, 40px nav items (44px on touch), Log out pinned
+  last), a horizontally scrolling nav row below it, and 14px-dense content.
+  No storefront header/footer or woven textures.
   Receives: app_name, admin_email, csrf_token, flash, active_nav.
   Children may set `dialog_open` (true when a server-rendered dialog is
   shown): the shell becomes inert and the `dialog` block renders above it.
@@ -18,7 +18,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}Admin{% endblock %} — {{ app_name }} admin</title>
-  <meta name="description" content="Habi demo administration: products, stock and simulated orders. Educational demo data only.">
+  <meta name="description" content="Habi administration: products, stock and orders.">
   <link rel="stylesheet" href="/assets/css/app.css">
   <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
 </head>
@@ -58,10 +58,6 @@
         </form>
       </nav>
       <main id="main-content" tabindex="-1" class="min-w-0 p-4 @3xl:p-6">
-        <div class="mb-5 flex items-center gap-2 rounded-control border border-dashed border-line-strong px-3 py-2 text-caption text-ink-2">
-          {{ icons.icon('info', 16, 'flex-none') }}
-          <span><strong class="text-ink">Educational demo data.</strong> Products, stock and orders are fictional; orders come from the simulated checkout and nothing is sold, shipped or charged. Signed in as {{ admin_email }}.</span>
-        </div>
         {% if not dialog_open|default(false) %}{{ ui.flash(flash) }}{% endif %}
         <div class="anim-fade">
           {% block content %}{% endblock %}

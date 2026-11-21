@@ -28,7 +28,6 @@
           <span class="ml-1 rounded-sm bg-inset px-1.5 py-0.5 text-caption font-semibold text-ink-2">Admin</span>
         </div>
         <h1 class="mt-4 text-h2 font-semibold">Sign in</h1>
-        <p class="mt-1 text-small text-ink-2">For the demo administrator configured on this server.</p>
       </div>
       <form method="post" action="/admin/login" class="grid gap-4 px-5 py-4">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -57,7 +56,7 @@
       <div class="border-t border-line bg-page px-5 py-3">
         <p class="flex items-start gap-2 text-caption text-ink-2">
           {{ icons.icon('info', 16, 'mt-0.5 flex-none') }}
-          <span>Educational demo. After five failed attempts, sign-in pauses for 60 seconds.</span>
+          <span>After five failed attempts, sign-in pauses for 60 seconds.</span>
         </p>
       </div>
     </div>
