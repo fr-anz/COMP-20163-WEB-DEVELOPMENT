@@ -1,11 +1,11 @@
 name: CI
 
 # Pushes to main deploy to the Google Cloud VM only after both check jobs pass
-# (README "Deploy"). The deploy job runs once the GCE_HOST repository variable
+# (README "Deploy"). Pushes to dev (integration/staging, BUILD §4) only run checks. The deploy job runs once the GCE_HOST repository variable
 # is set; its SSH key can only run deploy/gce/update.sh with a commit SHA.
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
 
 permissions:

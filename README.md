@@ -52,7 +52,7 @@ composer lint    # php -l over src public seed tests
 docker build -t habi .
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs the same checks on every pull request and push to `main`, then boots the image on an empty volume. That job checks `/`, `/products`, a static file, a dotted application path and a restart preserving the catalog.
+GitHub Actions (`.github/workflows/ci.yml`) runs the same checks on every pull request and on pushes to `dev` and `main`, then boots the image on an empty volume. That job checks `/`, `/products`, a static file, a dotted application path and a restart preserving the catalog.
 
 PHPUnit uses isolated databases, not your local demo inventory. Catalog coverage includes filters/order/pagination and active/sold-out visibility; inspection coverage includes active-only configs and ordered galleries. Cart boundary coverage includes cumulative stock caps, persistent corrections/removals, malformed quantities, session isolation and CSRF rejection. Inspect the actual changed surface at 360 px and wide widths with keyboard navigation; PHP checks do not establish visual accessibility. On product pages, also exercise viewer loading/retry, WebGL fallback, pause/reduced motion and mobile dialog close/Esc/focus return. Exact observed scenarios and commands are recorded in [BUILD](docs/BUILD.md).
 
@@ -142,7 +142,7 @@ gh variable set GCE_HOST --body shop.example.com
 rm habi_deploy
 ```
 
-After that, each push to `main` runs the CI checks. Only when they pass does the **Deploy to Google Cloud** job run `update.sh <commit>` over SSH and check `https://<host>/`. That script checks out the commit, rebuilds, restarts, and waits for a healthy `/`. Without `GCE_HOST`, the deploy job is skipped.
+After that, each push to `main` (a release merged from `dev`, BUILD §4) runs the CI checks. Only when they pass does the **Deploy to Google Cloud** job run `update.sh <commit>` over SSH and check `https://<host>/`. That script checks out the commit, rebuilds, restarts, and waits for a healthy `/`. Without `GCE_HOST`, the deploy job is skipped.
 
 **Operate.** All commands run on the VM:
 

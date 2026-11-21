@@ -14,7 +14,7 @@
 
 ## D3 — 2026-11-05 — accepted by user — Design direction & team shape
 - **Decision:** **Artisan-luxury Filipino** design direction (terracotta/sand/moss/gold, Fraunces + Inter); 4-person team with tracks A backend / B 3D / C storefront UI / D admin+DevOps; docs live in `docs/` as 5 markdown files; build phased by feature milestones M0–M8, no fixed deadline.
-- **Status:** visual direction superseded by D4 on 2026-11-09. Team shape, documentation layout and milestones remain current.
+- **Status:** visual direction superseded by D4 on 2026-11-09; team shape superseded by D10 on 2026-11-21. Documentation layout and milestones remain current.
 - **Source:** docs/DSD.md, docs/BUILD.md.
 
 ## D4 — 2026-11-09 — accepted by user — Habi identity, discovery & reference use
@@ -49,5 +49,11 @@
 ## D9 — 2026-11-21 — accepted by user (via Q&A) — PRD 2.0 from the group proposal
 - **Decision:** the submitted group proposal (2026-11-14; PDF not kept in the repo) is the requirements source; PRD becomes 2.0 (R1–R28/N1–N8 kept, R29–R44/N9–N12 added). Choices: payment offers **COD, e-wallet/bank transfer with proof, and the existing mock card**; order status **pending → confirmed → packed → shipped → delivered** plus rejected/cancelled, with separate payment status; **admins create weaver accounts** (no self-registration); tracking needs reference number + checkout email (privacy addition, labeled in PRD R32).
 - **Reason:** align docs with the proposal submitted to the instructor while preserving implemented v1 behavior and traceability.
-- **Consequences:** SDD §15, DSD §4 "PRD 2.0 screens", USER-JOURNEY J1–J4, BUILD M9–M15 are planned only (docs-only task; no code changed). Team is 5 (track E added). D7 copy rules still apply; sample content must not use real people.
+- **Consequences:** SDD §15, DSD §4 "PRD 2.0 screens", USER-JOURNEY J1–J4, BUILD M9–M15 are planned only (docs-only task; no code changed). Team was 5 (track E added); superseded by D10. D7 copy rules still apply; sample content must not use real people.
 - **Source:** user request and Q&A 2026-11-21; docs/PRD.md.
+
+## D10 — 2026-11-21 — accepted by user (via Q&A) — Single maintainer; dev → main workflow
+- **Decision:** the group no longer works on the project; one maintainer builds and reviews. Branches cut from `dev`, squash-merged into `dev`; releases merge `dev` → `main` with a merge commit; only `main` deploys. `dev` is staging by CI only (no hosted staging). No GitHub branch rules; rebase merge disabled; head branches auto-delete. BUILD §2.5 becomes a self-review checklist.
+- **Reason:** keep development standards without other reviewers; squash keeps `dev` one commit per change, merge commits keep `dev` and `main` from diverging.
+- **Alternatives rejected:** hosted staging on the e2-micro or Render (cost/RAM); protecting `main`/`dev` (user choice); squash everywhere (branches diverge after each release).
+- **Source:** user Q&A 2026-11-21; docs/BUILD.md §2, §4; issue #29.
