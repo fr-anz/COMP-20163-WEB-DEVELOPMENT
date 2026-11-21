@@ -8,9 +8,9 @@
     {{ icons.icon('bag', 28) }}
     <span class="absolute -right-1 -bottom-1 h-3 w-3 bg-yellow-400" aria-hidden="true"></span>
   </div>
-  <p class="font-display text-h3 font-semibold">Your bag is empty</p>
-  <p class="mt-1 max-w-sm text-small text-ink-2">Bags you add will wait here.</p>
+  <p class="font-display text-h3 font-semibold">{{ t('cart.empty_title') }}</p>
+  <p class="mt-1 max-w-sm text-small text-ink-2">{{ t('cart.empty_body') }}</p>
   <div class="mt-5">
-    <a href="/products" class="btn btn--primary btn--sm"><span>Explore the collection</span></a>
+    <a href="/products" class="btn btn--primary btn--sm"><span>{{ t('cart.explore') }}</span></a>
   </div>
 </div>

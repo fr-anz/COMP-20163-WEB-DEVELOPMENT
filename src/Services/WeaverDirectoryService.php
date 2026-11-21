@@ -5,21 +5,28 @@ declare(strict_types=1);
 namespace Habi\Services;
 
 use Habi\Bootstrap\HeritageUpgrade;
+use Habi\Support\Translator;
 use PDO;
 
 /**
  * Public, read-only weaver profiles for Meet the Weavers (R30). Only active
  * weavers are returned, never the inactive placeholder weaver, and only the
  * public profile fields (no email or credentials). Weaver sign-in and
- * self-service edits live in WeaverService.
+ * self-service edits live in WeaverService. In Filipino the story is
+ * story_fil, falling back to English when empty (R33).
  */
 final class WeaverDirectoryService
 {
-    private const COLUMNS = 'id, slug, display_name, community, region, fibers, techniques, story, photo_path';
+    private const COLUMNS = 'id, slug, display_name, community, region, fibers, techniques, story, photo_path,
+        COALESCE(NULLIF(story_fil, \'\'), story) AS story_fil';
+
+    private readonly string $locale;
 
     public function __construct(
         private readonly PDO $pdo,
+        ?string $locale = null,
     ) {
+        $this->locale = Translator::normalize($locale ?? Translator::current()->locale());
     }
 
     /**
@@ -75,7 +82,7 @@ final class WeaverDirectoryService
             'region' => (string) $row['region'],
             'fibers' => (string) $row['fibers'],
             'techniques' => (string) $row['techniques'],
-            'story' => (string) $row['story'],
+            'story' => (string) $row[$this->locale === 'fil' ? 'story_fil' : 'story'],
             'photo_path' => (string) $row['photo_path'] === '' ? null : (string) $row['photo_path'],
         ];
     }

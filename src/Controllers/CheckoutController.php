@@ -15,6 +15,7 @@ use Habi\Services\ShippingService;
 use Habi\Support\Csrf;
 use Habi\Support\Env;
 use Habi\Support\SessionStore;
+use Habi\Support\Translator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
@@ -115,17 +116,19 @@ final class CheckoutController
             return $this->approve($response, $cart, $state);
         }
         if ($method !== 'transfer' || $this->proofs === null) {
-            return $this->paymentFeedback($response, ['method' => 'Choose how you would like to pay.'], null, '');
+            $error = Translator::translate('payment.error.method');
+
+            return $this->paymentFeedback($response, ['method' => $error], null, '');
         }
 
         $reference = is_string($body['sender_reference'] ?? null) ? trim($body['sender_reference']) : '';
         $errors = [];
         if ($reference === '') {
-            $errors['sender_reference'] = 'Enter the reference number from your transfer receipt.';
+            $errors['sender_reference'] = Translator::translate('payment.error.sender_reference');
         } elseif (mb_strlen($reference) > OrderService::MAX_SENDER_REFERENCE_LENGTH) {
-            $errors['sender_reference'] = sprintf(
-                'Use at most %d characters.',
-                OrderService::MAX_SENDER_REFERENCE_LENGTH
+            $errors['sender_reference'] = Translator::translate(
+                'payment.error.sender_reference_length',
+                ['max' => OrderService::MAX_SENDER_REFERENCE_LENGTH]
             );
         }
         $proof = null;
@@ -159,9 +162,9 @@ final class CheckoutController
         $result = $this->payments->simulate($this->body($request));
         if ($result['result'] !== 'approved') {
             $message = match ($result['result']) {
-                'declined' => 'Card declined — try another card. Your bag and shipping are intact.',
-                'insufficient_funds' => 'Insufficient funds — try another card.',
-                default => 'Check the highlighted card details and try again.',
+                'declined' => Translator::translate('payment.error.declined'),
+                'insufficient_funds' => Translator::translate('payment.error.insufficient_funds'),
+                default => Translator::translate('payment.error.check_card'),
             };
 
             // Flash only safe errors: never the submitted card fields.
@@ -225,7 +228,9 @@ final class CheckoutController
         } catch (CheckoutException $failure) {
             $this->clearApproval();
             $this->cart->cart();
-            $this->cart->setMessage($failure->getMessage() . ' Review your corrected bag before trying again.');
+            $this->cart->setMessage(
+                Translator::translate('checkout.error.review_bag', ['message' => $failure->getMessage()])
+            );
 
             return $this->redirect($response, '/cart');
         } catch (Throwable) {
@@ -233,7 +238,7 @@ final class CheckoutController
             // response. Do not log exceptions containing user/payment input.
             return $this->render($response->withStatus(503), 'checkout-review', $this->cart->cart(), [
                 'step' => 3,
-                'message' => 'The order could not be completed. Please retry Place order; you will not order twice.',
+                'message' => Translator::translate('checkout.error.retry_place'),
             ]);
         }
         $completed[$key] = $order['order_number'];
@@ -289,7 +294,7 @@ final class CheckoutController
     private function changedCart(ResponseInterface $response): ResponseInterface
     {
         $this->clearApproval();
-        $this->cart->setMessage('Your bag or its prices changed. Review the current bag and pay again.');
+        $this->cart->setMessage(Translator::translate('checkout.error.bag_changed'));
 
         return $this->redirect($response, '/cart');
     }
@@ -358,7 +363,7 @@ final class CheckoutController
     private function emptyCart(ResponseInterface $response): ResponseInterface
     {
         $this->clearApproval();
-        $this->cart->setMessage('Your bag is empty or your session expired — please add items again.');
+        $this->cart->setMessage(Translator::translate('checkout.error.bag_empty'));
 
         return $this->redirect($response, '/cart');
     }
@@ -399,7 +404,7 @@ final class CheckoutController
             'cart' => $cart,
             'csrf_token' => Csrf::token($this->session),
             'shipping' => $shipping,
-            'regions' => ShippingService::REGIONS,
+            'regions' => ShippingService::regionLabels(),
             'shipping_fee_centavos' => $fee,
             'total_centavos' => $cart['subtotal_centavos'] + $fee,
             'payment' => $state['payment'] ?? [],
@@ -409,7 +414,7 @@ final class CheckoutController
             'idempotency_key' => $state['idempotency_key'] ?? '',
             'errors' => [],
             'message' => null,
-            'delivery_estimate' => 'Arrives in 3–7 business days.',
+            'delivery_estimate' => Translator::translate('checkout.delivery_estimate'),
         ], $data)));
 
         return $response->withHeader('Content-Type', 'text/html; charset=UTF-8');

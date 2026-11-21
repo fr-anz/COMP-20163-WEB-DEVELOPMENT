@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Habi\Services;
 
+use Habi\Support\Translator;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 
@@ -44,7 +45,7 @@ final class PaymentProofService
     {
         if (!ImageUploadService::provided($file)) {
             throw new CheckoutException(
-                'Upload a photo or screenshot of your payment.',
+                Translator::translate('payment.error.proof_missing'),
                 CheckoutException::REASON_INVALID
             );
         }

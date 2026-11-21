@@ -13,15 +13,15 @@
 
 {% block title %}{{ weaver.display_name }}{% if weaver.community != '' %}, {{ weaver.community }}{% endif %} — {{ app_name }}{% endblock %}
 
-{% block description %}{% if weaver.story|trim != '' %}{% set lead = weaver.story|replace({"\r\n": "\n"})|split("\n\n")|first|trim %}{{ lead|length > 155 ? lead|slice(0, 154) ~ '…' : lead }}{% else %}{{ weaver.display_name }}{% if place != '' %} weaves in {{ place }}{% endif %}. See their bags on {{ app_name }}.{% endif %}{% endblock %}
+{% block description %}{% if weaver.story|trim != '' %}{% set lead = weaver.story|replace({"\r\n": "\n"})|split("\n\n")|first|trim %}{{ lead|length > 155 ? lead|slice(0, 154) ~ '…' : lead }}{% else %}{{ place != '' ? t('weavers.meta_place', {name: weaver.display_name, place: place, app: app_name}) : t('weavers.meta', {name: weaver.display_name, app: app_name}) }}{% endif %}{% endblock %}
 {% block og_type %}profile{% endblock %}
 
 {% block content %}
   <div class="mx-auto max-w-[1280px] px-4 py-6 @3xl:px-8 @3xl:py-10">
-    <nav aria-label="Breadcrumb">
+    <nav aria-label="{{ t('shell.breadcrumb') }}">
       <ol class="flex flex-wrap items-center gap-1 text-small text-ink-2">
-        <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/">Home</a>{{ icons.icon('chevron-right', 16) }}</li>
-        <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/weavers">Weavers</a>{{ icons.icon('chevron-right', 16) }}</li>
+        <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/">{{ t('nav.home') }}</a>{{ icons.icon('chevron-right', 16) }}</li>
+        <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/weavers">{{ t('nav.weavers') }}</a>{{ icons.icon('chevron-right', 16) }}</li>
         <li class="flex items-center gap-1"><span class="font-medium text-ink" aria-current="page">{{ weaver.display_name }}</span></li>
       </ol>
     </nav>
@@ -34,10 +34,10 @@
         <h1 class="mt-1 font-display text-[30px] font-bold @3xl:text-h1">{{ weaver.display_name }}</h1>
         {% if weaver.community != '' or weaver.region != '' or fibers != '' or weaver.techniques != '' %}
         <dl class="mt-5 grid grid-cols-[120px_1fr] gap-x-4 gap-y-2 border-y border-line py-5 text-[15px]">
-          {% if weaver.community != '' %}<dt class="text-ink-2">Community</dt><dd>{{ weaver.community }}</dd>{% endif %}
-          {% if weaver.region != '' %}<dt class="text-ink-2">Region</dt><dd>{{ weaver.region }}</dd>{% endif %}
-          {% if fibers != '' %}<dt class="text-ink-2">Fibers</dt><dd>{{ fibers }}</dd>{% endif %}
-          {% if weaver.techniques != '' %}<dt class="text-ink-2">Techniques</dt><dd>{{ weaver.techniques }}</dd>{% endif %}
+          {% if weaver.community != '' %}<dt class="text-ink-2">{{ t('heritage.community') }}</dt><dd>{{ weaver.community }}</dd>{% endif %}
+          {% if weaver.region != '' %}<dt class="text-ink-2">{{ t('heritage.region') }}</dt><dd>{{ weaver.region }}</dd>{% endif %}
+          {% if fibers != '' %}<dt class="text-ink-2">{{ t('heritage.fibers') }}</dt><dd>{{ fibers }}</dd>{% endif %}
+          {% if weaver.techniques != '' %}<dt class="text-ink-2">{{ t('heritage.techniques') }}</dt><dd>{{ weaver.techniques }}</dd>{% endif %}
         </dl>
         {% endif %}
         {% if weaver.story|trim != '' %}
@@ -50,7 +50,7 @@
 
     {% if products|length > 0 %}
     <section class="mt-10 border-t border-line pt-6" aria-labelledby="weaver-bags">
-      <h2 id="weaver-bags" class="font-display text-h2 font-bold">Bags by {{ weaver.display_name }}</h2>
+      <h2 id="weaver-bags" class="font-display text-h2 font-bold">{{ t('weavers.bags_by', {name: weaver.display_name}) }}</h2>
       <ul class="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 @3xl:grid-cols-3 @5xl:grid-cols-4 @5xl:gap-x-6">
         {% for product in products %}
           {% include 'storefront/_product-card.twig' with { product: product, csrf_token: csrf_token } only %}

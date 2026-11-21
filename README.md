@@ -8,7 +8,9 @@ Habi ("to weave") is a heritage-driven e-commerce prototype for COMP-20163 Web D
 
 **Implemented on `dev` (PRD 2.0, M10–M13):** the heritage storefront (fiber/region filters, product story, Meet the Weavers, Heritage Journal), checkout with cash on delivery, e-wallet/bank transfer with proof of payment and card, the pending → confirmed → packed → shipped → delivered lifecycle with reject/cancel, order tracking by reference number, the weaver module (profile, own listings, stock, orders, earnings) and admin v2 (order/payment actions, proofs, weaver accounts, listing approval, categories, customers, content).
 
-**Planned (BUILD M14–M15, not implemented):** English/Filipino, then evaluation and redeploy. The sections below describe the system on `dev`.
+**English/Filipino (M14):** storefront, checkout and tracking in both languages (see [Languages](#languages)); staff screens stay English.
+
+**Planned (BUILD M15, not implemented):** evaluation, refinement and redeploy. The sections below describe the system on `dev`.
 
 The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the visual authority for tokens, components and inner screens; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
 
@@ -228,6 +230,23 @@ public, and a deactivated weaver's bags leave the collection, cart and checkout 
 is reactivated or the bags are reassigned); `/journal` and `/journal/{slug}` show published articles with their sources. Stories,
 article bodies and sources are plain text (blank line between paragraphs, one source per line)
 rendered by `views/macros/content.twig`. These pages are indexable and work without JavaScript.
+
+### Languages
+
+M14 (PRD R33, R26, N9): the storefront, checkout and tracking pages are available in English
+and Filipino. The EN | FIL control (header from tablet width, mobile menu, footer) posts to
+`/lang`; the choice is kept in the session and a one-year `habi_lang` cookie, and `<html lang>`
+follows it. Weaver and admin screens stay English. Filipino content fields (`*_fil` columns for
+product description/story, weaver story, category name and journal title/excerpt/body) fall back
+to English when empty; the sample data has no Filipino content yet, and the Filipino UI copy
+still needs a fluent speaker's review (BUILD M14).
+
+Adding a string: add the same key to `lang/en.php` and `lang/fil.php` (flat `area.name => text`,
+`{name}` placeholders, `key.one`/`key.other` for plurals), then use `{{ t('area.name', {name: x}) }}`
+in Twig, `Translator::translate('area.name', ['name' => $x])` in PHP, or name it `js.area.name` and
+call `i18n('area.name', { name: x })` in a customer script. `vendor/bin/phpunit` fails on keys
+missing from either catalog (`tests/I18n/CatalogParityTest`) and on hard-coded customer text in
+templates or scripts (`tests/I18n/HardcodedStringsTest`).
 
 ### Exterior and interior viewer
 

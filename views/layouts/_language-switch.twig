@@ -1,0 +1,21 @@
+{#-
+  EN | FIL language control (R33, DSD "PRD 2.0 screens" Shell): a native
+  POST form to /lang, so it works without JavaScript. Two submit buttons
+  with visible text labels (no flags); aria-pressed marks the active
+  language and each label carries its own lang attribute. Receives exactly:
+  csrf_token, return_path (current path and query; LanguageController only
+  follows same-origin paths).
+-#}
+<form method="post" action="/lang">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="return" value="{{ return_path }}">
+  <div role="group" aria-label="{{ t('lang.label') }}" class="inline-flex rounded-control border-[1.5px] border-line-strong bg-raised p-0.5">
+    {% for code in ['en', 'fil'] %}
+      {% set active = locale() == code %}
+      <button type="submit" name="lang" value="{{ code }}" lang="{{ code }}" aria-pressed="{{ active ? 'true' : 'false' }}" title="{{ t('lang.name.' ~ code) }}"
+              class="touch-target flex h-9 items-center rounded-[4px] px-2.5 text-caption font-semibold {{ active ? 'bg-ink text-inverse' : 'text-ink hover:bg-inset' }}">
+        <span aria-hidden="true">{{ t('lang.short.' ~ code) }}</span><span class="sr-only">{{ t('lang.name.' ~ code) }}</span>
+      </button>
+    {% endfor %}
+  </div>
+</form>

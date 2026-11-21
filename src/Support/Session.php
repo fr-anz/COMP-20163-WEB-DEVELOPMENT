@@ -12,7 +12,7 @@ namespace Habi\Support;
  */
 final class Session
 {
-    private const COOKIE_NAME = 'habi_session';
+    public const COOKIE_NAME = 'habi_session';
 
     /**
      * Starts the session when needed and returns a store bound to $_SESSION.
@@ -55,7 +55,7 @@ final class Session
         session_regenerate_id(true);
     }
 
-    private static function isHttps(): bool
+    public static function isHttps(): bool
     {
         $https = $_SERVER['HTTPS'] ?? '';
 

@@ -94,6 +94,7 @@ final class StorefrontController
             'sort' => $listing['sort'],
             'hide_sold_out' => $listing['hide_soldout'],
             'categories' => $this->products->categories(),
+            'category_labels' => $this->products->categoryLabels(),
             'fibers' => $this->products->fibers(),
             'regions' => $this->products->regions(),
             'previous_url' => $this->pageUrl($request, $listing, $listing['page'] - 1),
@@ -113,7 +114,7 @@ final class StorefrontController
         }
 
         $shippingRates = [];
-        foreach (ShippingService::REGIONS as $region => $label) {
+        foreach (ShippingService::regionLabels() as $region => $label) {
             $shippingRates[$region] = ['label' => $label, 'fee_centavos' => ShippingService::fee($region, 0)];
         }
 

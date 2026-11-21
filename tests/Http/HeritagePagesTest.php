@@ -16,10 +16,10 @@ use Habi\Services\ProductService;
 use Habi\Services\WeaverDirectoryService;
 use Habi\Support\SessionStore;
 use Habi\Tests\TestSupport\IsolatedDatabaseTestCase;
+use Habi\Tests\TestSupport\Views;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ServerRequestInterface;
 use Twig\Environment;
-use Twig\Loader\FilesystemLoader;
 
 /**
  * M10 storefront pages through the real controllers, services and Twig
@@ -39,10 +39,7 @@ final class HeritagePagesTest extends IsolatedDatabaseTestCase
         parent::setUp();
         Initializer::initialize($this->database(), $this->migrationsDir());
         $this->factory = new Psr17Factory();
-        $this->twig = new Environment(
-            new FilesystemLoader(habi_repo_root() . '/views'),
-            ['autoescape' => 'html', 'strict_variables' => false]
-        );
+        $this->twig = Views::twig();
         $this->twig->addGlobal('site_url', 'https://habi.test');
         $this->twig->addGlobal('canonical_path', '/');
     }
@@ -166,7 +163,7 @@ final class HeritagePagesTest extends IsolatedDatabaseTestCase
         foreach ($rates as $rate) {
             self::assertStringContainsString($rate, $html);
         }
-        self::assertStringContainsString('Free above &#8369;5,000.', $html);
+        self::assertStringContainsString('Free above ₱5,000.', $html);
         self::assertStringContainsString('data-view-toggle', $html);
         self::assertStringContainsString('data-viewer-dialog', $html);
         self::assertStringContainsString('type="importmap"', $html);

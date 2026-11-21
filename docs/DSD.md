@@ -243,7 +243,7 @@ and checkout's alert. The reference's "Packing" label is shown as the stored sta
 ### PRD 2.0 screens (BUILD M10–M14)
 
 Status: **M10 storefront, M12 weaver and M13 admin screens implemented** (see the "Implemented in"
-blocks below); the M14 language switch is not. The published reference has no screens for these
+blocks below), including the M14 language switch. The published reference has no screens for these
 features. Compose them only from existing tokens, `.btn`/`.input`/`.chip`/`.link` roles,
 the catalog card, product open sections, checkout panels and the admin shell/tables/dialog
 (§5). Add no new color tokens, fonts or decorative textures behind data. D7 copy rules apply:
@@ -321,6 +321,14 @@ sections and breadcrumb; no new tokens or colors. New utilities in the `app.css`
 | `product.twig` story and shipping | Story section between Materials and Dimensions, titled with the weaver's name ("Story" without a public weaver): Weaver (link), Community, Region, Fiber (omitted for "other"), Technique, story paragraphs; omitted when there is no data. Shipping cards come from `ShippingService` (`shipping_rates`, `free_shipping_above`). `product.has_3d` false drops the toggle, viewer, 3D dialog and import map; `product.js` then wires the gallery only. |
 | Catalog filters | Material and Region selects after Category: 2:1:1 at 768 px (wrapping to a second row), 2:1:1:1:1 from 1024 px, stacked below; same native GET form and auto-submit. |
 | Shell | Desktop nav and mobile drawer: Discover / Collection / Weavers / Journal (`active_nav` `weavers`/`journal`); footer adds Weavers and Journal after Track order. The language control is M14. |
+
+**Implemented in M14 (R33, R26, N9)** — no new classes, tokens or colors.
+
+| API / source | Contract |
+|---|---|
+| `layouts/_language-switch.twig` | EN \| FIL control: native `POST /lang` form (`csrf_token`, `return` = current path and query) with two submit buttons inside the product view-toggle frame (`rounded-control border-[1.5px] border-line-strong bg-raised p-0.5`); buttons are `h-9 px-2.5 text-caption font-semibold`, active `bg-ink text-inverse` with `aria-pressed="true"`, visible text labels (EN/FIL, `lang` set, full name as `title` and sr-only text), no flags. Placed beside search from the 768 px container breakpoint, in the mobile menu, and in the footer (the no-JS fallback on narrow screens, where the header menu needs JavaScript). Not yet reviewed in a browser. |
+| Twig translation API | `t(key, params)`, `tn(key, count, params)`, `t_html(key, params)` (catalog text escaped; captured `{% set %}` markup inserted as-is), `locale()`, `local_date(value, format_key, tz)`, `i18n_json()`. `<html lang="{{ locale() }}">`. Every customer-facing word in `views/storefront`, `views/layouts`, `views/macros` and customer JS comes from `lang/{en,fil}.php`; brand and product names, prices and stored content are data. |
+| `#i18n` JSON block | Rendered once by `base.twig` before the scripts: `js.*` catalog keys without the prefix. Customer scripts read it through a local `i18n(key, params)` helper; `BagViewer` takes its canvas labels as a third constructor argument. |
 
 ## 5. Implemented component APIs and compositions
 

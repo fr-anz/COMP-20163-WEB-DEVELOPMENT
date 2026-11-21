@@ -10,6 +10,21 @@
 (() => {
   'use strict';
 
+  // Customer strings come from the #i18n JSON block in the base layout
+  // (lang/*.php keys under js., N9); a missing key shows the key.
+  const STRINGS = (() => {
+    const node = document.getElementById('i18n');
+    try {
+      return node ? JSON.parse(node.textContent) : {};
+    } catch {
+      return {};
+    }
+  })();
+  const i18n = (key, params = {}) => Object.keys(params).reduce(
+    (text, name) => text.split(`{${name}}`).join(String(params[name])),
+    Object.prototype.hasOwnProperty.call(STRINGS, key) ? STRINGS[key] : key
+  );
+
   // Must match the desktop breakpoint in app.css (900px = 56.25em).
   const WIDE_QUERY = '(min-width: 56.25em)';
   const REDUCED_QUERY = '(prefers-reduced-motion: reduce)';
@@ -19,7 +34,7 @@
 
   const slug = page.dataset.productSlug;
   const fallbackImage = page.dataset.fallbackImage || '';
-  const productName = page.querySelector('h1')?.textContent.trim() || 'Product';
+  const productName = page.querySelector('h1')?.textContent.trim() || i18n('viewer.product');
 
   const els = {
     modeButtons: Array.from(page.querySelectorAll('[data-mode]')),
@@ -107,12 +122,9 @@
     if (state.inside) {
       // Idle auto-rotation is suspended while inside — the pause control is
       // disabled to match, so the note says both.
-      return 'Interior view — drag or use the arrow keys to look around; ' +
-        'automatic rotation is paused while inside.';
+      return i18n('viewer.note_inside');
     }
-    return reducedMotionQuery.matches
-      ? 'Auto-rotate is off because your system prefers reduced motion.'
-      : '';
+    return reducedMotionQuery.matches ? i18n('viewer.note_reduced') : '';
   }
 
   function updatePauseButton() {
@@ -121,9 +133,9 @@
     // The viewer suspends idle auto-rotation while inside; the control is
     // disabled to match (manual orbit and tilt stay available).
     const running = state.autoRotate && !reduced && !state.inside;
-    const label = reduced ? 'Automatic rotation off (reduced motion)' :
-      state.inside ? 'Automatic rotation paused inside' :
-      (running ? 'Pause automatic rotation' : 'Start automatic rotation');
+    const label = i18n(reduced ? 'viewer.rotation_reduced' :
+      state.inside ? 'viewer.rotation_inside' :
+      (running ? 'viewer.pause' : 'viewer.start'));
     els.pauseButton.setAttribute('aria-pressed', String(running));
     els.pauseButton.setAttribute('aria-label', label);
     els.pauseButton.title = label;
@@ -146,11 +158,10 @@
       els.peekButton.setAttribute('aria-pressed', String(inside));
       if (els.iconPeek) els.iconPeek.hidden = inside;
       if (els.iconOutside) els.iconOutside.hidden = !inside;
-      if (els.peekLabel) els.peekLabel.textContent = inside ? 'Back outside' : 'Peek inside';
+      if (els.peekLabel) els.peekLabel.textContent = i18n(inside ? 'viewer.outside' : 'viewer.peek');
     }
     els.stage?.setAttribute('aria-label',
-      productName + ', ' + (inside ? 'interior' : 'exterior') +
-      ' view. Drag or use arrow keys to rotate.');
+      i18n(inside ? 'viewer.stage_interior' : 'viewer.stage_exterior', { name: productName }));
     syncInteriorChip();
     updatePauseButton();
   }
@@ -188,12 +199,12 @@
     syncInteriorChip();
 
     if (loading) {
-      els.status.textContent = 'Loading 3D view';
+      els.status.textContent = i18n('viewer.loading');
       return;
     }
 
     if (state.viewerState === 'ready') {
-      els.status.textContent = state.inside ? '3D interior ready.' : '3D exterior ready.';
+      els.status.textContent = i18n(state.inside ? 'viewer.ready_interior' : 'viewer.ready_exterior');
       updatePauseButton();
       return;
     }
@@ -201,7 +212,7 @@
     if (noWebgl) {
       showWebglFallback();
       // Exact required note (R27).
-      els.status.textContent = '3D unavailable in this browser';
+      els.status.textContent = i18n('viewer.unavailable');
       return;
     }
 
@@ -214,7 +225,7 @@
     viewer.addEventListener('viewchange', (event) => {
       state.inside = event.inside;
       updateInsideUi();
-      announce(event.inside ? 'Interior view' : 'Exterior view');
+      announce(i18n(event.inside ? 'viewer.interior' : 'viewer.exterior'));
     });
   }
 
@@ -248,7 +259,10 @@
     Promise.race([Promise.all([configPromise, state.modulePromise]), deadline])
       .then(([config, module]) => {
         if (attempt !== state.configPromise) return; // superseded by a retry
-        state.viewer = new module.BagViewer(els.container, config);
+        state.viewer = new module.BagViewer(els.container, config, {
+          exterior: i18n('viewer.canvas_exterior'),
+          interior: i18n('viewer.canvas_interior'),
+        });
         wireViewer(state.viewer);
         state.viewer.setAutoRotate(state.autoRotate);
         // A retry or bfcache restore keeps the interior view the shopper was
@@ -363,10 +377,10 @@
     if (button.hasAttribute('data-viewer-rotate')) {
       const yaw = parseFloat(button.dataset.h || '0');
       state.viewer.rotate(yaw, parseFloat(button.dataset.v || '0'));
-      announce(yaw < 0 ? 'Rotated left' : 'Rotated right');
+      announce(i18n(yaw < 0 ? 'viewer.rotated_left' : 'viewer.rotated_right'));
     } else if (button === els.resetButton) {
       state.viewer.reset();
-      announce('Orientation reset');
+      announce(i18n('viewer.reset_done'));
     } else if (button === els.pauseButton) {
       if (state.autoRotate) {
         state.viewer.setAutoRotate(false);
@@ -398,10 +412,10 @@
 
   // Arrow keys rotate/tilt from the focused stage, as the reference viewer does.
   const KEY_STEPS = {
-    ArrowLeft: [-0.523599, 0, 'Rotated left'],
-    ArrowRight: [0.523599, 0, 'Rotated right'],
-    ArrowUp: [0, 0.261799, 'Tilted up'],
-    ArrowDown: [0, -0.261799, 'Tilted down'],
+    ArrowLeft: [-0.523599, 0, i18n('viewer.rotated_left')],
+    ArrowRight: [0.523599, 0, i18n('viewer.rotated_right')],
+    ArrowUp: [0, 0.261799, i18n('viewer.tilted_up')],
+    ArrowDown: [0, -0.261799, i18n('viewer.tilted_down')],
   };
   els.stage?.addEventListener('keydown', (event) => {
     const step = KEY_STEPS[event.key];

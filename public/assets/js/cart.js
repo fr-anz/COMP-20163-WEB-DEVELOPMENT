@@ -24,6 +24,25 @@
 (function () {
   'use strict';
 
+  /* Customer strings come from the #i18n JSON block in the base layout
+     (lang/*.php keys under js., N9); a missing key shows the key. */
+  var STRINGS = (function () {
+    var node = document.getElementById('i18n');
+    try {
+      return node ? JSON.parse(node.textContent) : {};
+    } catch (error) {
+      return {};
+    }
+  })();
+
+  function i18n(key, params) {
+    var text = Object.prototype.hasOwnProperty.call(STRINGS, key) ? STRINGS[key] : key;
+    Object.keys(params || {}).forEach(function (name) {
+      text = text.split('{' + name + '}').join(String(params[name]));
+    });
+    return text;
+  }
+
   var drawer = document.getElementById('cart-drawer');
   var toasts = document.querySelector('[data-cart-toasts]');
   var pageContent = document.querySelector('[data-cart-page-content]');
@@ -99,7 +118,8 @@
       badge.hidden = count === 0;
     }
     eachNodeList(document.querySelectorAll('[data-cart-bag]'), function (link) {
-      var label = count === 0 ? 'Bag, empty' : 'Bag, ' + count + (count === 1 ? ' item' : ' items');
+      var label = count === 0 ? i18n('cart.bag_empty')
+        : i18n(count === 1 ? 'cart.bag_count_one' : 'cart.bag_count_other', { count: count });
       link.setAttribute('aria-label', label);
       link.setAttribute('title', label);
     });
@@ -113,12 +133,12 @@
 
   function shippingFor(subtotal) {
     if (subtotal > FREE_ABOVE) {
-      return { label: 'Free', centavos: 0 };
+      return { label: i18n('cart.free'), centavos: 0 };
     }
     if (RATES[selectedRegion]) {
       return { label: '₱' + money(RATES[selectedRegion]), centavos: RATES[selectedRegion] };
     }
-    return { label: 'From ₱' + money(LOWEST_RATE), centavos: LOWEST_RATE };
+    return { label: i18n('cart.from', { amount: '₱' + money(LOWEST_RATE) }), centavos: LOWEST_RATE };
   }
 
   /* Keeps the page Summary and the drawer footer on one estimate. */
@@ -328,18 +348,16 @@
         return fetchCart().then(function (data) {
           applyPayload(data);
           unlock();
-          showToast('We couldn\u2019t confirm that change',
-            data
-              ? 'The response was lost and nothing was retried. Your bag now shows the current state — check it before trying again.'
-              : 'The response was lost and nothing was retried. We could not refresh your bag; reconnect and open it before trying again.',
+          showToast(i18n('cart.unconfirmed_title'),
+            data ? i18n('cart.unconfirmed_refreshed') : i18n('cart.unconfirmed_offline'),
             true, true);
         });
       }
       applyPayload(result.data);
       unlock();
       if (!result.ok || !result.data || result.data.error) {
-        showToast('Your bag was not updated',
-          (result.data && result.data.error) || 'Please check your connection and try again.',
+        showToast(i18n('cart.not_updated_title'),
+          (result.data && result.data.error) || i18n('cart.not_updated_body'),
           true, true);
         return;
       }

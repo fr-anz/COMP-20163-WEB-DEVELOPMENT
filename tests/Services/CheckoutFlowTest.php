@@ -11,10 +11,9 @@ use Habi\Services\OrderService;
 use Habi\Services\PaymentSimulator;
 use Habi\Support\SessionStore;
 use Habi\Tests\TestSupport\IsolatedDatabaseTestCase;
+use Habi\Tests\TestSupport\Views;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ResponseInterface;
-use Twig\Environment;
-use Twig\Loader\FilesystemLoader;
 
 final class CheckoutFlowTest extends IsolatedDatabaseTestCase
 {
@@ -31,7 +30,7 @@ final class CheckoutFlowTest extends IsolatedDatabaseTestCase
         $this->cart = new CartService($this->database(), $store);
         $this->http = new Psr17Factory();
         $this->checkout = new CheckoutController(
-            new Environment(new FilesystemLoader(habi_repo_root() . '/views'), ['autoescape' => 'html']),
+            Views::twig(),
             $this->cart,
             $store,
             new OrderService($this->database()),

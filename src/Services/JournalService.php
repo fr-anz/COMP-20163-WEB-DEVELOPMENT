@@ -4,19 +4,29 @@ declare(strict_types=1);
 
 namespace Habi\Services;
 
+use Habi\Support\Translator;
 use PDO;
 
 /**
  * Public, read-only Heritage Journal (R31): published articles only, newest
  * first. Body and sources are plain text, rendered by views/macros/content.twig.
+ * In Filipino, title, excerpt and body use the *_fil columns, each falling
+ * back to English when empty (R33); sources are not translated.
  */
 final class JournalService
 {
-    private const COLUMNS = 'slug, title, excerpt, body, sources, cover_path, published_at';
+    private const COLUMNS = 'slug, title, excerpt, body, sources, cover_path, published_at,
+        COALESCE(NULLIF(title_fil, \'\'), title) AS title_fil,
+        COALESCE(NULLIF(excerpt_fil, \'\'), excerpt) AS excerpt_fil,
+        COALESCE(NULLIF(body_fil, \'\'), body) AS body_fil';
+
+    private readonly string $locale;
 
     public function __construct(
         private readonly PDO $pdo,
+        ?string $locale = null,
     ) {
+        $this->locale = Translator::normalize($locale ?? Translator::current()->locale());
     }
 
     /**
@@ -63,12 +73,13 @@ final class JournalService
     private function hydrate(array $row): array
     {
         $publishedAt = $row['published_at'] === null ? '' : (string) $row['published_at'];
+        $suffix = $this->locale === 'fil' ? '_fil' : '';
 
         return [
             'slug' => (string) $row['slug'],
-            'title' => (string) $row['title'],
-            'excerpt' => (string) $row['excerpt'],
-            'body' => (string) $row['body'],
+            'title' => (string) $row['title' . $suffix],
+            'excerpt' => (string) $row['excerpt' . $suffix],
+            'body' => (string) $row['body' . $suffix],
             'sources' => (string) $row['sources'],
             'cover_path' => (string) $row['cover_path'] === '' ? null : (string) $row['cover_path'],
             'published_on' => preg_match('/^\d{4}-\d{2}-\d{2}/', $publishedAt) === 1

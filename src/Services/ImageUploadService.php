@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Habi\Services;
 
+use Habi\Support\Translator;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 
@@ -61,30 +62,30 @@ final class ImageUploadService
     {
         $error = $file->getError();
         if ($error === UPLOAD_ERR_INI_SIZE || $error === UPLOAD_ERR_FORM_SIZE) {
-            throw new AdminActionException('The image is larger than 2 MB.', 'image');
+            throw new AdminActionException(Translator::translate('upload.error.too_large'), 'image');
         }
         if ($error !== UPLOAD_ERR_OK) {
-            throw new AdminActionException('The image could not be uploaded. Try again.', 'image');
+            throw new AdminActionException(Translator::translate('upload.error.failed'), 'image');
         }
         $size = $file->getSize();
         if ($size !== null && $size > self::MAX_BYTES) {
-            throw new AdminActionException('The image is larger than 2 MB.', 'image');
+            throw new AdminActionException(Translator::translate('upload.error.too_large'), 'image');
         }
 
         $stream = $file->getStream();
         $stream->rewind();
         $bytes = $stream->read(self::MAX_BYTES + 1);
         if (strlen($bytes) > self::MAX_BYTES) {
-            throw new AdminActionException('The image is larger than 2 MB.', 'image');
+            throw new AdminActionException(Translator::translate('upload.error.too_large'), 'image');
         }
 
         $info = $bytes === '' ? false : @getimagesizefromstring($bytes);
         if ($info === false || !isset(self::TYPES[$info[2]])) {
-            throw new AdminActionException('Upload a JPG, PNG or WebP image.', 'image');
+            throw new AdminActionException(Translator::translate('upload.error.type'), 'image');
         }
         if ($info[0] < 1 || $info[1] < 1 || $info[0] > self::MAX_DIMENSION || $info[1] > self::MAX_DIMENSION) {
             throw new AdminActionException(
-                sprintf('Images must be at most %d × %d pixels.', self::MAX_DIMENSION, self::MAX_DIMENSION),
+                Translator::translate('upload.error.dimensions', ['max' => self::MAX_DIMENSION]),
                 'image'
             );
         }
