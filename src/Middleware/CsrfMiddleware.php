@@ -7,6 +7,7 @@ namespace Habi\Middleware;
 use Closure;
 use Habi\Support\Csrf;
 use Habi\Support\Session;
+use Habi\Support\Translator;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -45,7 +46,7 @@ final class CsrfMiddleware implements MiddlewareInterface
         $weaver = $path === '/weaver' || str_starts_with($path, '/weaver/');
         $message = $admin || $weaver
             ? 'Your session expired or this form is stale. Reload the page and try again; nothing was changed.'
-            : 'Your session expired or this form is stale. Reload the page and try again; no order was placed.';
+            : Translator::translate('csrf.message');
         if (str_contains($request->getHeaderLine('Accept'), 'application/json')) {
             $response->getBody()->write(json_encode([
                 'error' => $message,
@@ -54,13 +55,17 @@ final class CsrfMiddleware implements MiddlewareInterface
 
             return $response->withHeader('Content-Type', 'application/json');
         }
-        $response->getBody()->write('<!doctype html><html lang="en"><meta charset="utf-8">'
+        // Staff screens stay English (LocaleMiddleware); the catalog words
+        // below are English there too.
+        $translator = Translator::current();
+        $text = static fn (string $key): string => htmlspecialchars($translator->t($key), ENT_QUOTES, 'UTF-8');
+        $response->getBody()->write('<!doctype html><html lang="' . $translator->locale() . '"><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
-            . '<title>Session expired — Habi</title><main><h1>Reload this form</h1><p>' . $message
-            . '</p>'
+            . '<title>' . $text('csrf.title') . ' — Habi</title><main><h1>' . $text('csrf.heading') . '</h1><p>'
+            . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>'
             . ($admin ? '<a href="/admin">Return to the admin panel</a>'
                 : ($weaver ? '<a href="/weaver">Return to your weaver account</a>'
-                    : '<a href="/cart">Review your bag</a>'))
+                    : '<a href="/cart">' . $text('csrf.review_bag') . '</a>'))
             . '</main></html>');
 
         return $response->withHeader('Content-Type', 'text/html; charset=UTF-8');

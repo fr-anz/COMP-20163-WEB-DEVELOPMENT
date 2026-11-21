@@ -1324,10 +1324,62 @@ M13 evidence (2026-11-21, branch `feat/26-admin-v2`, PHP 8.5.12, SQLite 3.54.1):
   `listing_status` (R40 storefront visibility belongs with M10).
 
 #### M14 — English/Filipino (E lead, C UI)
-- [ ] `Translator`, `LocaleMiddleware`, `POST /lang`, catalogs `lang/en.php` + `lang/fil.php` (R33, N9).
-- [ ] All storefront and checkout templates/JS strings moved to keys; `*_fil` content fallback; `<html lang>` (R26).
-- [ ] Catalog parity test; Filipino copy reviewed by a fluent Filipino speaker.
+- [x] `Translator`, `LocaleMiddleware`, `POST /lang` (CSRF, session `lang` + one-year `habi_lang` cookie,
+  same-origin return path only), catalogs `lang/en.php` + `lang/fil.php` (R33, N9). Header EN | FIL form
+  (beside search from 768 px, mobile menu, footer as the narrow no-JS fallback).
+- [x] Storefront, checkout, confirmation, tracking, error/CSRF pages and customer JS (`cart.js`, `checkout.js`,
+  `product.js`, `viewer3d.js` labels) take their words from the catalogs; customer messages raised by services
+  (cart, shipping, payment simulator, proofs/uploads, order placement, tracking) go through the Translator.
+  The M10, M11 strings listed in PRs #36 and #33 are in both catalogs. `*_fil` content falls back to English
+  (`COALESCE(NULLIF(x_fil, ''), x)` in `ProductService`, `WeaverDirectoryService`, `JournalService`);
+  `<html lang>` follows the language (R26). No `hreflang`: both languages share one URL.
+- [x] Catalog parity test and leftover-string scan (`tests/I18n`). Weaver (M12, PR #34 list) and admin screens
+  stay English: PRD R33 lets those modules stay English-only, N9 covers customer-facing strings, and
+  `LocaleMiddleware` forces `en` on `/admin` and `/weaver`.
+- [ ] Filipino copy reviewed by a fluent Filipino speaker (PRD §10; the maintainer wrote it). Required before M15.
+- [ ] Filipino content: no seeded `*_fil` content yet (sample content untouched), so content pages show English.
 - **Done when:** every storefront page works in both languages; no hard-coded customer strings remain.
+
+M14 evidence (2026-11-21, branch `feat/27-english-filipino`, PHP 8.5.12, SQLite 3.54.1):
+- [x] Tests first for the core: with only `TranslatorTest`, `LocaleMiddlewareTest`, `LanguageSwitchTest` and the
+  `tests/I18n` tests in place, `vendor/bin/phpunit` stopped in the bootstrap (`Class "Habi\Support\Translator" not
+  found`); `HardcodedStringsTest` against the untouched templates/JS reported 812 leftovers. `LocalizedContentTest`,
+  `TranslationExtensionTest` and `FilipinoPagesTest` were written alongside the implementation.
+- [x] `vendor/bin/phpunit` → OK (362 tests, 2875 assertions). New: `TranslatorTest` (placeholders, unknown locale →
+  `en`, missing `fil` key → English outside strict mode, strict mode throws, plurals, JS dictionary),
+  `TranslationExtensionTest` (escaping, `t_html` markup, Filipino month names, `i18n_json` cannot close `<script>`),
+  `LocaleMiddlewareTest` (default, cookie, session over cookie, no session → cookie, invalid values, staff paths English),
+  `LanguageSwitchTest` (session + cookie flags, `Secure` on HTTPS, unknown language → `en`, 12 unsafe return
+  values → `/`), `LocalizedContentTest` (`*_fil` used in Filipino, NULL/empty → English, English never shows
+  Filipino, default locale from the request), `FilipinoPagesTest` (home, catalog with filters, product, weavers,
+  weaver, journal, article, cart, track, checkout shipping/payment errors, review, confirmation, tracking result:
+  `<html lang="fil">`, Filipino words and errors, none of 16 English UI phrases), `CatalogParityTest` (same keys,
+  same placeholders, every referenced key exists) and `HardcodedStringsTest` (heuristic documented in the test).
+  Strict mode is on for the whole suite. One assertion changed: `HeritagePagesTest` expects `Free above ₱5,000.`
+  instead of `Free above &#8369;5,000.` (same text; the peso sign now comes from the catalog as a character).
+- [x] `composer cs` and `composer lint` exit 0; `node --check` on `cart.js`, `checkout.js`, `product.js`,
+  `viewer3d.js`, `storefront.js` passes.
+- [x] HTTP smoke on a fresh temp DB (`DB_DSN=sqlite:/tmp/habi-m14/app.sqlite php -S 127.0.0.1:8114 -t public
+  public/index.php`, `ADMIN_SEED_*` exported, no `.env`), curl with cookie jars, 148/148 checks passed:
+  `POST /lang` without a token → 403; with a token → 303 to `/products?fiber=abaca&sort=price_asc` and
+  `Set-Cookie: habi_lang=fil; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly`; return values
+  `https://evil.example/`, `//evil.example/x`, `/\evil.example`, `javascript:alert(1)` and `/lang` → `Location: /`.
+  The choice persists on the next requests in the same session and with only the `habi_lang=fil` cookie.
+  In `en` and `fil`: `/`, `/products`, `/products?fiber=abaca&region=Bicol&sort=price_desc&hide_sold_out=1`,
+  `/products?q=zzzz` (empty state), a product, `/cart`, `/track`, `/weavers`, a weaver, `/journal`, an article →
+  200, unknown page and product → 404, all with the matching `<html lang>`. Checkout in both languages: shipping
+  errors 422, payment with no method, transfer without reference/proof, invalid card, declined
+  (`4000 0000 0000 0002`) and insufficient funds (`4000 0000 0000 9995`) → 422 each, then COD → review 200 →
+  place → confirmation 200; `/track` blank fields, unknown order (404) and the placed order (200, timeline).
+  Filipino pages were grepped (scripts removed) for 19 English UI phrases (Add to bag, The collection, Your bag,
+  Track order, Secure checkout, Enter your, Choose a, Thank you, Order placed, …): none; Filipino error texts
+  present. `/admin/login` stays English with a Filipino session. No PHP warnings in the server log; the server
+  was stopped.
+- [ ] Not run: browser review at 1440/768/360 px with the review-screen guide (header width with the EN | FIL
+  control, footer control on brown), keyboard pass and the JS paths in a browser (toasts, copy buttons, viewer
+  announcements in Filipino) — no browser in this environment; the scripts were only syntax-checked and the
+  dictionary checked in rendered HTML.
+- [ ] Not run: fluent Filipino review (see checklist).
 
 #### M15 — Evaluation, refinement and redeploy (all)
 - [ ] Choose the evaluation instrument and respondent groups (PRD §10); seed evaluation accounts (N12).

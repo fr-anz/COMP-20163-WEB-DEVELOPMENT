@@ -20,10 +20,10 @@
 
 {# PRD R12 — binding rates and free-shipping threshold (strictly above). #}
 {% set rates = {
-  'metro_manila': { label: 'Metro Manila', centavos: 12000, days: '1–3 days' },
-  'luzon': { label: 'Luzon', centavos: 18000, days: '3–5 days' },
-  'visayas': { label: 'Visayas', centavos: 22000, days: '4–7 days' },
-  'mindanao': { label: 'Mindanao', centavos: 25000, days: '5–8 days' },
+  'metro_manila': { label: t('region.metro_manila'), centavos: 12000, days: t('shipping.days.metro_manila') },
+  'luzon': { label: t('region.luzon'), centavos: 18000, days: t('shipping.days.luzon') },
+  'visayas': { label: t('region.visayas'), centavos: 22000, days: t('shipping.days.visayas') },
+  'mindanao': { label: t('region.mindanao'), centavos: 25000, days: t('shipping.days.mindanao') },
 } %}
 {% set free_above = 500000 %}
 {% set lowest_rate = rates['metro_manila'].centavos %}
@@ -31,16 +31,15 @@
 {% set free_shipping = cart.subtotal_centavos > free_above %}
 {% set selected_rate = rates[region]|default(null) %}
 {% set shipping_centavos = free_shipping ? 0 : (selected_rate ? selected_rate.centavos : lowest_rate) %}
-{% set item_word = cart.count == 1 ? 'item' : 'items' %}
-{% set shipping_label = free_shipping ? 'Free' : (selected_rate ? '₱' ~ (shipping_centavos / 100)|number_format(2, '.', ',') : 'From ₱' ~ (lowest_rate / 100)|number_format(0, '.', ',')) %}
+{% set shipping_label = free_shipping ? t('cart.free') : (selected_rate ? '₱' ~ (shipping_centavos / 100)|number_format(2, '.', ',') : t('cart.from', {amount: '₱' ~ (lowest_rate / 100)|number_format(0, '.', ',')})) %}
 
 {% macro money(centavos) %}{% set cent = centavos % 100 %}&#8369;{{ (centavos / 100)|number_format(cent == 0 ? 0 : 2, '.', ',') }}{% endmacro %}
 {% import _self as fmt %}
 
 {% if cart_mode == 'drawer' %}
   <div class="flex items-center justify-between border-b border-line py-3 pr-3 pl-5">
-    <h2 id="cart-drawer-title" tabindex="-1" class="text-h3 font-semibold">Your bag <span class="font-normal text-ink-2">({{ cart.count }})</span></h2>
-    <button type="button" aria-label="Close" title="Close" data-cart-close class="icon-btn relative">
+    <h2 id="cart-drawer-title" tabindex="-1" class="text-h3 font-semibold">{{ t('shell.your_bag') }} <span class="font-normal text-ink-2">({{ cart.count }})</span></h2>
+    <button type="button" aria-label="{{ t('shell.close') }}" title="{{ t('shell.close') }}" data-cart-close class="icon-btn relative">
       {{ icons.icon('close') }}
     </button>
   </div>
@@ -71,25 +70,25 @@
   <div class="border-t border-line bg-page p-5" data-cart-summary data-cart-subtotal="{{ cart.subtotal_centavos }}">
     <dl class="space-y-2 text-[15px]">
       <div class="flex justify-between">
-        <dt class="text-ink-2">Subtotal &middot; {{ cart.count }} {{ item_word }}</dt>
+        <dt class="text-ink-2">{{ t('cart.subtotal', {items: tn('shell.items', cart.count)}) }}</dt>
         <dd class="font-medium tabular-nums">{{ fmt.money(cart.subtotal_centavos) }}</dd>
       </div>
       <div class="flex justify-between">
-        <dt class="text-ink-2">Shipping</dt>
-        <dd class="font-medium tabular-nums" data-cart-shipping>{% if free_shipping %}Free{% else %}From {{ fmt.money(lowest_rate) }}{% endif %}</dd>
+        <dt class="text-ink-2">{{ t('cart.shipping') }}</dt>
+        <dd class="font-medium tabular-nums" data-cart-shipping>{% if free_shipping %}{{ t('cart.free') }}{% else %}{{ t('cart.from', {amount: '₱' ~ (lowest_rate / 100)|number_format(0, '.', ',')}) }}{% endif %}</dd>
       </div>
       <div class="flex justify-between border-t border-line pt-3 text-body">
-        <dt class="font-semibold">Estimated total</dt>
+        <dt class="font-semibold">{{ t('cart.estimated_total') }}</dt>
         <dd class="text-h3 font-semibold tabular-nums" data-cart-total>{{ fmt.money(cart.subtotal_centavos + shipping_centavos) }}</dd>
       </div>
     </dl>
     <div class="mt-4 grid gap-2">
       <a href="/checkout" class="btn btn--primary btn--lg w-full" data-cart-checkout>
-        <span>Checkout</span>
+        <span>{{ t('cart.checkout') }}</span>
         {{ icons.icon('arrow-right', 20) }}
       </a>
       <a href="/cart" class="btn btn--secondary w-full" data-cart-view-bag>
-        <span>View full bag</span>
+        <span>{{ t('cart.view_full_bag') }}</span>
       </a>
     </div>
   </div>
@@ -113,43 +112,43 @@
           {% endfor %}
         </ul>
         <p class="mt-6 text-small">
-          <a class="btn btn--tertiary" href="/products">{{ icons.icon('arrow-left', 20) }}<span>Keep browsing</span></a>
+          <a class="btn btn--tertiary" href="/products">{{ icons.icon('arrow-left', 20) }}<span>{{ t('cart.keep_browsing') }}</span></a>
         </p>
       </div>
       <aside class="self-start rounded-panel border border-line bg-surface p-5" data-cart-summary data-cart-subtotal="{{ cart.subtotal_centavos }}" aria-labelledby="cart-summary-title">
-        <h2 id="cart-summary-title" class="text-h3 font-semibold">Summary</h2>
+        <h2 id="cart-summary-title" class="text-h3 font-semibold">{{ t('cart.summary') }}</h2>
         <div class="mt-4">
           <form method="get" action="/cart" data-cart-region-form>
-            <label class="field-label" for="cart-region">Estimate shipping to</label>
+            <label class="field-label" for="cart-region">{{ t('cart.estimate_to') }}</label>
             <select id="cart-region" name="region" class="input" aria-describedby="cart-region-hint" data-cart-region>
-              <option value="">Choose a region group</option>
+              <option value="">{{ t('cart.choose_region_group') }}</option>
               {% for key, rate in rates %}
                 <option value="{{ key }}"{% if region == key %} selected{% endif %}>{{ rate.label }} &mdash; {{ fmt.money(rate.centavos) }} &middot; {{ rate.days }}</option>
               {% endfor %}
             </select>
-            <p id="cart-region-hint" class="field-hint">Flat rates by island group; free above &#8369;5,000.</p>
-            <button type="submit" data-cart-region-submit class="btn btn--secondary btn--sm mt-2">Update estimate</button>
+            <p id="cart-region-hint" class="field-hint">{{ t('cart.region_hint', {amount: '₱5,000'}) }}</p>
+            <button type="submit" data-cart-region-submit class="btn btn--secondary btn--sm mt-2">{{ t('cart.update_estimate') }}</button>
           </form>
         </div>
         <div class="mt-5">
           <dl class="space-y-2 text-[15px]">
             <div class="flex justify-between">
-              <dt class="text-ink-2">Subtotal &middot; {{ cart.count }} {{ item_word }}</dt>
+              <dt class="text-ink-2">{{ t('cart.subtotal', {items: tn('shell.items', cart.count)}) }}</dt>
               <dd class="font-medium tabular-nums">{{ fmt.money(cart.subtotal_centavos) }}</dd>
             </div>
             <div class="flex justify-between">
-              <dt class="text-ink-2">Shipping estimate</dt>
+              <dt class="text-ink-2">{{ t('cart.shipping_estimate') }}</dt>
               <dd class="font-medium tabular-nums" data-cart-shipping>{{ shipping_label }}</dd>
             </div>
             <div class="flex justify-between border-t border-line pt-3 text-body">
-              <dt class="font-semibold">Estimated total</dt>
+              <dt class="font-semibold">{{ t('cart.estimated_total') }}</dt>
               <dd class="text-h3 font-semibold tabular-nums" data-cart-total>{{ fmt.money(cart.subtotal_centavos + shipping_centavos) }}</dd>
             </div>
           </dl>
         </div>
         <div class="mt-5">
           <a href="/checkout" class="btn btn--primary btn--lg w-full" data-cart-checkout>
-            <span>Checkout</span>
+            <span>{{ t('cart.checkout') }}</span>
             {{ icons.icon('arrow-right', 20) }}
           </a>
         </div>

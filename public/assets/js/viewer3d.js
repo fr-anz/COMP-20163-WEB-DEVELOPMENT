@@ -111,14 +111,17 @@ export class BagViewer extends THREE.EventDispatcher {
     /**
      * @param {HTMLElement} container element the canvas is appended to
      * @param {object} config three_config object from GET /api/product/{slug}/3d
+     * @param {{exterior?: string, interior?: string}} labels canvas accessible
+     *   names, translated by the caller (product.js reads them from #i18n)
      */
-    constructor(container, config) {
+    constructor(container, config, labels = {}) {
         super();
 
         if (!(container instanceof HTMLElement)) {
             throw new TypeError('BagViewer requires a container element.');
         }
         this.container = container;
+        this._labels = { exterior: labels.exterior ?? '', interior: labels.interior ?? '' };
 
         this._disposed = false;
         this._active = true;
@@ -156,7 +159,7 @@ export class BagViewer extends THREE.EventDispatcher {
 
         const canvas = renderer.domElement;
         canvas.setAttribute('role', 'img');
-        canvas.setAttribute('aria-label', 'Procedural bag exterior. Drag or use the rotation buttons to inspect.');
+        canvas.setAttribute('aria-label', this._labels.exterior);
         canvas.style.display = 'block';
         canvas.style.width = '100%';
         canvas.style.height = '100%';
@@ -472,9 +475,7 @@ export class BagViewer extends THREE.EventDispatcher {
             fromHandles: (this.bag.userData.handles ?? []).map(({ pivot }) => pivot.rotation.x),
         };
         this.controls.enabled = false;
-        this.renderer.domElement.setAttribute('aria-label', inside
-            ? 'Procedural bag interior. Lining and configured pockets. Drag or use the rotation buttons to inspect.'
-            : 'Procedural bag exterior. Drag or use the rotation buttons to inspect.');
+        this.renderer.domElement.setAttribute('aria-label', inside ? this._labels.interior : this._labels.exterior);
         if (!animate || this._reducedMotion || !this._shouldRun()) this._finishTransition();
         this.dispatchEvent({ type: 'viewchange', inside });
     }

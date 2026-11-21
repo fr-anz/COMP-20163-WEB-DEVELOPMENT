@@ -6,6 +6,7 @@ namespace Habi\Controllers;
 
 use Habi\Services\CartService;
 use Habi\Support\Env;
+use Habi\Support\Translator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Twig\Environment as TwigEnvironment;
@@ -82,7 +83,7 @@ final class CartController
             $request,
             $response,
             403,
-            'Your session has expired — please reload and try again. An expired session loses its bag.'
+            Translator::translate('cart.error.session_expired')
         );
     }
 
@@ -115,7 +116,7 @@ final class CartController
                 $request,
                 $response,
                 400,
-                'That product could not be identified.'
+                Translator::translate('cart.error.unknown_product')
             );
         }
 
@@ -127,7 +128,7 @@ final class CartController
                     $request,
                     $response,
                     400,
-                    'Enter a valid quantity.'
+                    Translator::translate('cart.error.quantity_invalid')
                 );
             }
         }
@@ -143,7 +144,7 @@ final class CartController
                 $request,
                 $response,
                 $result['status'],
-                (string) ($result['error'] ?? 'The cart could not be updated.')
+                (string) ($result['error'] ?? Translator::translate('cart.error.generic'))
             );
         }
 

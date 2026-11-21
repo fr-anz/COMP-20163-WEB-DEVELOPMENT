@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Habi\Services;
 
+use Habi\Support\Translator;
 use InvalidArgumentException;
 
 /**
@@ -27,6 +28,22 @@ final class ShippingService
         'visayas' => 'Visayas',
         'mindanao' => 'Mindanao',
     ];
+
+    /**
+     * Region labels in the active language (region.* catalog keys), in
+     * REGIONS order; REGIONS keeps the English labels for staff screens.
+     *
+     * @return array<string, string>
+     */
+    public static function regionLabels(): array
+    {
+        $labels = [];
+        foreach (array_keys(self::REGIONS) as $region) {
+            $labels[$region] = Translator::translate('region.' . $region);
+        }
+
+        return $labels;
+    }
 
     /** Binding PRD R12 rates, integer centavos. */
     private const REGION_FEES = [
@@ -71,7 +88,7 @@ final class ShippingService
                 // Arrays and other non-string payloads are rejected outright
                 // and never echoed back.
                 $shipping[$field] = '';
-                $errors[$field] = 'Enter a valid value.';
+                $errors[$field] = Translator::translate('shipping.error.invalid');
                 continue;
             }
 
@@ -85,10 +102,7 @@ final class ShippingService
             }
 
             if (mb_strlen($shipping[$field]) > $limit) {
-                $errors[$field] = sprintf(
-                    'Must be %d characters or fewer.',
-                    $limit
-                );
+                $errors[$field] = Translator::translate('shipping.error.too_long', ['max' => $limit]);
                 continue;
             }
 
@@ -103,7 +117,7 @@ final class ShippingService
             ($errors['region'] ?? null) === null
             && !isset(self::REGIONS[$shipping['region']])
         ) {
-            $errors['region'] = 'Choose a shipping region.';
+            $errors['region'] = Translator::translate('shipping.error.region');
         }
 
         return ['shipping' => $shipping, 'errors' => $errors];
@@ -133,14 +147,14 @@ final class ShippingService
     {
         return match ($field) {
             'email' => filter_var($value, FILTER_VALIDATE_EMAIL) === false
-                ? 'Enter a valid email address.'
+                ? Translator::translate('shipping.error.email')
                 : null,
             'phone' => self::isValidPhone($value)
                 ? null
-                : 'Enter a valid contact number.',
+                : Translator::translate('shipping.error.phone'),
             'postal_code' => preg_match('/^\d{3,10}$/', $value) === 1
                 ? null
-                : 'Enter a valid postal code.',
+                : Translator::translate('shipping.error.postal_code'),
             default => null,
         };
     }
@@ -159,14 +173,10 @@ final class ShippingService
     private static function requiredMessage(string $field): string
     {
         return match ($field) {
-            'name' => 'Enter your full name.',
-            'email' => 'Enter your email address.',
-            'phone' => 'Enter your contact number.',
-            'address1' => 'Enter your street address.',
-            'city' => 'Enter your city or municipality.',
-            'postal_code' => 'Enter your postal code.',
-            'region' => 'Choose a shipping region.',
-            default => 'This field is required.',
+            'name', 'email', 'phone', 'address1', 'city', 'postal_code' =>
+                Translator::translate('shipping.required.' . $field),
+            'region' => Translator::translate('shipping.error.region'),
+            default => Translator::translate('shipping.required.default'),
         };
     }
 }

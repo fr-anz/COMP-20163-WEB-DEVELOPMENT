@@ -8,6 +8,7 @@ use Habi\Services\CartService;
 use Habi\Services\ShippingService;
 use Habi\Services\TrackingService;
 use Habi\Support\Env;
+use Habi\Support\Translator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Twig\Environment;
@@ -51,14 +52,14 @@ final class TrackController
             ),
             TrackingService::STATUS_LOCKED => $this->render(
                 $response->withStatus(429)->withHeader('Retry-After', (string) $result['retry_after']),
-                $data + ['message' => sprintf(
-                    'Too many attempts. Try again in %d seconds.',
-                    $result['retry_after']
+                $data + ['message' => Translator::translate(
+                    'track.error.locked',
+                    ['seconds' => $result['retry_after']]
                 )]
             ),
             default => $this->render(
                 $response->withStatus(404),
-                $data + ['message' => "We couldn't find that order. Check the reference number and email."]
+                $data + ['message' => Translator::translate('track.error.not_found')]
             ),
         };
     }
@@ -70,7 +71,7 @@ final class TrackController
             'app_env' => (string) Env::get('APP_ENV', 'local'),
             'cart' => $this->cart->cart(),
             'csrf_token' => $this->cart->csrfToken(),
-            'regions' => ShippingService::REGIONS,
+            'regions' => ShippingService::regionLabels(),
             'reference' => '',
             'email' => '',
             'errors' => [],

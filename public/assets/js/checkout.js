@@ -25,6 +25,25 @@
 (function () {
   'use strict';
 
+  /* Customer strings come from the #i18n JSON block in the base layout
+     (lang/*.php keys under js., N9); a missing key shows the key. */
+  var STRINGS = (function () {
+    var node = document.getElementById('i18n');
+    try {
+      return node ? JSON.parse(node.textContent) : {};
+    } catch (error) {
+      return {};
+    }
+  })();
+
+  function i18n(key, params) {
+    var text = Object.prototype.hasOwnProperty.call(STRINGS, key) ? STRINGS[key] : key;
+    Object.keys(params || {}).forEach(function (name) {
+      text = text.split('{' + name + '}').join(String(params[name]));
+    });
+    return text;
+  }
+
   /* --- Focus on step entry ------------------------------------------------- */
 
   var firstInvalid = document.querySelector('main [aria-invalid="true"]');
@@ -49,7 +68,7 @@
     paymentForm.addEventListener('submit', function () {
       var chosen = paymentForm.querySelector('input[name="method"]:checked');
       var card = !chosen || chosen.value === 'card';
-      busy(paymentForm.querySelector('[data-checkout-submit]'), card ? 'Processing\u2026' : 'Saving\u2026', card);
+      busy(paymentForm.querySelector('[data-checkout-submit]'), i18n(card ? 'checkout.processing' : 'checkout.saving'), card);
     });
 
     var methods = paymentForm.querySelectorAll('input[name="method"]');
@@ -90,8 +109,8 @@
       button.addEventListener('click', function () {
         navigator.clipboard.writeText(button.getAttribute('data-copy')).then(function () {
           if (label) {
-            label.textContent = 'Copied';
-            window.setTimeout(function () { label.textContent = 'Copy'; }, 2000);
+            label.textContent = i18n('copied');
+            window.setTimeout(function () { label.textContent = i18n('copy'); }, 2000);
           }
         });
       });
@@ -101,7 +120,7 @@
   var placeForm = document.querySelector('form[data-checkout-place]');
   if (placeForm) {
     placeForm.addEventListener('submit', function () {
-      busy(placeForm.querySelector('[data-checkout-submit]'), 'Placing\u2026');
+      busy(placeForm.querySelector('[data-checkout-submit]'), i18n('checkout.placing'));
     });
   }
 

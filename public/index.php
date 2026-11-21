@@ -15,6 +15,7 @@ use Habi\Controllers\AdminWeaverController;
 use Habi\Controllers\CartController;
 use Habi\Controllers\CheckoutController;
 use Habi\Controllers\JournalController;
+use Habi\Controllers\LanguageController;
 use Habi\Controllers\StorefrontController;
 use Habi\Controllers\StorefrontResponder;
 use Habi\Controllers\TrackController;
@@ -27,6 +28,7 @@ use Habi\Controllers\WeaversController;
 use Habi\Middleware\ErrorHandler;
 use Habi\Middleware\AdminAuthMiddleware;
 use Habi\Middleware\CsrfMiddleware;
+use Habi\Middleware\LocaleMiddleware;
 use Habi\Middleware\WeaverAuthMiddleware;
 use Habi\Services\AdminJournalService;
 use Habi\Services\AdminProductService;
@@ -51,6 +53,9 @@ use Habi\Services\WeaverService;
 use Habi\Support\Database;
 use Habi\Support\Env;
 use Habi\Support\Session;
+use Habi\Support\SessionStore;
+use Habi\Support\TranslationExtension;
+use Habi\Support\Translator;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -117,6 +122,11 @@ if ($appUrl === '') {
 $canonicalPath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
 $twig->addGlobal('site_url', $appUrl);
 $twig->addGlobal('canonical_path', $canonicalPath);
+// Language switch (M14): t()/tn()/locale() read the request locale; the
+// EN | FIL form returns to the current path and query (validated by
+// LanguageController::safeReturnPath).
+$twig->addExtension(new TranslationExtension());
+$twig->addGlobal('return_path', (string) ($_SERVER['REQUEST_URI'] ?? '/'));
 
 
 // The controller is built inside each route handler so the database
@@ -190,7 +200,7 @@ $adminOrders = static fn (): AdminOrderController => new AdminOrderController(
     $psr17Factory
 );
 
-// Slim executes middleware last-added first: response headers, error handler,
+// Slim executes middleware last-added first: response headers, locale, error handler,
 // database initialization, CSRF, weaver and administrator authorization, then routing.
 $app->add(new AdminAuthMiddleware($psr17Factory));
 $app->add(new WeaverAuthMiddleware($psr17Factory));
@@ -226,6 +236,20 @@ $app->add(function (
 
 $errorMiddleware = $app->addErrorMiddleware(false, true, true);
 $errorMiddleware->setDefaultErrorHandler(new ErrorHandler($psr17Factory));
+
+// Language (M14, R33, R26): LocaleMiddleware runs outside the error handler
+// so error pages, CSRF rejections and every view use the session/cookie
+// locale (staff screens stay English). POST /lang stores the choice; CSRF
+// is enforced by CsrfMiddleware like every POST.
+$app->add(new LocaleMiddleware(
+    Translator::fromDirectory($repoRoot . '/lang'),
+    // Only an existing session is read, so asset and API requests start none.
+    static fn (): ?SessionStore => isset($_COOKIE[Session::COOKIE_NAME]) ? Session::store() : null
+));
+$app->post('/lang', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => (new LanguageController(Session::store(), Session::isHttps()))->switch($request, $response));
 
 // All session-backed responses, including failed POSTs, must not be cached.
 $app->add(function (

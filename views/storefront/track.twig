@@ -16,9 +16,9 @@
 {% import "storefront/_order-macros.twig" as labels %}
 {% set active_nav = '' %}
 
-{% block title %}Track your order — {{ app_name }}{% endblock %}
+{% block title %}{{ t('track.heading') }} — {{ app_name }}{% endblock %}
 
-{% block description %}Check the status of your Habi order with its reference number and email.{% endblock %}
+{% block description %}{{ t('track.description') }}{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 
 {% macro money(centavos) -%}
@@ -33,7 +33,7 @@
       </div>
       <form method="post" action="/track" novalidate class="p-6 @3xl:p-8" aria-labelledby="track-h">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <h1 id="track-h" tabindex="-1" class="font-display text-h2 font-semibold focus:outline-none">Track your order</h1>
+        <h1 id="track-h" tabindex="-1" class="font-display text-h2 font-semibold focus:outline-none">{{ t('track.heading') }}</h1>
 
         {% if message %}
           <div class="mt-4 flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert">
@@ -46,8 +46,8 @@
 
         <div class="mt-5 grid gap-5">
           <div>
-            <label for="t-ref" class="field-label">Reference number<span class="ml-1 text-error" aria-hidden="true">*</span></label>
-            <input id="t-ref" name="reference" class="input font-mono" autocomplete="off" placeholder="H-YYYYMMDD-NNNN" value="{{ reference }}"
+            <label for="t-ref" class="field-label">{{ t('order.reference') }}<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+            <input id="t-ref" name="reference" class="input font-mono" autocomplete="off" placeholder="{{ t('track.reference_placeholder') }}" value="{{ reference }}"
                    {% if errors.reference is defined %}aria-invalid="true" aria-describedby="t-ref-err"{% endif %}>
             {% if errors.reference is defined %}
               <p id="t-ref-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
@@ -56,10 +56,10 @@
             {% endif %}
           </div>
           <div>
-            <label for="t-email" class="field-label">Email<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+            <label for="t-email" class="field-label">{{ t('checkout.field.email') }}<span class="ml-1 text-error" aria-hidden="true">*</span></label>
             <input id="t-email" name="email" type="email" class="input" autocomplete="email" value="{{ email }}"
                    aria-describedby="t-email-hint{% if errors.email is defined %} t-email-err{% endif %}"{% if errors.email is defined %} aria-invalid="true"{% endif %}>
-            <p id="t-email-hint" class="field-hint">The email you used at checkout.</p>
+            <p id="t-email-hint" class="field-hint">{{ t('track.email_hint') }}</p>
             {% if errors.email is defined %}
               <p id="t-email-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
                 {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.email }}
@@ -69,26 +69,17 @@
         </div>
 
         <button type="submit" class="btn btn--primary btn--lg mt-6">
-          <span>Track order</span>
+          <span>{{ t('footer.track') }}</span>
           {{ icons.icon('arrow-right', 20) }}
         </button>
       </form>
     </div>
 
     {% if order %}
-      {% set step_labels = {
-        pending: 'Order placed',
-        confirmed: 'Order confirmed',
-        packed: 'Packed',
-        shipped: 'Shipped',
-        delivered: 'Delivered',
-        rejected: 'Order rejected',
-        cancelled: 'Order cancelled',
-      } %}
       {% set step_icons = {pending: 'orders', confirmed: 'check', packed: 'box', shipped: 'truck', delivered: 'home', rejected: 'close', cancelled: 'close'} %}
       <section class="mt-8 overflow-hidden rounded-panel border border-line bg-surface" aria-labelledby="result-h">
         <div class="p-6 @3xl:p-10">
-          <h2 id="result-h" class="font-display text-h3 font-semibold">Order <span class="font-mono">{{ order.order_number }}</span></h2>
+          <h2 id="result-h" class="font-display text-h3 font-semibold">{% set number_html %}<span class="font-mono">{{ order.order_number }}</span>{% endset %}{{ t_html('track.order_heading', {number: number_html}) }}</h2>
           <div class="mt-3 flex flex-wrap gap-2">
             {{ labels.status_chip(order.status) }}
             {{ labels.payment_chip(order.payment_status) }}
@@ -100,30 +91,30 @@
           {% endfor %}
           <dl class="mt-6 grid gap-3 rounded-control bg-page p-4 text-[15px] @3xl:grid-cols-2">
             <div>
-              <dt class="text-caption text-ink-2">Items</dt>
+              <dt class="text-caption text-ink-2">{{ t('order.items') }}</dt>
               <dd>{{ item_parts|join(', ') }}</dd>
             </div>
             <div>
-              <dt class="text-caption text-ink-2">Delivering to</dt>
+              <dt class="text-caption text-ink-2">{{ t('track.delivering_to') }}</dt>
               <dd>{{ order.shipping_city }}, {{ regions[order.shipping_region]|default(order.shipping_region) }}</dd>
             </div>
             <div>
-              <dt class="text-caption text-ink-2">Total</dt>
+              <dt class="text-caption text-ink-2">{{ t('checkout.total') }}</dt>
               <dd class="font-semibold tabular-nums">{{ _self.money(order.total_centavos) }}</dd>
             </div>
             <div>
-              <dt class="text-caption text-ink-2">Payment</dt>
+              <dt class="text-caption text-ink-2">{{ t('checkout.step.payment') }}</dt>
               <dd>{{ labels.method_label(order.payment_method) }}</dd>
             </div>
             {% if order.status == 'rejected' and order.rejection_reason %}
               <div class="@3xl:col-span-2">
-                <dt class="text-caption text-ink-2">Reason</dt>
+                <dt class="text-caption text-ink-2">{{ t('track.reason') }}</dt>
                 <dd>{{ order.rejection_reason }}</dd>
               </div>
             {% endif %}
           </dl>
 
-          <h3 class="mt-8 text-[15px] font-semibold">History</h3>
+          <h3 class="mt-8 text-[15px] font-semibold">{{ t('track.history') }}</h3>
           <ol class="mt-3 grid gap-4">
             {% for event in order.events %}
               {% set latest = loop.last %}
@@ -134,12 +125,12 @@
                 <span class="min-w-0">
                   <span class="block text-small {{ latest ? 'font-semibold text-ink' : 'text-ink-2' }}">
                     {%- if event.field == 'status' -%}
-                      {{ step_labels[event.new_value]|default(labels.status_label(event.new_value)) }}
+                      {{ event.new_value in ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'rejected', 'cancelled'] ? t('track.event.' ~ event.new_value) : event.new_value }}
                     {%- else -%}
-                      Payment: {{ labels.payment_label(event.new_value) }}
+                      {{ t('track.payment_event', {status: labels.payment_label(event.new_value)|trim}) }}
                     {%- endif -%}
                   </span>
-                  <time datetime="{{ event.created_at|replace({' ': 'T'}) }}Z" class="block text-caption text-ink-2 tabular-nums">{{ (event.created_at ~ ' UTC')|date('M j, Y, g:i A', 'Asia/Manila') }}</time>
+                  <time datetime="{{ event.created_at|replace({' ': 'T'}) }}Z" class="block text-caption text-ink-2 tabular-nums">{{ local_date(event.created_at ~ ' UTC', 'date.datetime', 'Asia/Manila') }}</time>
                 </span>
               </li>
             {% endfor %}

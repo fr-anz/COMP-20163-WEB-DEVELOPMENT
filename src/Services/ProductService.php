@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Habi\Services;
 
 use Habi\Bootstrap\HeritageUpgrade;
+use Habi\Support\Translator;
 use PDO;
 
 /**
@@ -17,12 +18,19 @@ use PDO;
  * fixed allowlist ("featured", the deterministic id order, is the default) so
  * no user input ever reaches the ORDER BY clause. Fiber and region filters
  * accept only values that active products carry (R2).
+ *
+ * Language (R33): in Filipino, description, story and the category label
+ * use the *_fil column, falling back to English when it is NULL or empty
+ * (COALESCE(NULLIF(x_fil, ''), x)); the locale defaults to the request's.
  */
 final class ProductService
 {
     private const PER_PAGE = 8;
 
-    /** Customer-facing fiber names, in HeritageUpgrade::FIBERS order. */
+    /**
+     * Fiber names in English, in HeritageUpgrade::FIBERS order; storefront
+     * templates show the fiber.* catalog keys instead.
+     */
     public const FIBER_LABELS = [
         'buri' => 'Buri',
         'pandan' => 'Pandan',
@@ -35,6 +43,9 @@ final class ProductService
     private const COLUMNS = 'p.id, p.slug, p.name, p.category, p.description, p.materials,
         p.place_of_make, p.price_centavos, CASE WHEN p.is_available = 1 THEN p.stock ELSE 0 END AS stock,
         p.low_stock_threshold, p.dimensions, p.fiber, p.community, p.region, p.technique,
+        COALESCE(NULLIF(p.description_fil, \'\'), p.description) AS description_fil,
+        (SELECT COALESCE(NULLIF(c.name_fil, \'\'), c.name) FROM categories c
+         WHERE c.id = p.category_id) AS category_fil,
         (SELECT pi.path FROM product_images pi
          WHERE pi.product_id = p.id
          ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
@@ -52,9 +63,13 @@ final class ProductService
         'price_desc' => 'p.price_centavos DESC, p.id DESC',
     ];
 
+    private readonly string $locale;
+
     public function __construct(
         private readonly PDO $pdo,
+        ?string $locale = null,
     ) {
+        $this->locale = Translator::normalize($locale ?? Translator::current()->locale());
     }
 
     /**
@@ -148,6 +163,30 @@ final class ProductService
     }
 
     /**
+     * Category filter labels (category value => name in the active
+     * language) for the categories active products carry.
+     *
+     * @return array<string, string>
+     */
+    public function categoryLabels(): array
+    {
+        $labels = [];
+        $rows = $this->pdo->query(
+            "SELECT DISTINCT p.category, COALESCE(NULLIF(c.name_fil, ''), c.name) AS name_fil
+             FROM products p LEFT JOIN categories c ON c.id = p.category_id
+             WHERE p.listing_status = 'active'"
+        )->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $category = (string) $row['category'];
+            $labels[$category] = $this->locale === 'fil' && (string) $row['name_fil'] !== ''
+                ? (string) $row['name_fil']
+                : $category;
+        }
+
+        return $labels;
+    }
+
+    /**
      * Fibers carried by active products, key => label, in the controlled
      * list's order (R2 material filter options and allowlist).
      *
@@ -195,7 +234,7 @@ final class ProductService
     public function getBySlug(string $slug): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT ' . self::COLUMNS . ', p.story,
+            'SELECT ' . self::COLUMNS . ', p.story, COALESCE(NULLIF(p.story_fil, \'\'), p.story) AS story_fil,
                     (p.three_config IS NOT NULL AND TRIM(p.three_config) <> \'\') AS has_3d,
                     w.slug AS weaver_slug, w.display_name AS weaver_name
              FROM products p
@@ -211,7 +250,7 @@ final class ProductService
         }
 
         $product = $this->hydrate($row);
-        $product['story'] = (string) $row['story'];
+        $product['story'] = (string) $row[$this->locale === 'fil' ? 'story_fil' : 'story'];
         $product['has_3d'] = (int) $row['has_3d'] === 1;
         $product['weaver'] = $row['weaver_slug'] === null ? null : [
             'slug' => (string) $row['weaver_slug'],
@@ -384,7 +423,10 @@ final class ProductService
             'slug' => (string) $row['slug'],
             'name' => (string) $row['name'],
             'category' => (string) $row['category'],
-            'description' => (string) $row['description'],
+            'category_label' => $this->locale === 'fil' && (string) $row['category_fil'] !== ''
+                ? (string) $row['category_fil']
+                : (string) $row['category'],
+            'description' => (string) $row[$this->locale === 'fil' ? 'description_fil' : 'description'],
             'materials' => (string) $row['materials'],
             'place_of_make' => (string) $row['place_of_make'],
             'price_centavos' => (int) $row['price_centavos'],

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Habi\Services;
 
+use Habi\Support\Translator;
+
 /**
  * Simulated card gateway for checkout (M5, PRD R13/R14, SDD §9, N3/N4).
  *
@@ -67,17 +69,17 @@ final class PaymentSimulator
             || preg_match('/^\d{13,19}$/', $pan) !== 1
             || !$this->passesLuhn($pan)
         ) {
-            $errors['card_number'] = 'Enter a valid card number.';
+            $errors['card_number'] = Translator::translate('payment.error.card_number');
         }
 
         $expiry = $input['expiry'] ?? '';
         if (!is_string($expiry) || !$this->isFutureExpiry($expiry)) {
-            $errors['expiry'] = 'Enter a valid future expiry date as MM/YY.';
+            $errors['expiry'] = Translator::translate('payment.error.expiry');
         }
 
         $cvc = $input['cvc'] ?? '';
         if (!is_string($cvc) || preg_match('/^\d{3,4}$/', $cvc) !== 1) {
-            $errors['cvc'] = 'Enter the 3-4 digit security code.';
+            $errors['cvc'] = Translator::translate('payment.error.cvc');
         }
 
         if ($errors !== []) {

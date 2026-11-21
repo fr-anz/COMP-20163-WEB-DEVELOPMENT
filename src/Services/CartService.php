@@ -6,6 +6,7 @@ namespace Habi\Services;
 
 use Habi\Support\Csrf;
 use Habi\Support\SessionStore;
+use Habi\Support\Translator;
 use PDO;
 
 /**
@@ -51,14 +52,14 @@ final class CartService
     public function add(int $productId, int $quantity): array
     {
         if ($quantity < 1) {
-            return $this->failure(400, 'Enter a quantity of 1 or more.');
+            return $this->failure(400, Translator::translate('cart.error.quantity_min'));
         }
 
         $this->reconcile();
 
         $product = $this->fetchProduct($productId);
         if ($product === null || (int) $product['is_active'] !== 1) {
-            return $this->failure(404, 'This bag is no longer available.');
+            return $this->failure(404, Translator::translate('cart.error.unavailable'));
         }
 
         $name = (string) $product['name'];
@@ -66,7 +67,7 @@ final class CartService
         if ($stock <= 0) {
             return $this->failure(
                 400,
-                sprintf('%s is sold out and cannot be added to your bag.', $name)
+                Translator::translate('cart.error.sold_out', ['name' => $name])
             );
         }
 
@@ -85,30 +86,17 @@ final class CartService
             $extra[] = [
                 'type' => 'clamped',
                 'product_id' => $productId,
-                'text' => sprintf(
-                    'Only %d of %s in stock — the quantity in your bag was'
-                    . ' adjusted to what is available.',
-                    $stock,
-                    $name
-                ),
+                'text' => Translator::translate('cart.notice.add_clamped', ['count' => $stock, 'name' => $name]),
             ];
         }
         $this->reconcile($extra);
 
         if ($target > $current && $target === $requested) {
-            $message = sprintf('Added %s to your bag.', $name);
+            $message = Translator::translate('cart.added', ['name' => $name]);
         } elseif ($target > $current) {
-            $message = sprintf(
-                'Only %d of %s in stock — your bag now holds all of them.',
-                $stock,
-                $name
-            );
+            $message = Translator::translate('cart.added_all', ['count' => $stock, 'name' => $name]);
         } else {
-            $message = sprintf(
-                'Only %d of %s in stock — your bag already has every piece.',
-                $stock,
-                $name
-            );
+            $message = Translator::translate('cart.has_all', ['count' => $stock, 'name' => $name]);
         }
 
         return $this->success($message);
@@ -122,31 +110,31 @@ final class CartService
     public function update(int $productId, int $quantity): array
     {
         if ($quantity < 0) {
-            return $this->failure(400, 'Quantity cannot be negative.');
+            return $this->failure(400, Translator::translate('cart.error.quantity_negative'));
         }
 
         $this->reconcile();
 
         $quantities = $this->storedQuantities();
         if (!isset($quantities[$productId])) {
-            return $this->failure(404, 'This bag is not in your cart.');
+            return $this->failure(404, Translator::translate('cart.error.not_in_cart'));
         }
 
-        $name = $this->productName($productId) ?? 'This bag';
+        $name = $this->productName($productId) ?? Translator::translate('cart.this_bag');
 
         if ($quantity === 0) {
             unset($quantities[$productId]);
             $this->writeQuantities($quantities);
             $this->reconcile();
 
-            return $this->success(sprintf('Removed %s from your bag.', $name));
+            return $this->success(Translator::translate('cart.removed', ['name' => $name]));
         }
 
         $quantities[$productId] = min($quantity, self::MAX_QUANTITY);
         $this->writeQuantities($quantities);
         $this->reconcile();
 
-        return $this->success(sprintf('Updated the quantity of %s.', $name));
+        return $this->success(Translator::translate('cart.updated', ['name' => $name]));
     }
 
     /**
@@ -160,15 +148,15 @@ final class CartService
 
         $quantities = $this->storedQuantities();
         if (!isset($quantities[$productId])) {
-            return $this->failure(404, 'This bag is not in your cart.');
+            return $this->failure(404, Translator::translate('cart.error.not_in_cart'));
         }
 
-        $name = $this->productName($productId) ?? 'This bag';
+        $name = $this->productName($productId) ?? Translator::translate('cart.this_bag');
         unset($quantities[$productId]);
         $this->writeQuantities($quantities);
         $this->reconcile();
 
-        return $this->success(sprintf('Removed %s from your bag.', $name));
+        return $this->success(Translator::translate('cart.removed', ['name' => $name]));
     }
 
     /**
@@ -276,8 +264,7 @@ final class CartService
                 $corrections[] = [
                     'type' => 'removed_unavailable',
                     'product_id' => $productId,
-                    'text' => 'A bag that is no longer available was removed'
-                        . ' from your cart.',
+                    'text' => Translator::translate('cart.notice.removed_unavailable'),
                 ];
                 continue;
             }
@@ -289,10 +276,7 @@ final class CartService
                 $corrections[] = [
                     'type' => 'removed_soldout',
                     'product_id' => $productId,
-                    'text' => sprintf(
-                        '%s is sold out and was removed from your cart.',
-                        $name
-                    ),
+                    'text' => Translator::translate('cart.notice.removed_sold_out', ['name' => $name]),
                 ];
                 continue;
             }
@@ -302,12 +286,7 @@ final class CartService
                 $corrections[] = [
                     'type' => 'clamped',
                     'product_id' => $productId,
-                    'text' => sprintf(
-                        'Only %d of %s left in stock — your quantity was'
-                        . ' adjusted.',
-                        $stock,
-                        $name
-                    ),
+                    'text' => Translator::translate('cart.notice.clamped', ['count' => $stock, 'name' => $name]),
                 ];
             }
 

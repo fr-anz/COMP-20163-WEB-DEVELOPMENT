@@ -12,12 +12,11 @@ use Habi\Services\PaymentProofService;
 use Habi\Services\PaymentSimulator;
 use Habi\Support\SessionStore;
 use Habi\Tests\TestSupport\IsolatedDatabaseTestCase;
+use Habi\Tests\TestSupport\Views;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Stream;
 use Nyholm\Psr7\UploadedFile;
 use Psr\Http\Message\ResponseInterface;
-use Twig\Environment;
-use Twig\Loader\FilesystemLoader;
 
 /**
  * Controller boundary tests for the checkout v2 payment step (PRD R13,
@@ -44,7 +43,7 @@ final class CheckoutV2FlowTest extends IsolatedDatabaseTestCase
         $this->cart = new CartService($this->database(), $store);
         $this->http = new Psr17Factory();
         $this->checkout = new CheckoutController(
-            new Environment(new FilesystemLoader(habi_repo_root() . '/views'), ['autoescape' => 'html']),
+            Views::twig(),
             $this->cart,
             $store,
             new OrderService($this->database(), $proofs),

@@ -8,6 +8,7 @@
   order snapshot including payment method and payment status chip. The order figures come from the OrderService snapshot
   (authoritative PHP values); the delivery window is the controller's
   estimate. "See it in Admin" awaits M6 and is intentionally absent.
+  Words come from the catalogs (order.*, status.*, method.*).
   Receives exactly: app_name, app_env, cart, csrf_token, shipping, regions,
   shipping_fee_centavos, total_centavos, payment, idempotency_key, errors,
   message, step, order (OrderService array incl. items), delivery_estimate.
@@ -17,9 +18,9 @@
 {% import "storefront/_order-macros.twig" as labels %}
 {% set active_nav = '' %}
 
-{% block title %}Order {{ order.order_number }} — {{ app_name }}{% endblock %}
+{% block title %}{{ t('order.title', {number: order.order_number}) }} — {{ app_name }}{% endblock %}
 
-{% block description %}Your Habi order is placed — confirmation, totals and delivery details.{% endblock %}
+{% block description %}{{ t('order.description') }}{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 
 {% block content %}
@@ -29,8 +30,8 @@
         <img src="/assets/img/reference/footer-selvedge.svg" alt="" class="block h-full w-full">
       </div>
       <div class="p-6 @3xl:p-10">
-        <div aria-label="Checkout progress">
-          <p class="text-small font-semibold">Step 4 of 4 · <span class="font-normal text-ink-2">Confirmation</span></p>
+        <div aria-label="{{ t('checkout.progress') }}">
+          <p class="text-small font-semibold">{{ t('checkout.step_of', {step: 4, total: 4}) }} · <span class="font-normal text-ink-2">{{ t('checkout.step.confirmation') }}</span></p>
           <div class="mt-2 grid grid-cols-4 gap-1" aria-hidden="true">
             <span class="h-1.5 rounded-sm bg-action"></span>
             <span class="h-1.5 rounded-sm bg-action"></span>
@@ -42,16 +43,17 @@
         <div class="mt-8 grid h-12 w-12 place-items-center rounded-control bg-success-bg text-success">
           {{ icons.icon('check', 28) }}
         </div>
-        <h1 tabindex="-1" class="mt-4 font-display text-[30px] font-bold focus:outline-none @3xl:text-h1">Thank you &mdash; your order is placed</h1>
+        <h1 tabindex="-1" class="mt-4 font-display text-[30px] font-bold focus:outline-none @3xl:text-h1">{{ t('order.thanks') }}</h1>
         <div class="mt-5">
-          <label for="o-ref" class="field-label">Reference number</label>
+          <label for="o-ref" class="field-label">{{ t('order.reference') }}</label>
           <div class="flex gap-2">
             <input id="o-ref" class="input font-mono" readonly value="{{ order.order_number }}" aria-describedby="o-ref-hint">
-            <button type="button" class="btn btn--secondary" data-copy="{{ order.order_number }}" aria-label="Copy reference number" hidden>
-              <span data-copy-label>Copy</span>
+            <button type="button" class="btn btn--secondary" data-copy="{{ order.order_number }}" aria-label="{{ t('order.copy_reference') }}" hidden>
+              <span data-copy-label>{{ t('js.copy') }}</span>
             </button>
           </div>
-          <p id="o-ref-hint" class="field-hint">Keep this number to <a href="/track" class="link">track your order</a> with your email.</p>
+          {% set track_link %}<a href="/track" class="link">{{ t('order.reference_hint_link') }}</a>{% endset %}
+          <p id="o-ref-hint" class="field-hint">{{ t_html('order.reference_hint', {link: track_link}) }}</p>
         </div>
 
         {% set ship_lines = [
@@ -67,50 +69,50 @@
         {% set total_cent = order.total_centavos % 100 %}
         <dl class="mt-6 grid gap-3 rounded-control bg-page p-4 text-[15px] @3xl:grid-cols-2">
           <div>
-            <dt class="text-caption text-ink-2">Items</dt>
+            <dt class="text-caption text-ink-2">{{ t('order.items') }}</dt>
             <dd>{{ item_parts|join(', ') }}</dd>
           </div>
           <div>
-            <dt class="text-caption text-ink-2">Shipping to</dt>
+            <dt class="text-caption text-ink-2">{{ t('order.shipping_to') }}</dt>
             <dd class="whitespace-pre-line">{{ ship_lines|join("\n") }}</dd>
           </div>
           <div>
-            <dt class="text-caption text-ink-2">Total</dt>
+            <dt class="text-caption text-ink-2">{{ t('checkout.total') }}</dt>
             <dd class="font-semibold tabular-nums">&#8369;{{ (order.total_centavos / 100)|number_format(total_cent == 0 ? 0 : 2, '.', ',') }}</dd>
           </div>
           <div>
-            <dt class="text-caption text-ink-2">Status</dt>
-            <dd>{{ {pending: 'Awaiting confirmation', confirmed: 'Confirmed', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled'}[order.status]|default(order.status) }}</dd>
+            <dt class="text-caption text-ink-2">{{ t('order.status') }}</dt>
+            <dd>{{ order.status == 'pending' ? t('order.awaiting_confirmation') : labels.status_label(order.status) }}</dd>
           </div>
           <div>
-            <dt class="text-caption text-ink-2">Payment</dt>
+            <dt class="text-caption text-ink-2">{{ t('checkout.step.payment') }}</dt>
             <dd>
               {%- if order.payment_method == 'card' -%}
-                {{ order.payment_brand|default('Card') }} card ending {{ order.payment_last4 }}
+                {{ t('payment.card_ending', {brand: order.payment_brand|default(t('method.card')), last4: order.payment_last4}) }}
               {%- else -%}
                 {{ labels.method_label(order.payment_method) }}
               {%- endif -%}
             </dd>
           </div>
           <div>
-            <dt class="text-caption text-ink-2">Payment status</dt>
+            <dt class="text-caption text-ink-2">{{ t('order.payment_status') }}</dt>
             <dd class="mt-0.5">{{ labels.payment_chip(order.payment_status) }}</dd>
           </div>
           <div class="@3xl:col-span-2">
-            <dt class="text-caption text-ink-2">Delivery</dt>
+            <dt class="text-caption text-ink-2">{{ t('review.delivery') }}</dt>
             <dd>{{ delivery_estimate }}</dd>
           </div>
         </dl>
 
         {% if order.payment_method == 'transfer' and order.payment_status == 'for_verification' %}
-          <p class="mt-4 flex items-start gap-2 text-small text-ink-2">{{ icons.icon('info', 18, 'mt-0.5 flex-none') }}We'll confirm your order once your transfer is verified.</p>
+          <p class="mt-4 flex items-start gap-2 text-small text-ink-2">{{ icons.icon('info', 18, 'mt-0.5 flex-none') }}{{ t('order.transfer_note') }}</p>
         {% elseif order.payment_method == 'cod' and order.payment_status == 'unpaid' %}
-          <p class="mt-4 flex items-start gap-2 text-small text-ink-2">{{ icons.icon('info', 18, 'mt-0.5 flex-none') }}Please have &#8369;{{ (order.total_centavos / 100)|number_format(total_cent == 0 ? 0 : 2, '.', ',') }} ready in cash when your order arrives.</p>
+          <p class="mt-4 flex items-start gap-2 text-small text-ink-2">{{ icons.icon('info', 18, 'mt-0.5 flex-none') }}{{ t('order.cod_note', {amount: '₱' ~ (order.total_centavos / 100)|number_format(total_cent == 0 ? 0 : 2, '.', ',')}) }}</p>
         {% endif %}
 
         <div class="mt-8 flex flex-wrap gap-3">
           <a href="/products" class="btn btn--primary">
-            <span>Continue browsing</span>
+            <span>{{ t('order.continue') }}</span>
           </a>
         </div>
       </div>

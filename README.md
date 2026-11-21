@@ -226,6 +226,23 @@ public); `/journal` and `/journal/{slug}` show published articles with their sou
 article bodies and sources are plain text (blank line between paragraphs, one source per line)
 rendered by `views/macros/content.twig`. These pages are indexable and work without JavaScript.
 
+### Languages
+
+M14 (PRD R33, R26, N9): the storefront, checkout and tracking pages are available in English
+and Filipino. The EN | FIL control (header from tablet width, mobile menu, footer) posts to
+`/lang`; the choice is kept in the session and a one-year `habi_lang` cookie, and `<html lang>`
+follows it. Weaver and admin screens stay English. Filipino content fields (`*_fil` columns for
+product description/story, weaver story, category name and journal title/excerpt/body) fall back
+to English when empty; the sample data has no Filipino content yet, and the Filipino UI copy
+still needs a fluent speaker's review (BUILD M14).
+
+Adding a string: add the same key to `lang/en.php` and `lang/fil.php` (flat `area.name => text`,
+`{name}` placeholders, `key.one`/`key.other` for plurals), then use `{{ t('area.name', {name: x}) }}`
+in Twig, `Translator::translate('area.name', ['name' => $x])` in PHP, or name it `js.area.name` and
+call `i18n('area.name', { name: x })` in a customer script. `vendor/bin/phpunit` fails on keys
+missing from either catalog (`tests/I18n/CatalogParityTest`) and on hard-coded customer text in
+templates or scripts (`tests/I18n/HardcodedStringsTest`).
+
 ### Exterior and interior viewer
 
 Open a product and choose **3D**. Desktop inspection is inline; below 900 px

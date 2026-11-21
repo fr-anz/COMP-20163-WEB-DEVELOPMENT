@@ -27,11 +27,11 @@
 {% block content %}
   <article data-product-page data-product-slug="{{ product.slug }}" data-fallback-image="{{ primary_image }}">
     <div class="mx-auto max-w-[1280px] px-4 py-6 @3xl:px-8 @3xl:py-10">
-      <nav aria-label="Breadcrumb">
+      <nav aria-label="{{ t('shell.breadcrumb') }}">
         <ol class="flex flex-wrap items-center gap-1 text-small text-ink-2">
-          <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/">Home</a>{{ icons.icon('chevron-right', 16) }}</li>
-          <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/products">Collection</a>{{ icons.icon('chevron-right', 16) }}</li>
-          <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/products?category={{ product.category|url_encode }}">{{ product.category }}</a>{{ icons.icon('chevron-right', 16) }}</li>
+          <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/">{{ t('nav.home') }}</a>{{ icons.icon('chevron-right', 16) }}</li>
+          <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/products">{{ t('nav.collection') }}</a>{{ icons.icon('chevron-right', 16) }}</li>
+          <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/products?category={{ product.category|url_encode }}">{{ product.category_label }}</a>{{ icons.icon('chevron-right', 16) }}</li>
           <li class="flex items-center gap-1"><span class="font-medium text-ink" aria-current="page">{{ product.name }}</span></li>
         </ol>
       </nav>
@@ -42,8 +42,8 @@
              view toggle, viewer markup or 3D dialog. #}
           {% if product.has_3d %}
           <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div role="group" aria-label="View mode" data-view-toggle hidden class="inline-flex rounded-control border-[1.5px] border-line-strong bg-raised p-0.5">
-              <button type="button" aria-pressed="true" data-mode="photos" class="touch-target flex h-10 items-center gap-1.5 rounded-[4px] px-3.5 text-small font-semibold transition-colors duration-[var(--duration-fast)] bg-ink text-inverse">{{ icons.icon('image', 18) }}Images</button>
+            <div role="group" aria-label="{{ t('viewer.mode') }}" data-view-toggle hidden class="inline-flex rounded-control border-[1.5px] border-line-strong bg-raised p-0.5">
+              <button type="button" aria-pressed="true" data-mode="photos" class="touch-target flex h-10 items-center gap-1.5 rounded-[4px] px-3.5 text-small font-semibold transition-colors duration-[var(--duration-fast)] bg-ink text-inverse">{{ icons.icon('image', 18) }}{{ t('viewer.images') }}</button>
               <button type="button" aria-pressed="false" data-mode="3d" class="touch-target flex h-10 items-center gap-1.5 rounded-[4px] px-3.5 text-small font-semibold transition-colors duration-[var(--duration-fast)] text-ink hover:bg-inset">{{ icons.icon('cube', 18) }}3D<span data-viewer-expand hidden>{{ icons.icon('expand', 14) }}</span></button>
             </div>
           </div>
@@ -59,14 +59,14 @@
             </div>
 
             {% if product.images|length > 1 %}
-            <ul class="mt-3 flex gap-2" aria-label="Choose image" data-gallery-thumbs hidden>
+            <ul class="mt-3 flex gap-2" aria-label="{{ t('product.choose_image') }}" data-gallery-thumbs hidden>
               {% for image in product.images %}
               <li>
                 <button type="button"
                         data-gallery-thumb
                         data-src="{{ image.path }}"
-                        aria-label="View {{ loop.index }} of {{ product.images|length }}"
-                        data-alt="{{ product.name }}, view {{ loop.index }} of {{ product.images|length }}"
+                        aria-label="{{ t('product.view_n', {index: loop.index, total: product.images|length}) }}"
+                        data-alt="{{ t('product.image_alt', {name: product.name, index: loop.index, total: product.images|length}) }}"
                         aria-pressed="{{ loop.first ? 'true' : 'false' }}"
                         class="block h-[72px] w-[60px] overflow-hidden rounded-control border-2 {{ loop.first ? 'border-ink' : 'border-transparent opacity-80 hover:opacity-100' }}">
                   <img src="{{ image.path }}" alt="" width="64" height="80" loading="lazy" class="block h-full w-full object-contain">
@@ -78,7 +78,7 @@
           </div>
 
           {% if product.has_3d %}
-          <noscript><p class="mt-2 text-caption text-ink-2">JavaScript is needed for 3D inspection. The photos and product details remain available.</p></noscript>
+          <noscript><p class="mt-2 text-caption text-ink-2">{{ t('viewer.noscript') }}</p></noscript>
 
           <div data-viewer-inline-slot>
             <div class="viewer relative" data-viewer hidden>
@@ -86,7 +86,7 @@
                 <div class="absolute top-3 left-3 z-10 flex flex-wrap gap-1.5">
                   {# Truthful interior marker (reference chip row); shown only
                      while the ready viewer is in the interior view. #}
-                  <span class="chip bg-info-bg text-info" data-viewer-interior-chip hidden>Interior view</span>
+                  <span class="chip bg-info-bg text-info" data-viewer-interior-chip hidden>{{ t('viewer.interior') }}</span>
                 </div>
                 <p class="viewer__status sr-only" data-viewer-status role="status" aria-live="polite"></p>
 
@@ -97,44 +97,44 @@
                       <span class="block h-1.5 origin-left rounded-sm bg-yellow-400" style="animation: habi-weave-load 1.2s 0.15s var(--ease-weave) infinite;"></span>
                       <span class="block h-1.5 origin-left rounded-sm bg-green-700" style="animation: habi-weave-load 1.2s 0.3s var(--ease-weave) infinite;"></span>
                     </div>
-                    <span class="text-small text-ink-2">Preparing the 3D view…</span>
+                    <span class="text-small text-ink-2">{{ t('viewer.preparing') }}</span>
                   </div>
                 </div>
 
                 <div class="absolute inset-0 grid place-items-center p-6 text-center" data-viewer-error role="alert" hidden>
                   <div class="max-w-xs">
                     <span class="mx-auto block text-error">{{ icons.icon('alert') }}</span>
-                    <p class="mt-2 font-semibold">The 3D view didn't load</p>
-                    <p class="mt-1 text-small text-ink-2">This can happen on a slow connection. Your bag and place on the page are kept.</p>
-                    <button type="button" class="btn btn--secondary mt-4" data-viewer-retry>{{ icons.icon('rotate') }}Try again</button>
+                    <p class="mt-2 font-semibold">{{ t('viewer.error_title') }}</p>
+                    <p class="mt-1 text-small text-ink-2">{{ t('viewer.error_body') }}</p>
+                    <button type="button" class="btn btn--secondary mt-4" data-viewer-retry>{{ icons.icon('rotate') }}{{ t('viewer.retry') }}</button>
                   </div>
                 </div>
 
                 <div class="absolute inset-0 grid place-items-center p-6 text-center" data-viewer-nowebgl hidden>
                   <div class="max-w-xs rounded-panel border border-line bg-surface p-6 shadow-popover">
                     <span class="mx-auto block text-ink-2">{{ icons.icon('image') }}</span>
-                    <p class="mt-2 font-semibold">3D viewing isn't available here</p>
-                    <p class="mt-1 text-small text-ink-2">Your browser or device doesn't support WebGL. The product illustration and details remain available.</p>
-                    <button type="button" class="btn btn--secondary mt-4" data-viewer-images>{{ icons.icon('image') }}View images instead</button>
+                    <p class="mt-2 font-semibold">{{ t('viewer.nowebgl_title') }}</p>
+                    <p class="mt-1 text-small text-ink-2">{{ t('viewer.nowebgl_body') }}</p>
+                    <button type="button" class="btn btn--secondary mt-4" data-viewer-images>{{ icons.icon('image') }}{{ t('viewer.images_instead') }}</button>
                   </div>
                 </div>
 
                 <div class="viewer__stage absolute inset-0 cursor-grab touch-none active:cursor-grabbing focus-visible:outline-offset-[-4px]"
-                     tabindex="0" role="img" aria-roledescription="3D viewer"
-                     aria-label="{{ product.name }}, exterior view. Drag or use arrow keys to rotate."
+                     tabindex="0" role="img" aria-roledescription="{{ t('viewer.roledescription') }}"
+                     aria-label="{{ t('js.viewer.stage_exterior', {name: product.name}) }}"
                      data-viewer-stage>
                   <div class="viewer__holder h-full w-full" data-viewer-container></div>
                 </div>
 
                 <div class="absolute inset-x-3 bottom-3 z-10 flex flex-wrap items-center justify-between gap-2">
                   <div class="viewer__controls flex items-center gap-1 rounded-control border border-line bg-surface/95 p-1 shadow-popover" data-viewer-controls hidden>
-                    <button type="button" class="icon-btn relative" data-viewer-rotate data-h="-0.785398" data-v="0" aria-label="Rotate left" title="Rotate left">{{ icons.icon('arrow-left') }}</button>
-                    <button type="button" class="icon-btn relative" data-viewer-rotate data-h="0.785398" data-v="0" aria-label="Rotate right" title="Rotate right">{{ icons.icon('arrow-right') }}</button>
-                    <button type="button" class="icon-btn relative" data-viewer-pause aria-pressed="true" aria-label="Pause automatic rotation" title="Pause automatic rotation">
+                    <button type="button" class="icon-btn relative" data-viewer-rotate data-h="-0.785398" data-v="0" aria-label="{{ t('viewer.rotate_left') }}" title="{{ t('viewer.rotate_left') }}">{{ icons.icon('arrow-left') }}</button>
+                    <button type="button" class="icon-btn relative" data-viewer-rotate data-h="0.785398" data-v="0" aria-label="{{ t('viewer.rotate_right') }}" title="{{ t('viewer.rotate_right') }}">{{ icons.icon('arrow-right') }}</button>
+                    <button type="button" class="icon-btn relative" data-viewer-pause aria-pressed="true" aria-label="{{ t('js.viewer.pause') }}" title="{{ t('js.viewer.pause') }}">
                       <span data-viewer-icon-pause>{{ icons.icon('pause') }}</span>
                       <span data-viewer-icon-play hidden>{{ icons.icon('play') }}</span>
                     </button>
-                    <button type="button" class="icon-btn relative" data-viewer-reset aria-label="Reset orientation" title="Reset orientation">{{ icons.icon('reset') }}</button>
+                    <button type="button" class="icon-btn relative" data-viewer-reset aria-label="{{ t('viewer.reset') }}" title="{{ t('viewer.reset') }}">{{ icons.icon('reset') }}</button>
                   </div>
                   {# Wrapping sibling of the icon controls, as in the reference
                      viewer: the pair wraps as one bar at 360px. Shown only once
@@ -142,7 +142,7 @@
                   <button type="button" class="btn btn--secondary btn--sm shadow-popover" data-viewer-peek aria-pressed="false" hidden>
                     <span data-viewer-icon-peek>{{ icons.icon('eye', 18) }}</span>
                     <span data-viewer-icon-outside hidden>{{ icons.icon('arrow-up', 18) }}</span>
-                    <span data-viewer-peek-label>Peek inside</span>
+                    <span data-viewer-peek-label>{{ t('js.viewer.peek') }}</span>
                   </button>
                 </div>
               </div>
@@ -156,21 +156,21 @@
         <div>
           <h1 class="mt-1 font-display text-[30px] font-bold @3xl:text-h1">{{ product.name }}</h1>
           <div class="mt-4 flex flex-wrap items-center gap-3">
-            <span class="text-h3 font-semibold tabular-nums"><span class="sr-only">Price: </span>&#8369;{{ price }}</span>
+            <span class="text-h3 font-semibold tabular-nums"><span class="sr-only">{{ t('product.price_label') }} </span>&#8369;{{ price }}</span>
             {% if product.stock == 0 %}
-              <span class="chip bg-error-bg text-error"><span class="h-2 w-2 rotate-45 border-[1.5px] border-current" aria-hidden="true"></span>Sold out</span>
+              <span class="chip bg-error-bg text-error"><span class="h-2 w-2 rotate-45 border-[1.5px] border-current" aria-hidden="true"></span>{{ t('product.sold_out') }}</span>
             {% elseif product.stock <= product.low_stock_threshold %}
-              <span class="chip bg-warning-bg text-warning">{{ icons.icon('alert', 14) }}Only {{ product.stock }} left</span>
+              <span class="chip bg-warning-bg text-warning">{{ icons.icon('alert', 14) }}{{ t('product.only_left', {count: product.stock}) }}</span>
             {% else %}
-              <span class="chip bg-success-bg text-success">{{ icons.icon('check', 14) }}In stock</span>
+              <span class="chip bg-success-bg text-success">{{ icons.icon('check', 14) }}{{ t('product.in_stock') }}</span>
             {% endif %}
           </div>
           <p class="mt-5 text-[17px]">{{ product.description }}</p>
 
           <div class="mt-6 rounded-panel border border-line bg-surface p-5">
             {% if product.stock == 0 %}
-              <p class="font-semibold">This bag is sold out</p>
-              <a class="btn btn--secondary mt-4" href="/products">Browse the collection</a>
+              <p class="font-semibold">{{ t('product.sold_out_title') }}</p>
+              <a class="btn btn--secondary mt-4" href="/products">{{ t('shell.browse_collection') }}</a>
             {% else %}
               {# R7: native POST /cart/add; cart.js intercepts for JSON and
                  re-renders from the server, the native post is the fallback. #}
@@ -178,18 +178,18 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" name="product_id" value="{{ product.id }}">
                 <div>
-                  <label class="field-label" for="product-qty">Quantity</label>
+                  <label class="field-label" for="product-qty">{{ t('product.quantity') }}</label>
                   <div class="touch-stepper inline-flex h-11 items-stretch rounded-control border-[1.5px] border-line-strong bg-raised">
-                    <button type="button" class="relative grid w-11 place-items-center rounded-l-[4px] hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="Decrease quantity" data-cart-step="-1" hidden disabled>{{ icons.icon('minus', 18) }}</button>
+                    <button type="button" class="relative grid w-11 place-items-center rounded-l-[4px] hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="{{ t('product.decrease') }}" data-cart-step="-1" hidden disabled>{{ icons.icon('minus', 18) }}</button>
                     <input id="product-qty" name="quantity" inputmode="numeric" value="1" min="1" max="{{ product.stock }}" data-cart-qty data-stock="{{ product.stock }}"
                            class="w-10 border-x border-line bg-transparent text-center font-semibold tabular-nums focus:outline-none focus-visible:bg-info-bg"
                            aria-describedby="product-qty-max">
-                    <button type="button" class="relative grid w-11 place-items-center rounded-r-[4px] hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="Increase quantity" data-cart-step="1" hidden{{ product.stock <= 1 ? ' disabled' }}>{{ icons.icon('plus', 18) }}</button>
+                    <button type="button" class="relative grid w-11 place-items-center rounded-r-[4px] hover:bg-inset disabled:cursor-not-allowed disabled:text-ink-2/50" aria-label="{{ t('product.increase') }}" data-cart-step="1" hidden{{ product.stock <= 1 ? ' disabled' }}>{{ icons.icon('plus', 18) }}</button>
                   </div>
-                  <p id="product-qty-max" class="field-hint">Up to {{ product.stock }} available</p>
+                  <p id="product-qty-max" class="field-hint">{{ t('product.up_to', {count: product.stock}) }}</p>
                 </div>
                 <button type="submit" class="btn btn--primary btn--lg min-w-[200px] flex-1">
-                  {{ icons.icon('bag', 20) }}<span>Add to bag &middot; &#8369;{{ price }}</span>
+                  {{ icons.icon('bag', 20) }}<span>{{ t('product.add_to_bag_price', {price: '₱' ~ price}) }}</span>
                 </button>
               </form>
             {% endif %}
@@ -197,11 +197,11 @@
 
           <div class="mt-8 divide-y divide-line border-y border-line">
             <section class="py-5" aria-labelledby="mat">
-              <h2 id="mat" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('thread', 20) }} Materials</h2>
+              <h2 id="mat" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('thread', 20) }} {{ t('product.materials') }}</h2>
               <dl class="mt-3 grid grid-cols-[120px_1fr] gap-x-4 gap-y-2 text-[15px]">
-                <dt class="text-ink-2">Material</dt>
+                <dt class="text-ink-2">{{ t('product.material') }}</dt>
                 <dd>{{ product.materials }}</dd>
-                <dt class="text-ink-2">Place of make</dt>
+                <dt class="text-ink-2">{{ t('product.place_of_make') }}</dt>
                 <dd>{{ product.place_of_make }}</dd>
               </dl>
             </section>
@@ -211,26 +211,26 @@
             {% set show_fiber = product.fiber != 'other' %}
             {% if product.weaver or show_fiber or product.community != '' or product.region != '' or product.technique != '' or product.story|trim != '' %}
             <section class="py-5" aria-labelledby="story">
-              <h2 id="story" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('thread', 20) }} {{ product.weaver ? product.weaver.display_name : 'Story' }}</h2>
+              <h2 id="story" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('thread', 20) }} {{ product.weaver ? product.weaver.display_name : t('product.story') }}</h2>
               <dl class="mt-3 grid grid-cols-[120px_1fr] gap-x-4 gap-y-2 text-[15px]">
                 {% if product.weaver %}
-                <dt class="text-ink-2">Weaver</dt>
+                <dt class="text-ink-2">{{ t('product.weaver') }}</dt>
                 <dd><a class="link touch-link" href="/weavers/{{ product.weaver.slug|url_encode }}">{{ product.weaver.display_name }}</a></dd>
                 {% endif %}
                 {% if product.community != '' %}
-                <dt class="text-ink-2">Community</dt>
+                <dt class="text-ink-2">{{ t('heritage.community') }}</dt>
                 <dd>{{ product.community }}</dd>
                 {% endif %}
                 {% if product.region != '' %}
-                <dt class="text-ink-2">Region</dt>
+                <dt class="text-ink-2">{{ t('heritage.region') }}</dt>
                 <dd>{{ product.region }}</dd>
                 {% endif %}
                 {% if show_fiber %}
-                <dt class="text-ink-2">Fiber</dt>
-                <dd>{{ product.fiber_label }}</dd>
+                <dt class="text-ink-2">{{ t('product.fiber') }}</dt>
+                <dd>{{ t('fiber.' ~ product.fiber) }}</dd>
                 {% endif %}
                 {% if product.technique != '' %}
-                <dt class="text-ink-2">Technique</dt>
+                <dt class="text-ink-2">{{ t('product.technique') }}</dt>
                 <dd>{{ product.technique }}</dd>
                 {% endif %}
               </dl>
@@ -243,32 +243,31 @@
             {% endif %}
 
             <section class="py-5" aria-labelledby="dim">
-              <h2 id="dim" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('ruler', 20) }} Dimensions</h2>
+              <h2 id="dim" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('ruler', 20) }} {{ t('product.dimensions') }}</h2>
               <div class="mt-3 flex items-center gap-6">
                 <svg viewBox="0 0 120 100" class="h-24 w-28 flex-none text-ink-2" aria-hidden="true">
                   <rect x="22" y="34" width="76" height="52" fill="none" stroke="currentColor" stroke-width="1.5"></rect>
                   <path d="M42 34 C42 6 78 6 78 34" fill="none" stroke="currentColor" stroke-width="1.5"></path>
                   <path d="M22 94H98M10 34V86" stroke="#A8462C" stroke-width="1.5"></path>
-                  <text x="60" y="100" font-size="9" text-anchor="middle" fill="currentColor">W</text>
-                  <text x="4" y="62" font-size="9" fill="currentColor">H</text>
+                  <text x="60" y="100" font-size="9" text-anchor="middle" fill="currentColor">{{ t('product.width_abbr') }}</text>
+                  <text x="4" y="62" font-size="9" fill="currentColor">{{ t('product.height_abbr') }}</text>
                 </svg>
                 <dl class="grid grid-cols-2 gap-x-6 gap-y-1 text-[15px] tabular-nums">
-                  <dt class="text-ink-2">Width</dt><dd>{{ product.dimensions.width }} cm</dd>
-                  <dt class="text-ink-2">Height</dt><dd>{{ product.dimensions.height }} cm</dd>
-                  <dt class="text-ink-2">Depth</dt><dd>{{ product.dimensions.depth }} cm</dd>
+                  <dt class="text-ink-2">{{ t('product.width') }}</dt><dd>{{ t('product.cm', {value: product.dimensions.width}) }}</dd>
+                  <dt class="text-ink-2">{{ t('product.height') }}</dt><dd>{{ t('product.cm', {value: product.dimensions.height}) }}</dd>
+                  <dt class="text-ink-2">{{ t('product.depth') }}</dt><dd>{{ t('product.cm', {value: product.dimensions.depth}) }}</dd>
                 </dl>
               </div>
             </section>
 
             <section class="py-5" aria-labelledby="ship">
-              <h2 id="ship" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('truck', 20) }} Shipping</h2>
-              {% set delivery_days = { metro_manila: '1–3 days', luzon: '3–5 days', visayas: '4–7 days', mindanao: '5–8 days' } %}
+              <h2 id="ship" class="flex items-center gap-2 text-body font-semibold">{{ icons.icon('truck', 20) }} {{ t('product.shipping') }}</h2>
               <ul class="mt-3 grid grid-cols-2 gap-2 text-small">
                 {% for key, rate in shipping_rates %}
-                <li class="rounded-control border border-line px-3 py-2"><span class="block font-semibold">{{ rate.label }}</span><span class="text-ink-2">&#8369;{{ (rate.fee_centavos / 100)|number_format(rate.fee_centavos % 100 == 0 ? 0 : 2, '.', ',') }}{% if delivery_days[key] is defined %} &middot; {{ delivery_days[key] }}{% endif %}</span></li>
+                <li class="rounded-control border border-line px-3 py-2"><span class="block font-semibold">{{ rate.label }}</span><span class="text-ink-2">&#8369;{{ (rate.fee_centavos / 100)|number_format(rate.fee_centavos % 100 == 0 ? 0 : 2, '.', ',') }} &middot; {{ t('shipping.days.' ~ key) }}</span></li>
                 {% endfor %}
               </ul>
-              <p class="mt-2 text-small text-ink-2">Free above &#8369;{{ (free_shipping_above / 100)|number_format(0, '.', ',') }}.</p>
+              <p class="mt-2 text-small text-ink-2">{{ t('product.free_above', {amount: '₱' ~ (free_shipping_above / 100)|number_format(0, '.', ',')}) }}</p>
             </section>
           </div>
         </div>
@@ -281,9 +280,9 @@
           data-viewer-dialog aria-labelledby="viewer-dialog-title">
     <div class="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
       <div>
-        <h2 class="text-h3 font-semibold" id="viewer-dialog-title">{{ product.name }} in 3D</h2>
+        <h2 class="text-h3 font-semibold" id="viewer-dialog-title">{{ t('viewer.dialog_title', {name: product.name}) }}</h2>
       </div>
-      <button type="button" class="icon-btn relative -mt-1.5 -mr-2" data-viewer-close aria-label="Close dialog" autofocus>{{ icons.icon('close') }}</button>
+      <button type="button" class="icon-btn relative -mt-1.5 -mr-2" data-viewer-close aria-label="{{ t('viewer.close_dialog') }}" autofocus>{{ icons.icon('close') }}</button>
     </div>
     <div class="flex-1 overflow-auto p-0" data-viewer-dialog-slot></div>
   </dialog>

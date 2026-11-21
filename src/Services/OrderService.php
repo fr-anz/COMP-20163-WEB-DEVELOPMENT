@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Habi\Services;
 
+use Habi\Support\Translator;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -141,19 +142,14 @@ final class OrderService
 
                 if ($product === null || (int) $product['is_active'] !== 1) {
                     throw new CheckoutException(
-                        'Some bags in your order are no longer available.'
-                        . ' Please check your cart and try again.',
+                        Translator::translate('checkout.error.unavailable'),
                         CheckoutException::REASON_INVALID
                     );
                 }
 
                 if ((int) $product['price_centavos'] !== (int) $line['price_centavos']) {
                     throw new CheckoutException(
-                        sprintf(
-                            'The price of %s changed since you reviewed'
-                            . ' your order. Please review your cart again.',
-                            (string) $product['name']
-                        ),
+                        Translator::translate('checkout.error.price_changed', ['name' => (string) $product['name']]),
                         CheckoutException::REASON_CHANGED
                     );
                 }
@@ -161,11 +157,9 @@ final class OrderService
                 $stock = (int) $product['stock'];
                 if ($stock < (int) $line['quantity']) {
                     throw new CheckoutException(
-                        sprintf(
-                            'Only %d of %s left in stock — your order'
-                            . ' cannot be completed.',
-                            $stock,
-                            (string) $product['name']
+                        Translator::translate(
+                            'checkout.error.stock',
+                            ['count' => $stock, 'name' => (string) $product['name']]
                         ),
                         CheckoutException::REASON_STOCK
                     );
@@ -725,14 +719,14 @@ final class OrderService
     ): array {
         if ($key === '') {
             throw new CheckoutException(
-                'Your order could not be submitted. Please try again.',
+                Translator::translate('checkout.error.not_submitted'),
                 CheckoutException::REASON_INVALID
             );
         }
 
         if ($lines === []) {
             throw new CheckoutException(
-                'Your cart is empty.',
+                Translator::translate('checkout.error.cart_empty'),
                 CheckoutException::REASON_INVALID
             );
         }
@@ -746,8 +740,7 @@ final class OrderService
                 || !is_int($line['price_centavos'] ?? null) || (int) $line['price_centavos'] < 0
             ) {
                 throw new CheckoutException(
-                    'Your cart could not be read. Please review your cart'
-                    . ' and try again.',
+                    Translator::translate('checkout.error.cart_unreadable'),
                     CheckoutException::REASON_INVALID
                 );
             }
@@ -756,8 +749,7 @@ final class OrderService
             // per-line stock guard still saw each quantity in isolation.
             if (isset($seenProductIds[$line['product_id']])) {
                 throw new CheckoutException(
-                    'Your cart contains a duplicated bag. Please review it'
-                    . ' and try again.',
+                    Translator::translate('checkout.error.duplicate'),
                     CheckoutException::REASON_INVALID
                 );
             }
@@ -767,8 +759,7 @@ final class OrderService
         $validated = ShippingService::validate($shipping);
         if ($validated['errors'] !== []) {
             throw new CheckoutException(
-                'Your shipping details are no longer valid. Please review'
-                . ' them and try again.',
+                Translator::translate('checkout.error.shipping_invalid'),
                 CheckoutException::REASON_INVALID
             );
         }
@@ -787,7 +778,7 @@ final class OrderService
         $method = $payment['method'] ?? 'card';
         if (!is_string($method) || !isset(self::PAYMENT_METHODS[$method])) {
             throw new CheckoutException(
-                'Choose how you would like to pay.',
+                Translator::translate('payment.error.method'),
                 CheckoutException::REASON_INVALID
             );
         }
@@ -813,7 +804,7 @@ final class OrderService
                 || !is_string($proof) || !$this->requireProofs()->isStaged($proof)
             ) {
                 throw new CheckoutException(
-                    'Your proof of payment could not be found. Please upload it again.',
+                    Translator::translate('payment.error.proof_lost'),
                     CheckoutException::REASON_INVALID
                 );
             }
@@ -833,7 +824,7 @@ final class OrderService
             || mb_strlen($payment['brand']) > self::MAX_BRAND_LENGTH
         ) {
             throw new CheckoutException(
-                'Your payment was not approved, so no order was placed.',
+                Translator::translate('payment.error.not_approved'),
                 CheckoutException::REASON_INVALID
             );
         }
@@ -913,11 +904,9 @@ final class OrderService
 
         if ($update->rowCount() !== 1) {
             throw new CheckoutException(
-                sprintf(
-                    'Only %d of %s left in stock — your order cannot be'
-                    . ' completed.',
-                    max($oldStock, 0),
-                    (string) $product['name']
+                Translator::translate(
+                    'checkout.error.stock',
+                    ['count' => max($oldStock, 0), 'name' => (string) $product['name']]
                 ),
                 CheckoutException::REASON_STOCK
             );

@@ -23,9 +23,9 @@
 {% set active_nav = '' %}
 {% set region_label = regions[shipping.region]|default('') %}
 
-{% block title %}Checkout · Payment — {{ app_name }}{% endblock %}
+{% block title %}{{ t('checkout.title', {step: t('checkout.step.payment')}) }} — {{ app_name }}{% endblock %}
 
-{% block description %}Habi checkout, step 2 of 4: payment details.{% endblock %}
+{% block description %}{{ t('checkout.description_payment') }}{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 
 {% block content %}
@@ -33,10 +33,10 @@
     <div class="flex items-center justify-between gap-4">
       <a href="/checkout" class="btn btn--tertiary btn--sm">
         {{ icons.icon('arrow-left', 18) }}
-        <span>Back to Shipping</span>
+        <span>{{ t('checkout.back_to_shipping') }}</span>
       </a>
       <span class="flex items-center gap-1.5 text-caption text-ink-2">
-        {{ icons.icon('lock', 16) }} Secure checkout
+        {{ icons.icon('lock', 16) }} {{ t('checkout.secure') }}
       </span>
     </div>
 
@@ -48,10 +48,10 @@
       <div class="max-w-[640px]">
         <form method="post" action="/checkout/payment" enctype="multipart/form-data" novalidate autocomplete="off" aria-labelledby="pay-h" data-checkout-payment>
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <h1 id="pay-h" tabindex="-1" class="mb-4 font-display text-h2 font-semibold focus:outline-none">Payment</h1>
+          <h1 id="pay-h" tabindex="-1" class="mb-4 font-display text-h2 font-semibold focus:outline-none">{{ t('checkout.step.payment') }}</h1>
 
           <fieldset{% if errors.method %} aria-describedby="pm-err"{% endif %}>
-            <legend class="sr-only">Payment method</legend>
+            <legend class="sr-only">{{ t('payment.method_legend') }}</legend>
             {% if errors.method %}
               <p id="pm-err" class="mb-3 flex items-start gap-1.5 text-[13px] font-medium text-error">
                 {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.method }}
@@ -62,8 +62,8 @@
                 <label for="pm-cod" class="flex cursor-pointer items-start gap-3 p-4">
                   <input id="pm-cod" type="radio" name="method" value="cod" class="check mt-0.5"{% if method == 'cod' %} checked{% endif %}{% if errors.method %} aria-invalid="true"{% endif %}>
                   <span class="min-w-0">
-                    <span class="block text-[15px] font-semibold">Cash on delivery</span>
-                    <span class="mt-0.5 block text-small text-ink-2">Pay &#8369;{{ (total_centavos / 100)|number_format(total_centavos % 100 == 0 ? 0 : 2, '.', ',') }} in cash when your order arrives.</span>
+                    <span class="block text-[15px] font-semibold">{{ t('method.cod') }}</span>
+                    <span class="mt-0.5 block text-small text-ink-2">{{ t('payment.cod_hint', {amount: '₱' ~ (total_centavos / 100)|number_format(total_centavos % 100 == 0 ? 0 : 2, '.', ',')}) }}</span>
                   </span>
                 </label>
               </div>
@@ -72,12 +72,12 @@
                 <label for="pm-transfer" class="flex cursor-pointer items-start gap-3 p-4">
                   <input id="pm-transfer" type="radio" name="method" value="transfer" class="check mt-0.5" aria-controls="pm-transfer-panel"{% if method == 'transfer' %} checked{% endif %}{% if errors.method %} aria-invalid="true"{% endif %}>
                   <span class="min-w-0">
-                    <span class="block text-[15px] font-semibold">E-wallet or bank transfer</span>
-                    <span class="mt-0.5 block text-small text-ink-2">Send the amount, then upload your receipt.</span>
+                    <span class="block text-[15px] font-semibold">{{ t('method.transfer') }}</span>
+                    <span class="mt-0.5 block text-small text-ink-2">{{ t('payment.transfer_hint') }}</span>
                   </span>
                 </label>
                 <div id="pm-transfer-panel" class="border-t border-line p-4" data-payment-panel="transfer">
-                  <p class="text-small">Amount to send <strong class="font-semibold tabular-nums">&#8369;{{ (total_centavos / 100)|number_format(total_centavos % 100 == 0 ? 0 : 2, '.', ',') }}</strong></p>
+                  <p class="text-small">{{ t('payment.amount_to_send') }} <strong class="font-semibold tabular-nums">&#8369;{{ (total_centavos / 100)|number_format(total_centavos % 100 == 0 ? 0 : 2, '.', ',') }}</strong></p>
                   <ul class="mt-3 divide-y divide-line rounded-control border border-line bg-page">
                     {% for account in transfer_accounts %}
                       <li class="flex items-center justify-between gap-3 px-3 py-2.5">
@@ -85,18 +85,18 @@
                           <span class="block font-semibold">{{ account.provider }}</span>
                           <span class="block text-ink-2">{{ account.account_name }} · <span class="font-mono text-ink">{{ account.account_number }}</span></span>
                         </span>
-                        <button type="button" class="btn btn--tertiary btn--sm" data-copy="{{ account.account_number }}" aria-label="Copy {{ account.provider }} account number" hidden>
-                          <span data-copy-label>Copy</span>
+                        <button type="button" class="btn btn--tertiary btn--sm" data-copy="{{ account.account_number }}" aria-label="{{ t('payment.copy_account', {provider: account.provider}) }}" hidden>
+                          <span data-copy-label>{{ t('js.copy') }}</span>
                         </button>
                       </li>
                     {% endfor %}
                   </ul>
 
                   <div class="mt-5">
-                    <label for="p-sender" class="field-label">Sender reference number<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+                    <label for="p-sender" class="field-label">{{ t('payment.sender_reference') }}<span class="ml-1 text-error" aria-hidden="true">*</span></label>
                     <input id="p-sender" name="sender_reference" maxlength="64" autocomplete="off" class="input" value="{{ sender_reference }}"
                            {% if errors.sender_reference %}aria-invalid="true" aria-describedby="p-sender-hint p-sender-err"{% else %}aria-describedby="p-sender-hint"{% endif %}>
-                    <p id="p-sender-hint" class="field-hint">Shown on your transfer receipt.</p>
+                    <p id="p-sender-hint" class="field-hint">{{ t('payment.sender_reference_hint') }}</p>
                     {% if errors.sender_reference %}
                       <p id="p-sender-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
                         {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.sender_reference }}
@@ -105,15 +105,15 @@
                   </div>
 
                   <div class="mt-5">
-                    <span id="p-proof-label" class="field-label">Proof of payment<span class="ml-1 text-error" aria-hidden="true">*</span></span>
+                    <span id="p-proof-label" class="field-label">{{ t('payment.proof') }}<span class="ml-1 text-error" aria-hidden="true">*</span></span>
                     <div class="flex flex-wrap items-center gap-3">
                       <label class="btn btn--secondary btn--sm">
-                        {{ icons.icon('upload', 18) }}<span>Upload receipt</span>
+                        {{ icons.icon('upload', 18) }}<span>{{ t('payment.upload_receipt') }}</span>
                         <input type="file" name="proof" accept="image/jpeg,image/png,image/webp" class="sr-only" data-file-input
                                aria-labelledby="p-proof-label"
                                aria-describedby="p-proof-hint{% if errors.proof %} p-proof-err{% endif %}"{% if errors.proof %} aria-invalid="true"{% endif %}>
                       </label>
-                      <span id="p-proof-hint" class="text-caption text-ink-2" data-file-name>JPG, PNG or WebP · up to 2 MB</span>
+                      <span id="p-proof-hint" class="text-caption text-ink-2" data-file-name>{{ t('payment.proof_hint') }}</span>
                     </div>
                     {% if errors.proof %}
                       <p id="p-proof-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
@@ -128,28 +128,28 @@
                 <label for="pm-card" class="flex cursor-pointer items-start gap-3 p-4">
                   <input id="pm-card" type="radio" name="method" value="card" class="check mt-0.5" aria-controls="pm-card-panel"{% if method == 'card' %} checked{% endif %}{% if errors.method %} aria-invalid="true"{% endif %}>
                   <span class="min-w-0">
-                    <span class="block text-[15px] font-semibold">Card</span>
-                    <span class="mt-0.5 block text-small text-ink-2">Credit or debit card.</span>
+                    <span class="block text-[15px] font-semibold">{{ t('method.card') }}</span>
+                    <span class="mt-0.5 block text-small text-ink-2">{{ t('payment.card_hint') }}</span>
                   </span>
                 </label>
                 <div id="pm-card-panel" class="border-t border-line p-4" data-payment-panel="card">
                   <div class="grid gap-5 @2xl:grid-cols-2">
                     <div class="@2xl:col-span-2">
-                      <label for="p-holder" class="field-label">Name on card</label>
+                      <label for="p-holder" class="field-label">{{ t('payment.card_name') }}</label>
                       <div class="relative">
                         <input id="p-holder" autocomplete="off" readonly class="input"
                                value="{{ shipping.name }}" aria-describedby="p-holder-hint">
                       </div>
-                      <p id="p-holder-hint" class="field-hint">Uses your shipping name. Change it in Shipping.</p>
+                      <p id="p-holder-hint" class="field-hint">{{ t('payment.card_name_hint') }}</p>
                     </div>
                     <div class="@2xl:col-span-2">
-                      <label for="p-card" class="field-label">Card number<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+                      <label for="p-card" class="field-label">{{ t('payment.card_number') }}<span class="ml-1 text-error" aria-hidden="true">*</span></label>
                       <div class="relative">
-                        <input id="p-card" name="card_number" inputmode="numeric" autocomplete="off" placeholder="1234 5678 9012 3456" required aria-required="true"
+                        <input id="p-card" name="card_number" inputmode="numeric" autocomplete="off" placeholder="{{ t('payment.card_number_placeholder') }}" required aria-required="true"
                                class="input" value=""
                                {% if errors.card_number %}aria-invalid="true" aria-describedby="p-card-hint p-card-err"{% else %}aria-describedby="p-card-hint"{% endif %}>
                       </div>
-                      <p id="p-card-hint" class="field-hint">13&ndash;19 digits.</p>
+                      <p id="p-card-hint" class="field-hint">{{ t('payment.card_number_hint') }}</p>
                       {% if errors.card_number %}
                         <p id="p-card-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
                           {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.card_number }}
@@ -157,9 +157,9 @@
                       {% endif %}
                     </div>
                     <div class="">
-                      <label for="p-exp" class="field-label">Expiry<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+                      <label for="p-exp" class="field-label">{{ t('payment.expiry') }}<span class="ml-1 text-error" aria-hidden="true">*</span></label>
                       <div class="relative">
-                        <input id="p-exp" name="expiry" placeholder="MM/YY" inputmode="numeric" autocomplete="off" required aria-required="true"
+                        <input id="p-exp" name="expiry" placeholder="{{ t('payment.expiry_placeholder') }}" inputmode="numeric" autocomplete="off" required aria-required="true"
                                class="input" value=""
                                {% if errors.expiry %}aria-invalid="true" aria-describedby="p-exp-err"{% endif %}>
                       </div>
@@ -170,13 +170,13 @@
                       {% endif %}
                     </div>
                     <div class="">
-                      <label for="p-cvc" class="field-label">Security code<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+                      <label for="p-cvc" class="field-label">{{ t('payment.cvc') }}<span class="ml-1 text-error" aria-hidden="true">*</span></label>
                       <div class="relative">
                         <input id="p-cvc" name="cvc" inputmode="numeric" maxlength="4" autocomplete="off" required aria-required="true"
                                class="input" value=""
                                {% if errors.cvc %}aria-invalid="true" aria-describedby="p-cvc-hint p-cvc-err"{% else %}aria-describedby="p-cvc-hint"{% endif %}>
                       </div>
-                      <p id="p-cvc-hint" class="field-hint">3&ndash;4 digits</p>
+                      <p id="p-cvc-hint" class="field-hint">{{ t('payment.cvc_hint') }}</p>
                       {% if errors.cvc %}
                         <p id="p-cvc-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
                           {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.cvc }}
@@ -186,7 +186,7 @@
                   </div>
 
                   <p class="mt-4 flex items-center gap-2 text-caption text-ink-2">
-                    {{ icons.icon('lock', 16) }} Full card details are never stored.
+                    {{ icons.icon('lock', 16) }} {{ t('payment.card_not_stored') }}
                   </p>
                 </div>
               </div>
@@ -204,7 +204,7 @@
 
           <button type="submit" class="btn btn--primary btn--lg mt-6" data-checkout-submit>
             <span class="inline-flex items-center gap-2" data-checkout-submit-label>
-              <span>Review order</span>
+              <span>{{ t('payment.review_order') }}</span>
               {{ icons.icon('arrow-right', 20) }}
             </span>
           </button>
@@ -214,7 +214,7 @@
               <span class="block h-1.5 origin-left rounded-sm bg-yellow-400" style="animation: habi-weave-load 1.2s 0.15s var(--ease-weave) infinite;"></span>
               <span class="block h-1.5 origin-left rounded-sm bg-green-700" style="animation: habi-weave-load 1.2s 0.3s var(--ease-weave) infinite;"></span>
             </span>
-            <span>Processing payment&hellip;</span>
+            <span>{{ t('payment.processing') }}</span>
           </p>
         </form>
       </div>

@@ -12,14 +12,14 @@
 {% import "macros/icons.twig" as icons %}
 {% set active_nav = '' %}
 
-{% block title %}Your bag — {{ app_name }}{% endblock %}
+{% block title %}{{ t('shell.your_bag') }} — {{ app_name }}{% endblock %}
 
-{% block description %}Your Habi bag: line items, quantity steppers, remove actions and shipping estimates.{% endblock %}
+{% block description %}{{ t('cart.description') }}{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 
 {% block content %}
   <div class="mx-auto max-w-[1180px] px-4 py-8 @3xl:px-8 @3xl:py-12">
-    <h1 tabindex="-1" class="font-display text-[30px] font-bold @3xl:text-h1">Your bag</h1>
+    <h1 tabindex="-1" class="font-display text-[30px] font-bold @3xl:text-h1">{{ t('shell.your_bag') }}</h1>
 
     {% if cart_message %}
       <p class="mt-4 flex items-start gap-2 rounded-control bg-info-bg px-3 py-2 text-small font-medium text-info" role="status">

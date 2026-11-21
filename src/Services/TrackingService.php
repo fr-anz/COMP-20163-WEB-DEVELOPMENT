@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Habi\Services;
 
 use Closure;
+use Habi\Support\Translator;
 use PDO;
 use Throwable;
 
@@ -53,10 +54,10 @@ final class TrackingService
         $email = mb_strtolower(trim($email));
         $errors = [];
         if ($reference === '') {
-            $errors['reference'] = 'Enter your order reference number.';
+            $errors['reference'] = Translator::translate('track.error.reference');
         }
         if ($email === '') {
-            $errors['email'] = 'Enter the email you used at checkout.';
+            $errors['email'] = Translator::translate('track.error.email');
         }
         if ($errors !== []) {
             return ['status' => self::STATUS_INVALID, 'errors' => $errors];

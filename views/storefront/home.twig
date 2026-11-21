@@ -27,10 +27,10 @@
 {% set active_nav = 'discover' %}
 
 {% set materials = [
-    { id: 'strip', name: 'Buri', line: 'Strips of buri palm, crossed one over one under into a firm checker.' },
-    { id: 'fiber', name: 'Tikog', line: 'Dried tikog grass, flattened and plaited close, as for a banig mat.' },
-    { id: 'yarn', name: 'Pandan', line: 'Pandan leaves, softened and plaited into fine patterns.' },
-    { id: 'loom', name: 'Abaca', line: 'Abaca fiber, woven on a loom into striped cloth.' },
+    { id: 'strip', fiber: 'buri' },
+    { id: 'fiber', fiber: 'tikog' },
+    { id: 'yarn', fiber: 'pandan' },
+    { id: 'loom', fiber: 'abaca' },
 ] %}
 
 {# Loom diagram geometry: 7 warp and 7 weft strands on a 64-unit pitch. The
@@ -42,9 +42,9 @@
 {% set loom_weft = ['#6D5A4B', '#8C7764'] %}
 {% set loom_accent = { 0: '#426A94', 2: '#A8462C', 4: '#436D51' } %}
 
-{% block title %}{{ app_name }} — handwoven bags{% endblock %}
+{% block title %}{{ app_name }} — {{ t('home.title') }}{% endblock %}
 
-{% block description %}Handwoven totes, satchels, slings and clutches. See how each Habi bag is made, strand by strand, then find yours in the collection.{% endblock %}
+{% block description %}{{ t('home.description') }}{% endblock %}
 
 {% block content %}
   <div class="story" data-story data-tone="dark">
@@ -57,23 +57,23 @@
     </svg>
     <div class="story-open__inner">
       <h1 id="hero-h" class="story-open__title">
-        <span class="story-line"><span>Every bag begins</span></span>
-        <span class="story-line"><span>as a single strand.</span></span>
+        <span class="story-line"><span>{{ t('home.hero_line1') }}</span></span>
+        <span class="story-line"><span>{{ t('home.hero_line2') }}</span></span>
       </h1>
     </div>
     <a href="#craft" class="story-open__cue" data-thread="start">
-      <span>Scroll</span>
+      <span>{{ t('home.scroll') }}</span>
       {{ icons.icon('arrow-down', 20) }}
     </a>
   </section>
 
   <section id="craft" class="story-weave" aria-labelledby="weave-h" data-story-weave data-step="2" data-tone="page" data-thread="feed">
-    <h2 id="weave-h" class="sr-only">How a bag is woven</h2>
+    <h2 id="weave-h" class="sr-only">{{ t('home.weave_heading') }}</h2>
     <div class="story-weave__stage">
       <ol class="story-weave__steps">
-        <li class="story-weave__step" data-weave-step="0"><p>One strand.</p></li>
-        <li class="story-weave__step" data-weave-step="1"><p>Over, then under.</p></li>
-        <li class="story-weave__step" data-weave-step="2"><p>Row by row, a pattern.</p></li>
+        <li class="story-weave__step" data-weave-step="0"><p>{{ t('home.weave_step1') }}</p></li>
+        <li class="story-weave__step" data-weave-step="1"><p>{{ t('home.weave_step2') }}</p></li>
+        <li class="story-weave__step" data-weave-step="2"><p>{{ t('home.weave_step3') }}</p></li>
       </ol>
       <svg class="story-loom" viewBox="0 0 448 448" aria-hidden="true" focusable="false">
         <g class="story-loom__warp">
@@ -101,7 +101,7 @@
   </section>
 
   <section id="materials" class="story-materials" aria-labelledby="mat-h" data-tone="page">
-    <h2 id="mat-h" class="story-heading" data-reveal data-thread="center">Four materials.</h2>
+    <h2 id="mat-h" class="story-heading" data-reveal data-thread="center">{{ t('home.materials_heading') }}</h2>
     {% for material in materials %}
     {% set seen = materials_seen[material.id][0] ?? null %}
     <article class="story-material" aria-labelledby="material-{{ material.id }}" data-thread="gap">
@@ -109,8 +109,8 @@
         <img src="/assets/img/reference/material-{{ material.id }}.svg" alt="" loading="lazy" decoding="async">
       </div>
       <div class="story-material__text" data-reveal>
-        <h3 id="material-{{ material.id }}" class="story-material__name">{{ material.name }}</h3>
-        <p class="story-material__line">{{ material.line }}</p>
+        <h3 id="material-{{ material.id }}" class="story-material__name">{{ t('fiber.' ~ material.fiber) }}</h3>
+        <p class="story-material__line">{{ t('home.material.' ~ material.fiber) }}</p>
         {% if seen %}
         <a href="/product/{{ seen.slug }}" class="story-link">{{ seen.name }} {{ icons.icon('arrow-right', 18) }}</a>
         {% endif %}
@@ -122,15 +122,15 @@
   {% if featured_products|length > 0 %}
   {% set featured = featured_products[0] %}
   <section class="story-bag" aria-labelledby="bag-h" data-tone="inset">
-    <h2 id="bag-h" class="story-heading" data-reveal data-thread="center">Then, a bag.</h2>
+    <h2 id="bag-h" class="story-heading" data-reveal data-thread="center">{{ t('home.bag_heading') }}</h2>
     <a href="/product/{{ featured.slug }}" class="story-bag__lead" data-thread="gap">
       <span class="story-bag__frame" data-reveal="wipe">
         <img src="{{ featured.image_path }}" alt="" width="480" height="600" loading="lazy" decoding="async">
       </span>
       <span class="story-bag__caption" data-reveal>
         <span class="story-bag__name">{{ featured.name }}</span>
-        <span class="story-bag__price"><span class="sr-only">Price: </span>{{ fmt.money(featured.price_centavos) }}</span>
-        <span class="btn btn--primary btn--lg">View bag {{ icons.icon('arrow-right', 20) }}</span>
+        <span class="story-bag__price"><span class="sr-only">{{ t('product.price_label') }} </span>{{ fmt.money(featured.price_centavos) }}</span>
+        <span class="btn btn--primary btn--lg">{{ t('home.view_bag') }} {{ icons.icon('arrow-right', 20) }}</span>
       </span>
     </a>
     {% if featured_products|length > 1 %}
@@ -142,7 +142,7 @@
             <img src="{{ product.image_path }}" alt="" width="480" height="600" loading="lazy" decoding="async">
           </span>
           <span class="story-bag__card-name">{{ product.name }}</span>
-          <span class="story-bag__card-price"><span class="sr-only">Price: </span>{{ fmt.money(product.price_centavos) }}</span>
+          <span class="story-bag__card-price"><span class="sr-only">{{ t('product.price_label') }} </span>{{ fmt.money(product.price_centavos) }}</span>
         </a>
       </li>
       {% endfor %}
@@ -154,8 +154,8 @@
   <section class="story-finale" aria-labelledby="cta-h" data-tone="dark" data-thread="end">
     <img class="story-finale__pattern" src="/assets/img/reference/cta-pattern.svg" alt="" aria-hidden="true">
     <div class="story-finale__inner" data-reveal>
-      <h2 id="cta-h" class="story-finale__title">{{ total }} bags.<br>Find yours.</h2>
-      <a href="/products" class="btn btn--lg story-finale__action">Shop the collection {{ icons.icon('arrow-right', 20) }}</a>
+      <h2 id="cta-h" class="story-finale__title">{{ tn('home.finale_count', total) }}<br>{{ t('home.finale_line') }}</h2>
+      <a href="/products" class="btn btn--lg story-finale__action">{{ t('home.shop') }} {{ icons.icon('arrow-right', 20) }}</a>
     </div>
   </section>
   </div>

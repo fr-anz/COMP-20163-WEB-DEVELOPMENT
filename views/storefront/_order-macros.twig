@@ -1,14 +1,16 @@
 {#-
   Order labels shared by the confirmation and tracking pages (PRD R16, R32;
-  DSD "Status chips"): payment method names, payment status chips (icon +
-  label, never color alone) and the admin order status chip.
+  DSD "Status chips"): payment method names, payment status chips and order
+  status chips (icon + label, never color alone). Labels come from the
+  catalogs (method.*, payment_status.*, status.*); the chip styles match
+  the admin macros. Unknown values are shown as stored.
 -#}
 {% macro method_label(method) -%}
-  {{ {cod: 'Cash on delivery', transfer: 'E-wallet or bank transfer', card: 'Card'}[method]|default(method) }}
+  {{ method in ['cod', 'transfer', 'card'] ? t('method.' ~ method) : method }}
 {%- endmacro %}
 
 {% macro payment_label(status) -%}
-  {{ {unpaid: 'Unpaid', for_verification: 'For verification', paid: 'Paid', rejected: 'Rejected'}[status]|default(status) }}
+  {{ status in ['unpaid', 'for_verification', 'paid', 'rejected'] ? t('payment_status.' ~ status) : status }}
 {%- endmacro %}
 
 {% macro payment_chip(status) %}
@@ -23,12 +25,21 @@
   <span class="chip {{ style[0] }}">{{ icons.icon(style[1], 14) }}{{ _self.payment_label(status) }}</span>
 {%- endmacro %}
 
-{% macro status_chip(status) %}
-  {%- import "admin/_macros.twig" as ui -%}
-  {{ ui.status_chip(status) }}
+{% macro status_label(status) -%}
+  {{ status in ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'rejected', 'cancelled'] ? t('status.' ~ status) : status }}
 {%- endmacro %}
 
-{% macro status_label(status) -%}
-  {%- import "admin/_macros.twig" as ui -%}
-  {{ ui.status_label(status) }}
+{% macro status_chip(status) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- set styles = {
+    pending: ['bg-inset text-ink-2', 'info'],
+    confirmed: ['bg-info-bg text-info', 'lock'],
+    packed: ['bg-warning-bg text-warning', 'box'],
+    shipped: ['bg-inset text-ink', 'truck'],
+    delivered: ['bg-success-bg text-success', 'check'],
+    rejected: ['bg-error-bg text-error', 'close'],
+    cancelled: ['bg-error-bg text-error', 'close'],
+  } -%}
+  {%- set style = styles[status]|default(['bg-inset text-ink-2', 'info']) -%}
+  <span class="chip {{ style[0] }}">{{ icons.icon(style[1], 14) }}{{ _self.status_label(status) }}</span>
 {%- endmacro %}

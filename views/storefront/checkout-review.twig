@@ -18,9 +18,9 @@
 {% set region_label = regions[shipping.region]|default(shipping.region|default('')) %}
 {% set total_cent = total_centavos % 100 %}
 
-{% block title %}Checkout · Review — {{ app_name }}{% endblock %}
+{% block title %}{{ t('checkout.title', {step: t('checkout.step.review')}) }} — {{ app_name }}{% endblock %}
 
-{% block description %}Habi checkout, step 3 of 4: review the order before placing it.{% endblock %}
+{% block description %}{{ t('checkout.description_review') }}{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 
 {% block content %}
@@ -28,10 +28,10 @@
     <div class="flex items-center justify-between gap-4">
       <a href="/checkout/payment" class="btn btn--tertiary btn--sm">
         {{ icons.icon('arrow-left', 18) }}
-        <span>Back to Payment</span>
+        <span>{{ t('checkout.back_to_payment') }}</span>
       </a>
       <span class="flex items-center gap-1.5 text-caption text-ink-2">
-        {{ icons.icon('lock', 16) }} Secure checkout
+        {{ icons.icon('lock', 16) }} {{ t('checkout.secure') }}
       </span>
     </div>
 
@@ -42,7 +42,7 @@
     <div class="mt-6 grid gap-10 @4xl:grid-cols-[minmax(0,1fr)_380px]">
       <div class="max-w-[640px]">
         <div>
-          <h1 tabindex="-1" class="mb-6 font-display text-h2 font-semibold focus:outline-none">Review your order</h1>
+          <h1 tabindex="-1" class="mb-6 font-display text-h2 font-semibold focus:outline-none">{{ t('review.heading') }}</h1>
 
           {% if message %}
             <div class="mb-6 flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert">
@@ -56,7 +56,7 @@
           <div class="divide-y divide-line rounded-panel border border-line bg-surface">
             <div class="flex items-start justify-between gap-4 p-4">
               <div>
-                <p class="text-small font-semibold">Ship to</p>
+                <p class="text-small font-semibold">{{ t('review.ship_to') }}</p>
                 {% set ship_lines = [
                   shipping.name|default(''),
                   shipping.address1|default('') ~ (shipping.address2|default('') ? ', ' ~ shipping.address2 : ''),
@@ -66,37 +66,37 @@
                 ] %}
                 <p class="mt-1 text-small whitespace-pre-line text-ink-2">{{ ship_lines|join("\n") }}</p>
               </div>
-              <a href="/checkout" aria-label="Edit ship to" class="btn btn--tertiary btn--sm">
+              <a href="/checkout" aria-label="{{ t('review.edit_ship_to') }}" class="btn btn--tertiary btn--sm">
                 {{ icons.icon('edit', 18) }}
-                <span>Edit</span>
+                <span>{{ t('review.edit') }}</span>
               </a>
             </div>
             <div class="flex items-start justify-between gap-4 p-4">
               <div>
-                <p class="text-small font-semibold">Payment</p>
+                <p class="text-small font-semibold">{{ t('checkout.step.payment') }}</p>
                 <p class="mt-1 text-small whitespace-pre-line text-ink-2">
                   {%- if payment.method|default('') == 'cod' -%}
-                    Cash on delivery
+                    {{ t('method.cod') }}
                   {%- elseif payment.method|default('') == 'transfer' -%}
-                    E-wallet or bank transfer · reference {{ payment.sender_reference }}
+                    {{ t('review.transfer_reference', {reference: payment.sender_reference}) }}
                   {%- else -%}
-                    {{ payment.brand|default('card') }} card ending {{ payment.last4|default('') }}
+                    {{ t('payment.card_ending', {brand: payment.brand|default(t('method.card')), last4: payment.last4|default('')}) }}
                   {%- endif -%}
                 </p>
               </div>
-              <a href="/checkout/payment" aria-label="Edit payment" class="btn btn--tertiary btn--sm">
+              <a href="/checkout/payment" aria-label="{{ t('review.edit_payment') }}" class="btn btn--tertiary btn--sm">
                 {{ icons.icon('edit', 18) }}
-                <span>Edit</span>
+                <span>{{ t('review.edit') }}</span>
               </a>
             </div>
             <div class="flex items-start justify-between gap-4 p-4">
               <div>
-                <p class="text-small font-semibold">Delivery</p>
+                <p class="text-small font-semibold">{{ t('review.delivery') }}</p>
                 <p class="mt-1 text-small whitespace-pre-line text-ink-2">{{ delivery_estimate }}</p>
               </div>
-              <a href="/checkout" aria-label="Edit delivery" class="btn btn--tertiary btn--sm">
+              <a href="/checkout" aria-label="{{ t('review.edit_delivery') }}" class="btn btn--tertiary btn--sm">
                 {{ icons.icon('edit', 18) }}
-                <span>Edit</span>
+                <span>{{ t('review.edit') }}</span>
               </a>
             </div>
           </div>
@@ -107,11 +107,11 @@
             <button type="submit" class="btn btn--primary btn--lg mt-6" data-checkout-submit>
               <span class="inline-flex items-center gap-2" data-checkout-submit-label>
                 {{ icons.icon('lock', 20) }}
-                <span>Place order · &#8369;{{ (total_centavos / 100)|number_format(total_cent == 0 ? 0 : 2, '.', ',') }}</span>
+                <span>{{ t('review.place_order', {amount: '₱' ~ (total_centavos / 100)|number_format(total_cent == 0 ? 0 : 2, '.', ',')}) }}</span>
               </span>
             </button>
             <p class="mt-4 hidden items-center gap-3 text-small text-ink-2" role="status" data-checkout-processing>
-              <span>Placing your order&hellip;</span>
+              <span>{{ t('review.placing') }}</span>
             </p>
           </form>
         </div>

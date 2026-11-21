@@ -4,15 +4,15 @@
 
 {% set has_filters = q != '' or category != '' or fiber != '' or region != '' or sort != 'featured' or hide_sold_out %}
 
-{% block title %}The collection — {{ app_name }}{% endblock %}
+{% block title %}{{ t('catalog.title') }} — {{ app_name }}{% endblock %}
 
-{% block description %}Browse the Habi collection: woven-style bags across {{ categories|length }} categories. Search, filter by category, material or region, and sort by featured, date or price.{% endblock %}
+{% block description %}{{ t('catalog.description', {count: categories|length}) }}{% endblock %}
 
 {% block content %}
   <div class="mx-auto max-w-[1280px] px-4 py-8 @3xl:px-8 @3xl:py-12">
     <div class="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
       <div>
-        <h1 class="font-display text-[30px] font-bold @3xl:text-h1">The collection</h1>
+        <h1 class="font-display text-[30px] font-bold @3xl:text-h1">{{ t('catalog.title') }}</h1>
       </div>
     </div>
 
@@ -22,62 +22,62 @@
           class="mt-6">
       <div class="grid gap-4 @3xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] @5xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] @3xl:items-end">
         <div>
-          <label for="collection-search" class="field-label">Search</label>
+          <label for="collection-search" class="field-label">{{ t('catalog.search') }}</label>
           <div class="relative">
             {{ icons.icon('search', 20, 'pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-2') }}
-            <input placeholder="Name, colour or material" id="collection-search" class="input pl-10" type="search"
+            <input placeholder="{{ t('catalog.search_placeholder') }}" id="collection-search" class="input pl-10" type="search"
                    name="q" value="{{ q }}">
           </div>
         </div>
         <div>
-          <label for="filter-category" class="field-label">Category</label>
+          <label for="filter-category" class="field-label">{{ t('catalog.category') }}</label>
           <select id="filter-category" class="input" name="category">
-            <option value="">All categories</option>
+            <option value="">{{ t('catalog.all_categories') }}</option>
             {% for cat in categories %}
-              <option value="{{ cat }}"{% if cat == category %} selected{% endif %}>{{ cat }}</option>
+              <option value="{{ cat }}"{% if cat == category %} selected{% endif %}>{{ category_labels[cat]|default(cat) }}</option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label for="filter-fiber" class="field-label">Material</label>
+          <label for="filter-fiber" class="field-label">{{ t('catalog.material') }}</label>
           <select id="filter-fiber" class="input" name="fiber">
-            <option value="">All materials</option>
+            <option value="">{{ t('catalog.all_materials') }}</option>
             {% for key, label in fibers %}
-              <option value="{{ key }}"{% if key == fiber %} selected{% endif %}>{{ label }}</option>
+              <option value="{{ key }}"{% if key == fiber %} selected{% endif %}>{{ t('fiber.' ~ key) }}</option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label for="filter-region" class="field-label">Region</label>
+          <label for="filter-region" class="field-label">{{ t('catalog.region') }}</label>
           <select id="filter-region" class="input" name="region">
-            <option value="">All regions</option>
+            <option value="">{{ t('catalog.all_regions') }}</option>
             {% for name in regions %}
               <option value="{{ name }}"{% if name == region %} selected{% endif %}>{{ name }}</option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label for="filter-sort" class="field-label">Sort by</label>
+          <label for="filter-sort" class="field-label">{{ t('catalog.sort') }}</label>
           <select id="filter-sort" class="input" name="sort">
-            <option value="featured"{% if sort == 'featured' %} selected{% endif %}>Featured</option>
-            <option value="newest"{% if sort == 'newest' %} selected{% endif %}>Newest</option>
-            <option value="price_asc"{% if sort == 'price_asc' %} selected{% endif %}>Price: low to high</option>
-            <option value="price_desc"{% if sort == 'price_desc' %} selected{% endif %}>Price: high to low</option>
+            <option value="featured"{% if sort == 'featured' %} selected{% endif %}>{{ t('catalog.sort_featured') }}</option>
+            <option value="newest"{% if sort == 'newest' %} selected{% endif %}>{{ t('catalog.sort_newest') }}</option>
+            <option value="price_asc"{% if sort == 'price_asc' %} selected{% endif %}>{{ t('catalog.sort_price_asc') }}</option>
+            <option value="price_desc"{% if sort == 'price_desc' %} selected{% endif %}>{{ t('catalog.sort_price_desc') }}</option>
           </select>
         </div>
-        <button type="submit" data-filter-submit class="btn btn--secondary">Apply</button>
+        <button type="submit" data-filter-submit class="btn btn--secondary">{{ t('catalog.apply') }}</button>
       </div>
 
       <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p class="text-small text-ink-2" role="status" aria-live="polite">{{ total }} {{ total == 1 ? 'bag' : 'bags' }}</p>
+        <p class="text-small text-ink-2" role="status" aria-live="polite">{{ tn('catalog.count', total) }}</p>
         <label class="flex min-h-11 cursor-pointer items-center gap-2.5 text-small font-medium">
-          <input class="check" type="checkbox" name="hide_sold_out" value="1"{% if hide_sold_out %} checked{% endif %}>Hide sold-out bags</label>
+          <input class="check" type="checkbox" name="hide_sold_out" value="1"{% if hide_sold_out %} checked{% endif %}>{{ t('catalog.hide_sold_out') }}</label>
       </div>
     </form>
 
     {% if products|length > 0 %}
       <div class="mt-4">
-        <h2 class="sr-only">Bags</h2>
+        <h2 class="sr-only">{{ t('catalog.bags_heading') }}</h2>
         <ul class="grid grid-cols-2 gap-x-4 gap-y-8 @3xl:grid-cols-3 @5xl:grid-cols-4 @5xl:gap-x-6">
           {% for product in products %}
             {% include 'storefront/_product-card.twig' with { product: product, csrf_token: csrf_token, eager: loop.index <= 4 } only %}
@@ -87,26 +87,26 @@
     {% elseif has_filters %}
       <div class="mt-4">
         <div class="rounded-panel border border-line bg-surface p-6">
-          <h2 class="font-display text-h3 font-semibold">No bags match those filters</h2>
-          <p class="mt-1 text-small text-ink-2">Try a different search term or filter &mdash; or clear the filters to see the whole collection.</p>
-          <p class="mt-3"><a class="link touch-link" href="/products">Clear filters</a></p>
+          <h2 class="font-display text-h3 font-semibold">{{ t('catalog.no_match_title') }}</h2>
+          <p class="mt-1 text-small text-ink-2">{{ t('catalog.no_match_body') }}</p>
+          <p class="mt-3"><a class="link touch-link" href="/products">{{ t('catalog.clear_filters') }}</a></p>
         </div>
       </div>
     {% else %}
       <div class="mt-4">
         <div class="rounded-panel border border-line bg-surface p-6">
-          <h2 class="font-display text-h3 font-semibold">The collection is empty</h2>
-          <p class="mt-1 text-small text-ink-2">There are no active bags to browse right now.</p>
-          <p class="mt-3"><a class="link touch-link" href="/">Back to the weave</a></p>
+          <h2 class="font-display text-h3 font-semibold">{{ t('catalog.empty_title') }}</h2>
+          <p class="mt-1 text-small text-ink-2">{{ t('catalog.empty_body') }}</p>
+          <p class="mt-3"><a class="link touch-link" href="/">{{ t('catalog.back_home') }}</a></p>
         </div>
       </div>
     {% endif %}
 
     {% if pages > 1 %}
       <div class="mt-10 flex justify-center border-t border-line pt-6">
-        <nav aria-label="Pagination" class="flex items-center gap-1">
+        <nav aria-label="{{ t('catalog.pagination') }}" class="flex items-center gap-1">
           {% if previous_url %}
-            <a href="{{ previous_url }}" rel="prev" aria-label="Previous page" title="Previous page" class="icon-btn relative">
+            <a href="{{ previous_url }}" rel="prev" aria-label="{{ t('catalog.previous_page') }}" title="{{ t('catalog.previous_page') }}" class="icon-btn relative">
               {{ icons.icon('chevron-left') }}
             </a>
           {% else %}
@@ -116,13 +116,13 @@
           {% endif %}
           {% for number in 1..pages %}
             {% if number == page %}
-              <span aria-current="page" aria-label="Page {{ number }}" class="grid h-11 w-11 place-items-center rounded-control text-[15px] font-semibold tabular-nums bg-ink text-inverse">{{ number }}</span>
+              <span aria-current="page" aria-label="{{ t('catalog.page', {number: number}) }}" class="grid h-11 w-11 place-items-center rounded-control text-[15px] font-semibold tabular-nums bg-ink text-inverse">{{ number }}</span>
             {% else %}
-              <a href="{{ page_urls[number] }}" aria-label="Page {{ number }}" class="grid h-11 w-11 place-items-center rounded-control text-[15px] font-semibold tabular-nums hover:bg-inset">{{ number }}</a>
+              <a href="{{ page_urls[number] }}" aria-label="{{ t('catalog.page', {number: number}) }}" class="grid h-11 w-11 place-items-center rounded-control text-[15px] font-semibold tabular-nums hover:bg-inset">{{ number }}</a>
             {% endif %}
           {% endfor %}
           {% if next_url %}
-            <a href="{{ next_url }}" rel="next" aria-label="Next page" title="Next page" class="icon-btn relative">
+            <a href="{{ next_url }}" rel="next" aria-label="{{ t('catalog.next_page') }}" title="{{ t('catalog.next_page') }}" class="icon-btn relative">
               {{ icons.icon('chevron-right') }}
             </a>
           {% else %}

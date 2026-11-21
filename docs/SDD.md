@@ -170,6 +170,7 @@ Indexes: `products(slug)`, `products(weaver_id)`, `products(category_id,listing_
 | GET | `/checkout/review` | Review + confirm (R10) | session, payment validated |
 | POST | `/checkout/place` | Create order + atomic stock decrement (R15, R16) | session + CSRF + idempotency key |
 | GET | `/order/{orderNumber}` | Confirmation page (R16) | checkout session owner |
+| POST | `/lang` | `lang=en\|fil`, `return=<path>`: stores the language in the session (`lang`) and a one-year `habi_lang` cookie, 303 back to a same-origin path, else `/` (R33, M14) | CSRF |
 | GET/POST | `/admin/login`, POST `/admin/logout` | Admin auth (R19) | – |
 | GET | `/admin` | Dashboard: low stock, recent orders (R18) | admin |
 | GET/POST | `/admin/products…` | Product CRUD + image upload (R20, R23) | admin |
@@ -203,6 +204,13 @@ The endpoint uses `Cache-Control: no-store`; missing/inactive products and produ
 Images/3D toggle, viewer markup, 3D dialog and Three.js import map. Sold-out products remain inspectable. Detail gallery images are
 ordered primary-first, then `sort_order` and ID; catalog queries do not load galleries
 or model configs. M4 enables stock-validated purchase controls.
+
+M14 language (R33, R26, N9): `LocaleMiddleware` runs outside the error handler and picks the
+session `lang`, else the `habi_lang` cookie, else `en`; unsupported values are ignored and
+`/admin`, `/weaver` paths always use `en`. `LanguageController::safeReturnPath()` accepts only
+`/…` paths without scheme, host, backslash or control characters (and never `/lang`), so the switch
+cannot redirect off-site or inject headers. `Set-Cookie: habi_lang=…; Path=/; Max-Age=31536000;
+SameSite=Lax; HttpOnly` plus `Secure` under the same rule as the session cookie. Details in §15.8.
 
 M5 moves POST CSRF enforcement into `CsrfMiddleware`, including future/unregistered POST paths; cart failures retain the authoritative fragment/recovery contract. `AdminAuthMiddleware` redirects `/admin` and descendants except `/admin/login` to sign-in (303). Templates use Twig auto-escape (N2).
 
@@ -567,7 +575,7 @@ journal articles also have an optional cover upload; weaver and article forms ar
 | GET | `/products?q=&category=&fiber=&region=&sort=&hide_sold_out=&page=` | R2 filters (category by slug) | – |
 | GET | `/weavers`, `/weavers/{slug}` | Meet the Weavers list and profile with products (R30) | – |
 | GET | `/journal`, `/journal/{slug}` | Published articles (R31) | – |
-| POST | `/lang` | Set `en`/`fil` in session + `habi_lang` cookie, redirect back (same-origin path only) (R33) | CSRF |
+| POST | `/lang` | Set `en`/`fil` in session + `habi_lang` cookie, redirect back (same-origin path only) (R33) — *implemented in M14, see §6* | CSRF |
 | GET | `/checkout/payment` | Method choice + card/transfer subforms (R13) | session, shipping done |
 | POST | `/checkout/payment` | Store chosen method; transfer: validate and store proof upload; card: delegates to the simulator | session + CSRF |
 | GET/POST | `/track` | Reference number + email lookup, throttled (R32) | CSRF on POST |
@@ -696,13 +704,33 @@ weaver at placement, otherwise the place fails like a stock conflict.
 
 ### 15.8 Internationalization (R33, N9)
 
-- `Support/Translator` loads `lang/en.php` and `lang/fil.php` (flat key → string arrays with
-  `{name}` placeholders). Twig gets a `t(key, params)` function; JavaScript gets the strings it needs
-  through a JSON `<script type="application/json" id="i18n">` block rendered per page.
-- `LocaleMiddleware` resolves the locale from session, then the `habi_lang` cookie, else `en`,
-  and sets `<html lang="en|fil">` (R26). Content getters return `COALESCE(field_fil, field)` for `fil`.
-- Service validation messages return keys, translated at render time. A PHPUnit test asserts
-  both catalogs have identical key sets and that templates reference only existing keys.
+*Implemented in M14* (`Support/Translator`, `Support/TranslationExtension`, `LocaleMiddleware`,
+`LanguageController`, `lang/{en,fil}.php`; tests: `TranslatorTest`, `TranslationExtensionTest`,
+`LocaleMiddlewareTest`, `LanguageSwitchTest`, `LocalizedContentTest`, `FilipinoPagesTest`,
+`I18n/CatalogParityTest`, `I18n/HardcodedStringsTest`). Facts:
+
+- Catalogs are flat `area.name => text` arrays with `{name}` placeholders; `key.one`/`key.other`
+  are plurals with `{count}`. A key missing from the active catalog returns English, a key missing
+  everywhere returns the key; `tests/bootstrap.php` turns strict mode on, so any missing key fails
+  a test. The request translator is static (`Translator::current()`), set by `LocaleMiddleware`.
+- Twig (`TranslationExtension`): `t`, `tn`, `t_html` (sentence with a captured link), `locale()`
+  for `<html lang>` (R26), `local_date(value, format_key, tz)` with catalog month names and
+  `i18n_json()`. `base.twig` renders every `js.*` key, prefix stripped, into
+  `<script type="application/json" id="i18n">`; `cart.js`, `checkout.js` and `product.js` read it
+  with a local `i18n(key, params)` helper and pass the canvas labels to `BagViewer`.
+- Content: `ProductService` (description, story, category label), `WeaverDirectoryService` (story)
+  and `JournalService` (title, excerpt, body) select `COALESCE(NULLIF(x_fil, ''), x)` and use it
+  when the locale is `fil`; the locale defaults to the request's and can be passed for tests.
+  Category filter values stay the stored English `products.category`.
+- `/admin` and `/weaver` stay English (PRD R33 allows it): the middleware forces `en` there. It reads
+  only an existing session; the middleware itself never starts one.
+
+Deviations from the plan: service messages are translated where they are raised (the request
+locale is known by then), not returned as keys and translated at render time, so existing English
+assertions hold and flashed PRG errors keep their text; cart notices and flashed errors therefore
+stay in the language active when they were created. The JS dictionary is every `js.*` key on every
+storefront page rather than a per-page subset (about 40 short strings). The session key is `lang`
+(as in §15.1); `hreflang` is not emitted because both languages share one URL.
 
 ### 15.9 Migration of existing databases
 

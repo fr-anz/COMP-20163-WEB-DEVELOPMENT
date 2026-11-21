@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Habi\Middleware;
 
+use Habi\Support\Translator;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -56,32 +57,44 @@ final class ErrorHandler
      * Standalone Habi-styled error page: reuses the base layout's markup and
      * app.css classes only — no Twig, DB, session or scripts — so it renders
      * even when the app failed to initialize. Never includes debug details.
+     * Words come from the active catalog (error.*, R33); before
+     * LocaleMiddleware runs that is English.
      */
     public static function page(int $status): string
     {
-        [$title, $message] = match ($status) {
-            404 => ['Page not found', 'The page you are looking for does not exist or has moved.'],
-            405 => ['Method not allowed', 'That request method is not supported here.'],
-            default => ['Something went wrong', 'Something unexpected happened. Please try again in a moment.'],
-        };
-
-        $escapedTitle = htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $escapedMessage = htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $translator = Translator::current();
+        $code = in_array($status, [404, 405], true) ? (string) $status : '500';
+        $text = static fn (string $key): string => htmlspecialchars(
+            $translator->t($key),
+            ENT_QUOTES | ENT_SUBSTITUTE,
+            'UTF-8'
+        );
+        $escapedTitle = $text('error.' . $code . '.title');
+        $escapedMessage = $text('error.' . $code . '.body');
+        $lang = $translator->locale();
+        $unavailable = $text('error.unavailable');
+        $skip = $text('shell.skip_link');
+        $browse = $text('shell.browse_collection');
+        $home = $text('error.back_home');
+        $footer = $text('shell.nav_footer');
+        $weave = $text('footer.weave');
+        $collection = $text('nav.collection');
+        $bag = $text('shell.your_bag');
 
         return <<<HTML
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="{$lang}">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>{$escapedTitle} — Habi</title>
-            <meta name="description" content="This page is unavailable.">
+            <meta name="description" content="{$unavailable}">
             <meta name="robots" content="noindex">
             <link rel="stylesheet" href="/assets/css/app.css">
             <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
         </head>
         <body class="@container bg-page">
-            <a class="skip-link" href="#main-content">Skip to main content</a>
+            <a class="skip-link" href="#main-content">{$skip}</a>
 
             <header class="sticky top-0 z-30 border-b border-line bg-page/95 backdrop-blur-sm">
                 <div class="mx-auto flex h-16 max-w-[1280px] items-center gap-2 px-4 @3xl:px-8">
@@ -107,8 +120,8 @@ final class ErrorHandler
                         <h1 class="font-display text-[30px] font-bold @3xl:text-h1">{$escapedTitle}</h1>
                         <p class="mt-3 text-body text-ink-2">{$escapedMessage}</p>
                         <div class="mt-6 flex flex-wrap items-center gap-3">
-                            <a href="/products" class="btn btn--primary">Browse the collection</a>
-                            <a href="/" class="btn btn--secondary">Back to home</a>
+                            <a href="/products" class="btn btn--primary">{$browse}</a>
+                            <a href="/" class="btn btn--secondary">{$home}</a>
                         </div>
                     </div>
                 </div>
@@ -129,22 +142,22 @@ final class ErrorHandler
                              class="absolute left-1/2 -translate-x-1/2 max-w-none"
                              style="width: .2em; height: .2em; top: -.02em;"></span>
                     </span>
-                    <nav aria-label="Footer">
+                    <nav aria-label="{$footer}">
                         <ul class="flex flex-wrap gap-x-6 gap-y-1 text-small">
                             <li>
                                 <a href="/#craft"
                                    class="touch-link inline-block py-1.5 underline-offset-4 hover:underline"
-                                   >The weave</a>
+                                   >{$weave}</a>
                             </li>
                             <li>
                                 <a href="/products"
                                    class="touch-link inline-block py-1.5 underline-offset-4 hover:underline"
-                                   >Collection</a>
+                                   >{$collection}</a>
                             </li>
                             <li>
                                 <a href="/cart"
                                    class="touch-link inline-block py-1.5 underline-offset-4 hover:underline"
-                                   >Your bag</a>
+                                   >{$bag}</a>
                             </li>
                         </ul>
                     </nav>
