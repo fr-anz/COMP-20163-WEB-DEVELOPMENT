@@ -28,6 +28,20 @@ final class FirstBootTest extends IsolatedDatabaseTestCase
             $this->scalar($pdo, 'SELECT COUNT(*) FROM product_images WHERE is_primary = 1')
         );
 
+        // N7: 4 products in 4 categories, >= 4 weavers, >= 3 published articles.
+        self::assertSame(4, $this->scalar($pdo, 'SELECT COUNT(*) FROM categories WHERE is_active = 1'));
+        self::assertGreaterThanOrEqual(4, $this->scalar($pdo, 'SELECT COUNT(*) FROM weavers WHERE is_active = 1'));
+        self::assertGreaterThanOrEqual(
+            4,
+            $this->scalar($pdo, 'SELECT COUNT(DISTINCT community) FROM weavers WHERE is_active = 1')
+        );
+        self::assertGreaterThanOrEqual(
+            3,
+            $this->scalar($pdo, "SELECT COUNT(*) FROM journal_articles WHERE status = 'published'")
+        );
+        self::assertSame(0, $this->scalar($pdo, "SELECT COUNT(*) FROM weavers WHERE slug = 'unassigned'"));
+        self::assertSame([], $pdo->query('PRAGMA foreign_key_check')->fetchAll());
+
         // A second initialize on the same database must not add anything.
         Initializer::initialize($pdo, $this->migrationsDir());
         self::assertSame(4, $this->scalar($pdo, 'SELECT COUNT(*) FROM products'));
@@ -41,14 +55,21 @@ final class FirstBootTest extends IsolatedDatabaseTestCase
 
         $products = $pdo->query(
             'SELECT slug, category, price_centavos, stock, low_stock_threshold,
-                    dimensions, three_config, is_active
+                    dimensions, three_config, listing_status, fiber, weaver_id, category_id,
+                    (SELECT c.name FROM categories c WHERE c.id = products.category_id) AS category_name,
+                    (SELECT w.is_active FROM weavers w WHERE w.id = products.weaver_id) AS weaver_active
              FROM products ORDER BY slug'
         )->fetchAll(PDO::FETCH_ASSOC);
 
         self::assertCount(4, $products);
+        self::assertCount(4, array_unique(array_column($products, 'fiber')), 'One fiber per bag.');
+        self::assertCount(4, array_unique(array_column($products, 'weaver_id')), 'One sample weaver per bag.');
 
         foreach ($products as $product) {
-            self::assertSame(1, (int) $product['is_active'], $product['slug']);
+            self::assertSame('active', $product['listing_status'], $product['slug']);
+            self::assertSame($product['category'], $product['category_name'], $product['slug']);
+            self::assertSame(1, (int) $product['weaver_active'], $product['slug']);
+            self::assertContains($product['fiber'], ['buri', 'pandan', 'tikog', 'abaca'], $product['slug']);
             self::assertGreaterThan(0, (int) $product['price_centavos'], $product['slug']);
             self::assertGreaterThanOrEqual(0, (int) $product['stock'], $product['slug']);
             self::assertGreaterThanOrEqual(0, (int) $product['low_stock_threshold'], $product['slug']);
@@ -71,7 +92,7 @@ final class FirstBootTest extends IsolatedDatabaseTestCase
                     $product['slug']
                 );
             }
-            self::assertContains($config['material'] ?? '', ['canvas', 'leather', 'rattan'], $product['slug']);
+            self::assertSame($product['fiber'], $config['material'] ?? null, $product['slug']);
             self::assertIsArray($config['pockets'] ?? null, $product['slug']);
         }
     }

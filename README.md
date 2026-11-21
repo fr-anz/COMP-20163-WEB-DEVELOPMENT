@@ -4,7 +4,9 @@ Habi ("to weave") is a heritage-driven e-commerce prototype for COMP-20163 Web D
 
 **Implemented (M0–M8):** discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, card-only simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders, plus the production Docker image, CI and deployment to a Google Cloud e2-micro VM, with Render as the alternative ([Deploy](#deploy)).
 
-**Planned (PRD 2.0, BUILD M9–M15, not implemented):** weaver accounts and module (profile, own listings, stock, orders, earnings), Meet the Weavers, Heritage Journal, material/region filters, cash on delivery and e-wallet/bank transfer with proof of payment, the pending → confirmed → packed → shipped → delivered order lifecycle with reject/cancel, order tracking by reference number, admin weaver/category/customer/content management, and English/Filipino. The routes and behavior below describe the implemented v1 system.
+**Data model v2 (M9):** the PRD 2.0 schema (weavers, categories, journal articles, order events, payment proofs; fiber/region/listing status on products; payment method/status and the v2 order statuses on orders), the native-fiber sample catalog and an in-place upgrade of v1 databases. Card checkout and the admin use the v2 statuses; the features below are not built yet.
+
+**Planned (PRD 2.0, BUILD M10–M15, not implemented):** weaver accounts and module (profile, own listings, stock, orders, earnings), Meet the Weavers, Heritage Journal, material/region filters, cash on delivery and e-wallet/bank transfer with proof of payment, the pending → confirmed → packed → shipped → delivered order lifecycle with reject/cancel, order tracking by reference number, admin weaver/category/customer/content management, and English/Filipino. The routes and behavior below describe the implemented v1 system.
 
 The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the visual authority for tokens, components and inner screens; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
 
@@ -26,7 +28,7 @@ Requires PHP **8.2+**, Composer 2, and PHP extensions `pdo_sqlite`, `mbstring`, 
    ```sh
    php -S localhost:8000 -t public public/index.php
    ```
-   Open <http://localhost:8000>. The first request initializes `data/app.sqlite` and seeds 4 fictional bags, one per category, plus your configured administrator. Later requests/restarts preserve data and do not reset credentials. Sign in at <http://localhost:8000/admin> with `ADMIN_SEED_EMAIL` and the password you hashed. A database created before M6 is upgraded in place on the next request (the `login_attempts` table is added; no data is reset).
+   Open <http://localhost:8000>. The first request initializes `data/app.sqlite` and seeds 4 native-fiber bags (buri, tikog, abaca, pandan), one per category, 4 fictional sample weavers, 3 journal articles and your configured administrator. Later requests/restarts preserve data and do not reset credentials. Sign in at <http://localhost:8000/admin> with `ADMIN_SEED_EMAIL` and the password you hashed. An older database is upgraded in place on the next request and nothing is reseeded: before M6 the `login_attempts` table is added; a v1 database (M0–M8) is rebuilt into the v2 schema with its products, orders, audit rows and administrator kept, orders mapped `paid → confirmed` and products assigned to an inactive "Unassigned weaver" until an administrator reassigns them ([SDD §15.9](docs/SDD.md)). Back up `data/app.sqlite` first if you need the v1 file.
 
 `public/index.php` is also the built-in server's router. Keep that last argument: without it PHP 8.2 treats any dotted path as a static file and answers 404 for uploaded images (`/uploads/<name>.png`) before the application runs. Real files in `public/` are still served directly. Optionally set `PHP_CLI_SERVER_WORKERS=4` so a simulated payment does not block other requests.
 
@@ -251,7 +253,7 @@ Shipping rates: Metro Manila ₱120, Luzon ₱180, Visayas ₱220, Mindanao ₱2
 
 | Test card | Result |
 |---|---|
-| `4242 4242 4242 4242` | Approved simulation; Place creates one paid demo order |
+| `4242 4242 4242 4242` | Approved simulation; Place creates one pending order with payment paid by card |
 | `4000 0000 0000 0002` | Card declined; no order or decrement |
 | `4000 0000 0000 9995` | Insufficient funds; no order or decrement |
 
@@ -269,6 +271,15 @@ only to the originating session; expiry also loses access. Delivery is explicitl
 simulated: nothing will be charged or shipped. Administrators can advance and cancel
 these orders in `/admin/orders` (see below).
 
+**Sample transfer accounts (fictional, for the M11 transfer method):** defined in
+[`src/Bootstrap/SampleContent.php`](src/Bootstrap/SampleContent.php). The institutions and
+numbers do not exist; never replace them with a real account in this repository.
+
+| Method | Provider | Account name | Number |
+|---|---|---|---|
+| Bank transfer | Banco Habi | Habi Crafts | `0000-0000-0000` |
+| E-wallet | HabiPay | Habi Crafts | `0900 000 0000` |
+
 ### Admin panel
 
 Products, inventory, orders and the stock audit follow the published Admin example;
@@ -277,8 +288,9 @@ containment, Esc and filter auto-submit). Stock is set once when a product is ad
 and afterwards changes only through **Inventory → Adjust stock** (change, reason,
 optional note → confirm). Checkout decrements, adjustments, initial stock and
 cancellations each write a `stock_audit` row. Products are archived, never deleted,
-so order history stays intact. Fulfilment moves paid → packed → shipped → delivered
-one step at a time; only paid or packed orders can be cancelled, which restores
+so order history stays intact. Fulfilment moves pending → confirmed → packed → shipped → delivered
+one step at a time (confirming needs a paid payment unless it is cash on delivery);
+only confirmed or packed orders can be cancelled, which restores
 every item's stock in one transaction. Images must be real JPEG, PNG or WebP files
 up to 2 MB (checked by content); otherwise choose a seeded demo illustration.
 

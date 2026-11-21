@@ -21,6 +21,9 @@ use Throwable;
  * Databases created by an earlier milestone already hold the base schema
  * (001) and their inventory. For them only the later migrations run; those
  * files must be idempotent (CREATE … IF NOT EXISTS) and never seed or reset.
+ * HeritageUpgrade then rebuilds v1 tables into the v2 shape, so foreign keys
+ * are switched off for the run (SQLite cannot change that inside a
+ * transaction) and checked explicitly before committing.
  */
 final class Initializer
 {
@@ -32,6 +35,11 @@ final class Initializer
         'order_items',
         'stock_audit',
         'login_attempts',
+        'weavers',
+        'categories',
+        'journal_articles',
+        'order_events',
+        'payment_proofs',
     ];
 
     /** The base schema; every later migration is an idempotent upgrade. */
@@ -46,6 +54,20 @@ final class Initializer
             return;
         }
 
+        $foreignKeys = (int) $pdo->query('PRAGMA foreign_keys')->fetchColumn();
+        $pdo->exec('PRAGMA foreign_keys = OFF');
+        try {
+            self::run($pdo, $migrationsDir, $seeder);
+        } finally {
+            $pdo->exec('PRAGMA foreign_keys = ' . ($foreignKeys === 1 ? 'ON' : 'OFF'));
+        }
+    }
+
+    /**
+     * @param callable(PDO): void|null $seeder
+     */
+    private static function run(PDO $pdo, string $migrationsDir, ?callable $seeder): void
+    {
         $pdo->exec('BEGIN IMMEDIATE');
         try {
             if (self::isInitialized($pdo)) {
@@ -59,18 +81,22 @@ final class Initializer
             if (self::tableExists($pdo, 'products')) {
                 // Existing inventory: add missing later tables, never reseed.
                 self::runMigrations($pdo, $migrationsDir, true);
+                HeritageUpgrade::apply($pdo);
+                HeritageUpgrade::assertForeignKeys($pdo);
                 $pdo->exec('COMMIT');
 
                 return;
             }
 
             self::runMigrations($pdo, $migrationsDir, false);
+            HeritageUpgrade::apply($pdo);
 
             if ($seeder === null) {
                 Seeder::seed($pdo);
             } else {
                 $seeder($pdo);
             }
+            HeritageUpgrade::assertForeignKeys($pdo);
 
             $pdo->exec('COMMIT');
         } catch (Throwable $exception) {
@@ -87,7 +113,7 @@ final class Initializer
             }
         }
 
-        return true;
+        return HeritageUpgrade::isApplied($pdo);
     }
 
     private static function tableExists(PDO $pdo, string $table): bool

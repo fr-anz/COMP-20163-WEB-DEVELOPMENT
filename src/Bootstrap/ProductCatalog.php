@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Habi\Bootstrap;
 
 /**
- * The Habi catalog: one bag per category, 4 categories (SDD §5, N7).
- * Prices are integer centavos (₱1 = 100).
+ * The Habi catalog: four native-fiber bags, one per category, each made by
+ * one sample weaver from SampleContent (SDD §15.2, N7). Prices are integer
+ * centavos (₱1 = 100). three_config.material is the bag's fiber.
  *
  * Image paths are public asset URLs served from public/assets/img/products/,
  * each an original deterministic SVG illustration (4:5 quiet framing).
@@ -15,7 +16,8 @@ final class ProductCatalog
 {
     /**
      * @return list<array{
-     *     sku: string, slug: string, name: string, category: string,
+     *     sku: string, slug: string, name: string, category: string, weaver: string,
+     *     fiber: string, technique: string, story: string,
      *     description: string, materials: string, place_of_make: string,
      *     price_centavos: int, stock: int, low_stock_threshold: int,
      *     dimensions: array{width: int, height: int, depth: int},
@@ -30,9 +32,13 @@ final class ProductCatalog
                 'slug' => 'sinag-tote',
                 'name' => 'Sinag Tote',
                 'category' => 'Tote',
-                'description' => 'A roomy morning-market tote with a woven-style panel '
-                    . 'and rust trim, finished with a geometric sun-ray motif.',
-                'materials' => 'Buri-style straw, leather-style trim, cotton lining',
+                'weaver' => 'nena-quezon',
+                'fiber' => 'buri',
+                'technique' => 'Checker plaiting',
+                'story' => '',
+                'description' => 'A roomy morning-market tote in a two-tone checker of buri strips, '
+                    . 'with mosaic bands of rust, gold, green and blue.',
+                'materials' => 'Buri palm strips, cotton lining',
                 'place_of_make' => 'Handwoven in the Philippines',
                 'price_centavos' => 165000,
                 'stock' => 12,
@@ -46,7 +52,7 @@ final class ProductCatalog
                         'handle' => '#B08F62', 'handle_secondary' => '#C9A877',
                     ],
                     'handle_style' => 'double_handles',
-                    'material' => 'rattan',
+                    'material' => 'buri',
                     'lining' => 'cotton',
                     'pockets' => ['interior_zip', 'slip_pocket'],
                     'pattern' => [
@@ -65,9 +71,13 @@ final class ProductCatalog
                 'slug' => 'lupa-satchel',
                 'name' => 'Lupa Satchel',
                 'category' => 'Satchel',
-                'description' => 'A structured satchel in deep earth brown with a single '
-                    . 'top handle and a stitched diamond motif on the flap.',
-                'materials' => 'Leather, brass-style hardware, cotton twill lining',
+                'weaver' => 'rosa-basey',
+                'fiber' => 'tikog',
+                'technique' => 'Banig plaiting',
+                'story' => '',
+                'description' => 'A structured satchel in a fine tikog checker with a single top handle '
+                    . 'and green, gold and cream mosaic bands.',
+                'materials' => 'Tikog grass, brass-style hardware, cotton twill lining',
                 'place_of_make' => 'Handwoven in the Philippines',
                 'price_centavos' => 285000,
                 'stock' => 6,
@@ -81,7 +91,7 @@ final class ProductCatalog
                         'handle' => '#B08F62',
                     ],
                     'handle_style' => 'top_handle',
-                    'material' => 'leather',
+                    'material' => 'tikog',
                     'lining' => 'cotton',
                     'pockets' => ['interior_zip', 'pen_slip'],
                     'pattern' => [
@@ -100,9 +110,13 @@ final class ProductCatalog
                 'name' => 'Tala Sling',
                 'slug' => 'tala-sling',
                 'category' => 'Sling',
-                'description' => 'A compact crossbody sling in warm gold with a star motif '
-                    . 'on the flap and a contrasting strap.',
-                'materials' => 'Cotton canvas, cotton webbing strap, cotton lining',
+                'weaver' => 'lorna-catanduanes',
+                'fiber' => 'abaca',
+                'technique' => 'Striped loom weaving',
+                'story' => '',
+                'description' => 'A compact crossbody sling in rust-red abaca, woven with stripes '
+                    . 'of dark brown, cream and indigo, on a tan strap.',
+                'materials' => 'Abaca fiber, abaca strap, cotton lining',
                 'place_of_make' => 'Handwoven in the Philippines',
                 'price_centavos' => 125000,
                 'stock' => 18,
@@ -116,7 +130,7 @@ final class ProductCatalog
                         'handle' => '#A8462C',
                     ],
                     'handle_style' => 'top_handle',
-                    'material' => 'canvas',
+                    'material' => 'abaca',
                     'lining' => 'cotton',
                     'pockets' => ['interior_slip'],
                     'pattern' => [
@@ -133,9 +147,13 @@ final class ProductCatalog
                 'name' => 'Maya Clutch',
                 'slug' => 'maya-clutch',
                 'category' => 'Clutch',
-                'description' => 'A slim woven-style clutch with a rust zigzag band '
-                    . 'and a quiet rectangular silhouette.',
-                'materials' => 'Raffia-style weave, cotton backing, magnetic closure',
+                'weaver' => 'carmen-bohol',
+                'fiber' => 'pandan',
+                'technique' => 'Pattern plaiting',
+                'story' => '',
+                'description' => 'A slim pandan clutch in golden yellow with an indigo diamond motif, '
+                    . 'cream accents and a dark edge binding.',
+                'materials' => 'Pandan leaves, cotton backing, magnetic closure',
                 'place_of_make' => 'Handwoven in the Philippines',
                 'price_centavos' => 98000,
                 'stock' => 22,
@@ -148,7 +166,7 @@ final class ProductCatalog
                         'body' => '#E8B94D', 'trim' => '#426A94', 'lining' => '#F7EFD8', 'binding' => '#352820',
                     ],
                     'handle_style' => 'none',
-                    'material' => 'rattan',
+                    'material' => 'pandan',
                     'lining' => 'cotton',
                     'pockets' => ['back_slip'],
                     'pattern' => [

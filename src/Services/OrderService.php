@@ -17,7 +17,8 @@ use Throwable;
  * shipping/payment are revalidated, live prices must match the reviewed
  * snapshots, stock is decremented with a guarded UPDATE + affected-row
  * check, stock_audit rows record old/new stock with reason order_placed,
- * and the paid order plus its item snapshots are inserted. Any failure
+ * and the pending card order (payment already paid) plus its item
+ * snapshots are inserted (SDD §15.4). Any failure
  * rolls the whole attempt back — no partial order, no partial decrement.
  *
  * The order number is H-YYYYMMDD-NNNN: today's date plus a daily
@@ -34,14 +35,16 @@ final class OrderService
     /** Highest daily sequence the H-YYYYMMDD-NNNN format can hold. */
     private const MAX_DAILY_SEQUENCE = 9999;
 
-    /** Forward fulfilment steps an administrator may apply (PRD R22). */
-    public const NEXT_STATUS = ['paid' => 'packed', 'packed' => 'shipped', 'shipped' => 'delivered'];
+    /** Forward fulfilment steps an administrator may apply (PRD R22, SDD §15.4). */
+    public const NEXT_STATUS = [
+        'pending' => 'confirmed', 'confirmed' => 'packed', 'packed' => 'shipped', 'shipped' => 'delivered',
+    ];
 
-    /** Statuses that can still be cancelled: the bags have not left. */
-    public const CANCELLABLE = ['paid', 'packed'];
+    /** Statuses that can still be cancelled: confirmed and the bags have not left. */
+    public const CANCELLABLE = ['confirmed', 'packed'];
 
-    /** Statuses shown in admin filters; checkout only ever creates paid orders. */
-    public const ADMIN_STATUSES = ['paid', 'packed', 'shipped', 'delivered', 'cancelled'];
+    /** Statuses shown in admin filters (SDD §15.4). */
+    public const ADMIN_STATUSES = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'rejected', 'cancelled'];
 
     public const ADMIN_PER_PAGE = 25;
 
@@ -52,7 +55,7 @@ final class OrderService
     }
 
     /**
-     * Places a paid order atomically.
+     * Places a card-paid order atomically.
      *
      * @param list<array{product_id: int, quantity: int, price_centavos: int}> $lines
      *     Reviewed cart lines; price_centavos is the snapshot the customer
@@ -279,7 +282,7 @@ final class OrderService
     public function adminSummary(): array
     {
         $counts = $this->pdo->query(
-            "SELECT COALESCE(SUM(status IN ('paid', 'packed')), 0) AS to_fulfil,
+            "SELECT COALESCE(SUM(status IN ('pending', 'confirmed', 'packed')), 0) AS to_fulfil,
                     COALESCE(SUM(date(created_at) = date('now')), 0) AS today
              FROM orders"
         )->fetch();
@@ -292,8 +295,9 @@ final class OrderService
     }
 
     /**
-     * Moves an order one fulfilment step forward (paid → packed → shipped
-     * → delivered). The guarded UPDATE rejects a stale form.
+     * Moves an order one fulfilment step forward (pending → confirmed →
+     * packed → shipped → delivered). Confirming needs a paid payment unless
+     * it is cash on delivery. The guarded UPDATE rejects a stale form.
      *
      * @throws AdminActionException
      */
@@ -310,8 +314,15 @@ final class OrderService
                     $target
                 ));
             }
+            if ($target === 'confirmed' && $order['payment_method'] !== 'cod' && $order['payment_status'] !== 'paid') {
+                throw new AdminActionException(sprintf(
+                    'Order %s cannot be confirmed until its payment is verified.',
+                    $orderNumber
+                ));
+            }
             $update = $this->pdo->prepare(
-                "UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = ?"
+                "UPDATE orders SET status = ?, status_changed_at = datetime('now'), updated_at = datetime('now')
+                 WHERE id = ? AND status = ?"
             );
             $update->execute([$target, $order['id'], $order['status']]);
             if ($update->rowCount() !== 1) {
@@ -326,7 +337,7 @@ final class OrderService
     }
 
     /**
-     * Cancels a paid or packed order and restores every item's stock in the
+     * Cancels a confirmed or packed order and restores every item's stock in the
      * same transaction, with one stock_audit row per item
      * (reason "order_cancelled: H-…", acting administrator). Any failure
      * leaves the order and stock untouched.
@@ -373,7 +384,8 @@ final class OrderService
             }
 
             $update = $this->pdo->prepare(
-                "UPDATE orders SET status = 'cancelled', updated_at = datetime('now') WHERE id = ? AND status = ?"
+                "UPDATE orders SET status = 'cancelled', status_changed_at = datetime('now'),
+                     updated_at = datetime('now') WHERE id = ? AND status = ?"
             );
             $update->execute([$order['id'], $order['status']]);
             if ($update->rowCount() !== 1) {
@@ -388,18 +400,25 @@ final class OrderService
     }
 
     /**
-     * @return array{id: int, status: string}
+     * @return array{id: int, status: string, payment_method: string, payment_status: string}
      */
     private function lockedOrder(string $orderNumber): array
     {
-        $statement = $this->pdo->prepare('SELECT id, status FROM orders WHERE order_number = ?');
+        $statement = $this->pdo->prepare(
+            'SELECT id, status, payment_method, payment_status FROM orders WHERE order_number = ?'
+        );
         $statement->execute([$orderNumber]);
         $row = $statement->fetch();
         if ($row === false) {
             throw new AdminActionException('That order does not exist.');
         }
 
-        return ['id' => (int) $row['id'], 'status' => (string) $row['status']];
+        return [
+            'id' => (int) $row['id'],
+            'status' => (string) $row['status'],
+            'payment_method' => (string) $row['payment_method'],
+            'payment_status' => (string) $row['payment_status'],
+        ];
     }
 
     private function rollBackQuietly(): void
@@ -505,7 +524,7 @@ final class OrderService
     private function fetchProduct(int $productId): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT id, name, price_centavos, stock, is_active'
+            "SELECT id, name, price_centavos, stock, listing_status = 'active' AS is_active"
             . ' FROM products WHERE id = ?'
         );
         $statement->execute([$productId]);
@@ -557,7 +576,7 @@ final class OrderService
     }
 
     /**
-     * Inserts the paid order and returns its id. The daily H-YYYYMMDD-NNNN
+     * Inserts the pending, card-paid order and returns its id. The daily H-YYYYMMDD-NNNN
      * number is read from the current maximum suffix under the write lock;
      * the unique constraint is the only guard the insert needs. Capacity
      * exhaustion fails safely instead of emitting a wider number.
@@ -574,13 +593,13 @@ final class OrderService
         int $shippingFee,
     ): int {
         $insert = $this->pdo->prepare(
-            'INSERT INTO orders (order_number, status, customer_name, customer_email,'
+            'INSERT INTO orders (order_number, customer_name, customer_email,'
             . ' customer_phone, shipping_address1, shipping_address2, shipping_city,'
             . ' shipping_postal_code, shipping_region, shipping_fee_centavos,'
             . ' subtotal_centavos, total_centavos, payment_last4, payment_brand,'
-            . ' payment_result, idempotency_key)'
-            . ' VALUES (?, \'paid\', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,'
-            . ' \'approved\', ?)'
+            . ' payment_result, idempotency_key, status, payment_method, payment_status)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,'
+            . ' \'approved\', ?, \'pending\', \'card\', \'paid\')'
         );
 
         $insert->execute([

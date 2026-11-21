@@ -63,7 +63,24 @@ final class AdminProductServiceTest extends IsolatedDatabaseTestCase
         self::assertSame('HBI-CRE-1', $row['sku']);
         self::assertSame(165050, (int) $row['price_centavos']);
         self::assertSame(5, (int) $row['stock']);
-        self::assertSame(1, (int) $row['is_active']);
+        self::assertSame('active', $row['listing_status']);
+        // Until the M13 form assigns weavers, new products go to the inactive placeholder.
+        self::assertSame(
+            (int) $this->database()->query("SELECT id FROM weavers WHERE slug = 'unassigned'")->fetchColumn(),
+            (int) $row['weaver_id']
+        );
+        self::assertSame('other', $row['fiber'], 'A v1 material look is not a native fiber.');
+        self::assertSame(
+            [['id' => $id, 'name' => $row['name']]],
+            $this->products->metrics()['unassigned'],
+            'The dashboard lists products still owned by the placeholder weaver.'
+        );
+        self::assertSame(
+            'Tote',
+            (string) $this->database()
+                ->query('SELECT name FROM categories WHERE id = ' . (int) $row['category_id'])
+                ->fetchColumn()
+        );
 
         $image = $this->database()->prepare(
             'SELECT path, is_primary FROM product_images WHERE product_id = ?'

@@ -113,7 +113,7 @@ final class ProductService
         $statement = $this->pdo->prepare(
             "SELECT DISTINCT p.category
              FROM products p
-             WHERE p.is_active = 1
+             WHERE p.listing_status = 'active'
              ORDER BY p.category ASC"
         );
         $statement->execute();
@@ -140,7 +140,7 @@ final class ProductService
                      ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
                      LIMIT 1) AS image_path
              FROM products p
-             WHERE p.slug = :slug AND p.is_active = 1
+             WHERE p.slug = :slug AND p.listing_status = \'active\'
              LIMIT 1'
         );
         $statement->execute(['slug' => $slug]);
@@ -169,7 +169,7 @@ final class ProductService
     public function get3dConfig(string $slug): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT three_config FROM products WHERE slug = :slug AND is_active = 1 LIMIT 1'
+            'SELECT three_config FROM products WHERE slug = :slug AND listing_status = \'active\' LIMIT 1'
         );
         $statement->execute(['slug' => $slug]);
         $config = $statement->fetchColumn();
@@ -207,7 +207,7 @@ final class ProductService
                      ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
                      LIMIT 1) AS image_path
              FROM products p
-             WHERE p.is_active = 1 AND (' . implode(' OR ', $conditions) . ')
+             WHERE p.listing_status = \'active\' AND (' . implode(' OR ', $conditions) . ')
              ORDER BY p.id ASC
              LIMIT ' . max(1, $limit)
         );
@@ -223,7 +223,7 @@ final class ProductService
      */
     private function filters(string $q, string $category): array
     {
-        $conditions = ['p.is_active = 1'];
+        $conditions = ["p.listing_status = 'active'"];
         $parameters = [];
 
         if ($q !== '') {

@@ -1,8 +1,9 @@
 {#-
   Admin dashboard (R18), the published Dashboard example with live data:
   four metric cards, low-stock alerts (active products at or below their
-  threshold, each linking to the audited adjustment dialog) and the five
-  most recent orders. Receives: metrics (AdminProductService::metrics),
+  threshold, each linking to the audited adjustment dialog), products still
+  owned by the placeholder weaver (SDD §15.9; only when there are any) and
+  the five most recent orders. Receives: metrics (AdminProductService::metrics),
   summary (OrderService::adminSummary) plus the layout variables.
 -#}
 {% extends "admin/layout.twig" %}
@@ -51,6 +52,17 @@
           <li class="flex items-center gap-2 px-3 py-2.5 text-small text-ink-2">{{ icons.icon('check', 16) }}No active bag is at or below its low-stock threshold.</li>
         {% endfor %}
       </ul>
+      {% if metrics.unassigned %}
+        <h2 id="unassigned-h" class="mt-6 mb-2 flex items-center gap-2 text-body font-semibold">{{ icons.icon('alert', 18) }} Products without a weaver</h2>
+        <ul class="divide-y divide-line rounded-control border border-line bg-surface" aria-labelledby="unassigned-h">
+          {% for product in metrics.unassigned %}
+            <li class="flex items-center gap-3 px-3 py-2.5">
+              <p class="min-w-0 flex-1 truncate text-small font-semibold">{{ product.name }}</p>
+              <a class="btn btn--secondary btn--sm" href="/admin/products/{{ product.id }}/edit"><span>Edit</span><span class="sr-only"> {{ product.name }}</span></a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
     </section>
     <section aria-labelledby="recent-h" class="min-w-0">
       <h2 id="recent-h" class="mb-2 text-body font-semibold">Recent orders</h2>

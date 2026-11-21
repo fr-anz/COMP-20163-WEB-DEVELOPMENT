@@ -174,13 +174,7 @@ final class StockServiceTest extends IsolatedDatabaseTestCase
 
     private function createProduct(string $sku, string $name, int $stock): int
     {
-        $insert = $this->database()->prepare(
-            'INSERT INTO products (sku, slug, name, category, price_centavos, stock, is_active)'
-            . " VALUES (?, ?, ?, 'Tote', 100000, ?, 1)"
-        );
-        $insert->execute([$sku, $sku, $name, $stock]);
-
-        return (int) $this->database()->lastInsertId();
+        return $this->insertProduct($sku, $name, 100000, $stock);
     }
 
     private function assertStock(int $productId, int $expectedStock): void

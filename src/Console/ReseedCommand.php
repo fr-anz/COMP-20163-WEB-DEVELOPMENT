@@ -21,11 +21,16 @@ final class ReseedCommand
 {
     private const DROP_ORDER = [
         'login_attempts',
+        'payment_proofs',
+        'order_events',
         'stock_audit',
         'order_items',
         'orders',
         'product_images',
         'products',
+        'journal_articles',
+        'categories',
+        'weavers',
         'admins',
     ];
 
