@@ -1,0 +1,151 @@
+{#-
+  Habi order tracking (/track, PRD R32, R26 noindex; DSD "Confirmation and
+  tracking"). A narrow panel with reference number, email and Track order;
+  POST renders the result on the same page. A wrong email and an unknown
+  reference share one generic message; repeated failures are throttled by
+  TrackingService. Results reuse the confirmation summary panel (items,
+  totals, delivery city/region — never the street address or phone) plus a
+  vertical timeline of order_events with icon, text label and Philippine
+  time per event, the latest emphasized.
+  Receives exactly: app_name, app_env, cart, csrf_token, regions, reference,
+  email, errors (field => message), message (string|null), order
+  (TrackingService result incl. items and events, or null).
+-#}
+{% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "storefront/_order-macros.twig" as labels %}
+{% set active_nav = '' %}
+
+{% block title %}Track your order — {{ app_name }}{% endblock %}
+
+{% block description %}Check the status of your Habi order with its reference number and email.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+
+{% macro money(centavos) -%}
+  &#8369;{{ (centavos / 100)|number_format(centavos % 100 == 0 ? 0 : 2, '.', ',') }}
+{%- endmacro %}
+
+{% block content %}
+  <div class="mx-auto max-w-[720px] px-4 py-10 @3xl:py-16">
+    <div class="mx-auto max-w-[520px] overflow-hidden rounded-panel border border-line bg-surface">
+      <div class="h-3" aria-hidden="true">
+        <img src="/assets/img/reference/footer-selvedge.svg" alt="" class="block h-full w-full">
+      </div>
+      <form method="post" action="/track" novalidate class="p-6 @3xl:p-8" aria-labelledby="track-h">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <h1 id="track-h" tabindex="-1" class="font-display text-h2 font-semibold focus:outline-none">Track your order</h1>
+
+        {% if message %}
+          <div class="mt-4 flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert">
+            {{ icons.icon('alert', 20, 'mt-0.5 flex-none') }}
+            <div class="min-w-0 flex-1">
+              <p class="text-[15px] font-semibold">{{ message }}</p>
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="mt-5 grid gap-5">
+          <div>
+            <label for="t-ref" class="field-label">Reference number<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+            <input id="t-ref" name="reference" class="input font-mono" autocomplete="off" placeholder="H-YYYYMMDD-NNNN" value="{{ reference }}"
+                   {% if errors.reference is defined %}aria-invalid="true" aria-describedby="t-ref-err"{% endif %}>
+            {% if errors.reference is defined %}
+              <p id="t-ref-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.reference }}
+              </p>
+            {% endif %}
+          </div>
+          <div>
+            <label for="t-email" class="field-label">Email<span class="ml-1 text-error" aria-hidden="true">*</span></label>
+            <input id="t-email" name="email" type="email" class="input" autocomplete="email" value="{{ email }}"
+                   aria-describedby="t-email-hint{% if errors.email is defined %} t-email-err{% endif %}"{% if errors.email is defined %} aria-invalid="true"{% endif %}>
+            <p id="t-email-hint" class="field-hint">The email you used at checkout.</p>
+            {% if errors.email is defined %}
+              <p id="t-email-err" class="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-error">
+                {{ icons.icon('alert', 16, 'mt-0.5 flex-none') }}{{ errors.email }}
+              </p>
+            {% endif %}
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn--primary btn--lg mt-6">
+          <span>Track order</span>
+          {{ icons.icon('arrow-right', 20) }}
+        </button>
+      </form>
+    </div>
+
+    {% if order %}
+      {% set step_labels = {
+        pending: 'Order placed',
+        confirmed: 'Order confirmed',
+        packed: 'Packed',
+        shipped: 'Shipped',
+        delivered: 'Delivered',
+        rejected: 'Order rejected',
+        cancelled: 'Order cancelled',
+      } %}
+      {% set step_icons = {pending: 'orders', confirmed: 'check', packed: 'box', shipped: 'truck', delivered: 'home', rejected: 'close', cancelled: 'close'} %}
+      <section class="mt-8 overflow-hidden rounded-panel border border-line bg-surface" aria-labelledby="result-h">
+        <div class="p-6 @3xl:p-10">
+          <h2 id="result-h" class="font-display text-h3 font-semibold">Order <span class="font-mono">{{ order.order_number }}</span></h2>
+          <div class="mt-3 flex flex-wrap gap-2">
+            {{ labels.status_chip(order.status) }}
+            {{ labels.payment_chip(order.payment_status) }}
+          </div>
+
+          {% set item_parts = [] %}
+          {% for item in order.items %}
+            {% set item_parts = item_parts|merge([item.qty ~ ' × ' ~ item.name_snapshot]) %}
+          {% endfor %}
+          <dl class="mt-6 grid gap-3 rounded-control bg-page p-4 text-[15px] @3xl:grid-cols-2">
+            <div>
+              <dt class="text-caption text-ink-2">Items</dt>
+              <dd>{{ item_parts|join(', ') }}</dd>
+            </div>
+            <div>
+              <dt class="text-caption text-ink-2">Delivering to</dt>
+              <dd>{{ order.shipping_city }}, {{ regions[order.shipping_region]|default(order.shipping_region) }}</dd>
+            </div>
+            <div>
+              <dt class="text-caption text-ink-2">Total</dt>
+              <dd class="font-semibold tabular-nums">{{ _self.money(order.total_centavos) }}</dd>
+            </div>
+            <div>
+              <dt class="text-caption text-ink-2">Payment</dt>
+              <dd>{{ labels.method_label(order.payment_method) }}</dd>
+            </div>
+            {% if order.status == 'rejected' and order.rejection_reason %}
+              <div class="@3xl:col-span-2">
+                <dt class="text-caption text-ink-2">Reason</dt>
+                <dd>{{ order.rejection_reason }}</dd>
+              </div>
+            {% endif %}
+          </dl>
+
+          <h3 class="mt-8 text-[15px] font-semibold">History</h3>
+          <ol class="mt-3 grid gap-4">
+            {% for event in order.events %}
+              {% set latest = loop.last %}
+              <li class="flex items-start gap-3"{% if latest %} aria-current="step"{% endif %}>
+                <span class="grid h-7 w-7 flex-none place-items-center rounded-sm {{ latest ? 'bg-action text-on-action' : 'bg-inset text-ink-2' }}">
+                  {{ icons.icon(event.field == 'status' ? step_icons[event.new_value]|default('info') : 'lock', 16) }}
+                </span>
+                <span class="min-w-0">
+                  <span class="block text-small {{ latest ? 'font-semibold text-ink' : 'text-ink-2' }}">
+                    {%- if event.field == 'status' -%}
+                      {{ step_labels[event.new_value]|default(labels.status_label(event.new_value)) }}
+                    {%- else -%}
+                      Payment: {{ labels.payment_label(event.new_value) }}
+                    {%- endif -%}
+                  </span>
+                  <time datetime="{{ event.created_at|replace({' ': 'T'}) }}Z" class="block text-caption text-ink-2 tabular-nums">{{ (event.created_at ~ ' UTC')|date('M j, Y, g:i A', 'Asia/Manila') }}</time>
+                </span>
+              </li>
+            {% endfor %}
+          </ol>
+        </div>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

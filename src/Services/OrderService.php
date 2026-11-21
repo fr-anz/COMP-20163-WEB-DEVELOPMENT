@@ -17,9 +17,11 @@ use Throwable;
  * shipping/payment are revalidated, live prices must match the reviewed
  * snapshots, stock is decremented with a guarded UPDATE + affected-row
  * check, stock_audit rows record old/new stock with reason order_placed,
- * and the pending card order (payment already paid) plus its item
- * snapshots are inserted (SDD §15.4). Any failure
- * rolls the whole attempt back — no partial order, no partial decrement.
+ * and the pending order with its payment method and status, item snapshots
+ * (including the product's weaver), the opening order_events rows and, for
+ * a transfer, the payment_proofs row are inserted (SDD §15.4–15.6). Any
+ * failure rolls the whole attempt back — no partial order, no partial
+ * decrement, no stored proof.
  *
  * The order number is H-YYYYMMDD-NNNN: today's date plus a daily
  * four-digit sequence read under the serialized write lock. The unique
@@ -28,6 +30,8 @@ use Throwable;
  *
  * Money is integer centavos. Card data never reaches this service — only
  * the approved result with a 4-digit last4 and a bounded brand label (N4).
+ * Payment status starts unpaid (COD), for_verification (transfer) or paid
+ * (approved card).
  * PDO errors propagate so the controller can show a generic friendly retry.
  */
 final class OrderService
@@ -50,12 +54,19 @@ final class OrderService
 
     private const MAX_BRAND_LENGTH = 30;
 
-    public function __construct(private readonly PDO $pdo)
-    {
+    public const MAX_SENDER_REFERENCE_LENGTH = 64;
+
+    /** Payment methods (PRD R13) and the payment status each starts with. */
+    public const PAYMENT_METHODS = ['cod' => 'unpaid', 'transfer' => 'for_verification', 'card' => 'paid'];
+
+    public function __construct(
+        private readonly PDO $pdo,
+        private readonly ?PaymentProofService $proofs = null,
+    ) {
     }
 
     /**
-     * Places a card-paid order atomically.
+     * Places a pending order atomically.
      *
      * @param list<array{product_id: int, quantity: int, price_centavos: int}> $lines
      *     Reviewed cart lines; price_centavos is the snapshot the customer
@@ -64,8 +75,10 @@ final class OrderService
      * @param array<string, string> $shipping
      *     Validated shipping fields (name, email, phone, address1, address2,
      *     city, postal_code, region).
-     * @param array{result: string, last4?: string, brand?: string} $payment
-     *     Approved simulation result only.
+     * @param array<string, mixed> $payment
+     *     {method: cod}; {method: transfer, proof: staged name,
+     *     sender_reference}; or the approved card simulation result
+     *     {method?: card, result: approved, last4, brand}.
      * @param string $idempotencyKey
      *     Session-issued key from before the Place form was rendered.
      *
@@ -81,6 +94,7 @@ final class OrderService
     ): array {
         $key = trim($idempotencyKey);
         $began = false;
+        $promoted = null;
 
         try {
             // BEGIN IMMEDIATE serializes writers for the whole attempt:
@@ -101,7 +115,7 @@ final class OrderService
                 }
             }
 
-            $this->assertValidInput($lines, $shipping, $payment, $key);
+            $payment = $this->assertValidInput($lines, $shipping, $payment, $key);
 
             $subtotal = 0;
             foreach ($lines as $line) {
@@ -156,8 +170,16 @@ final class OrderService
                 $this->decrementStock($line, $product);
             }
 
-            $orderId = $this->insertOrder($lines, $shipping, $payment, $key, $subtotal, $shippingFee);
+            $orderId = $this->insertOrder($shipping, $payment, $key, $subtotal, $shippingFee);
             $this->insertItems($orderId, $rows);
+            $this->recordEvent($orderId, 'status', null, 'pending', 'customer', null);
+            $this->recordEvent($orderId, 'payment_status', null, $payment['status'], 'customer', null);
+            if ($payment['method'] === 'transfer') {
+                $promoted = $this->requireProofs()->promote($payment['proof']);
+                $this->pdo->prepare(
+                    'INSERT INTO payment_proofs (order_id, path, sender_reference) VALUES (?, ?, ?)'
+                )->execute([$orderId, $promoted, $payment['sender_reference']]);
+            }
 
             $lookup = $this->pdo->prepare('SELECT order_number FROM orders WHERE id = ?');
             $lookup->execute([$orderId]);
@@ -172,6 +194,9 @@ final class OrderService
 
             $this->pdo->exec('COMMIT');
             $began = false;
+            if ($promoted !== null) {
+                $this->requireProofs()->release($payment['proof']);
+            }
 
             return $order;
         } catch (Throwable $exception) {
@@ -184,6 +209,9 @@ final class OrderService
                     // The connection is already clean or broken; either way
                     // the original failure is what matters.
                 }
+            }
+            if ($promoted !== null && $began) {
+                $this->requireProofs()->discard($promoted);
             }
 
             throw $exception;
@@ -297,11 +325,12 @@ final class OrderService
     /**
      * Moves an order one fulfilment step forward (pending → confirmed →
      * packed → shipped → delivered). Confirming needs a paid payment unless
-     * it is cash on delivery. The guarded UPDATE rejects a stale form.
+     * it is cash on delivery. The guarded UPDATE rejects a stale form; the
+     * change is recorded in order_events (actor admin, R44).
      *
      * @throws AdminActionException
      */
-    public function advanceStatus(string $orderNumber, string $target): void
+    public function advanceStatus(string $orderNumber, string $target, ?int $adminId = null): void
     {
         $this->pdo->exec('BEGIN IMMEDIATE');
         try {
@@ -328,6 +357,7 @@ final class OrderService
             if ($update->rowCount() !== 1) {
                 throw new AdminActionException('The order changed during the update. Reload and try again.');
             }
+            $this->recordEvent($order['id'], 'status', $order['status'], $target, 'admin', $adminId);
             $this->pdo->exec('COMMIT');
         } catch (Throwable $exception) {
             $this->rollBackQuietly();
@@ -339,8 +369,8 @@ final class OrderService
     /**
      * Cancels a confirmed or packed order and restores every item's stock in the
      * same transaction, with one stock_audit row per item
-     * (reason "order_cancelled: H-…", acting administrator). Any failure
-     * leaves the order and stock untouched.
+     * (reason "order_cancelled: H-…", acting administrator) and an
+     * order_events row. Any failure leaves the order and stock untouched.
      *
      * @throws AdminActionException
      */
@@ -391,6 +421,7 @@ final class OrderService
             if ($update->rowCount() !== 1) {
                 throw new RuntimeException('The order changed while it was being cancelled.');
             }
+            $this->recordEvent($order['id'], 'status', $order['status'], 'cancelled', 'admin', $adminId);
             $this->pdo->exec('COMMIT');
         } catch (Throwable $exception) {
             $this->rollBackQuietly();
@@ -441,15 +472,20 @@ final class OrderService
     }
 
     /**
+     * Validates the attempt and returns the normalized payment.
+     *
      * @param list<array{product_id: int, quantity: int, price_centavos: int}> $lines
-     * @param array{result: string, last4?: string, brand?: string} $payment
+     * @param array<string, mixed> $payment
+     *
+     * @return array{method: string, status: string, last4: ?string, brand: ?string, result: ?string,
+     *     proof: string, sender_reference: string}
      */
     private function assertValidInput(
         array $lines,
         array $shipping,
         array $payment,
         string $key,
-    ): void {
+    ): array {
         if ($key === '') {
             throw new CheckoutException(
                 'Your order could not be submitted. Please try again.',
@@ -500,6 +536,54 @@ final class OrderService
             );
         }
 
+        return $this->normalizePayment($payment);
+    }
+
+    /**
+     * @param array<string, mixed> $payment
+     *
+     * @return array{method: string, status: string, last4: ?string, brand: ?string, result: ?string,
+     *     proof: string, sender_reference: string}
+     */
+    private function normalizePayment(array $payment): array
+    {
+        $method = $payment['method'] ?? 'card';
+        if (!is_string($method) || !isset(self::PAYMENT_METHODS[$method])) {
+            throw new CheckoutException(
+                'Choose how you would like to pay.',
+                CheckoutException::REASON_INVALID
+            );
+        }
+        $normalized = [
+            'method' => $method,
+            'status' => self::PAYMENT_METHODS[$method],
+            'last4' => null,
+            'brand' => null,
+            'result' => null,
+            'proof' => '',
+            'sender_reference' => '',
+        ];
+
+        if ($method === 'cod') {
+            return $normalized;
+        }
+
+        if ($method === 'transfer') {
+            $reference = is_string($payment['sender_reference'] ?? null) ? trim($payment['sender_reference']) : '';
+            $proof = $payment['proof'] ?? null;
+            if (
+                $reference === '' || mb_strlen($reference) > self::MAX_SENDER_REFERENCE_LENGTH
+                || !is_string($proof) || !$this->requireProofs()->isStaged($proof)
+            ) {
+                throw new CheckoutException(
+                    'Your proof of payment could not be found. Please upload it again.',
+                    CheckoutException::REASON_INVALID
+                );
+            }
+
+            return array_merge($normalized, ['proof' => $proof, 'sender_reference' => $reference]);
+        }
+
         // Only the sanitized display fields of an approved simulation are
         // ever persisted: exactly four digits for last4 and a short brand
         // label — never a full card number (N4).
@@ -516,6 +600,36 @@ final class OrderService
                 CheckoutException::REASON_INVALID
             );
         }
+
+        return array_merge($normalized, [
+            'last4' => $payment['last4'],
+            'brand' => $payment['brand'],
+            'result' => PaymentSimulator::RESULT_APPROVED,
+        ]);
+    }
+
+    private function requireProofs(): PaymentProofService
+    {
+        if ($this->proofs === null) {
+            throw new RuntimeException('Transfer orders need the payment proof store.');
+        }
+
+        return $this->proofs;
+    }
+
+    /** Appends one immutable status or payment-status change (R44). */
+    private function recordEvent(
+        int $orderId,
+        string $field,
+        ?string $old,
+        string $new,
+        string $actorRole,
+        ?int $actorId,
+    ): void {
+        $this->pdo->prepare(
+            'INSERT INTO order_events (order_id, field, old_value, new_value, actor_role, actor_id)'
+            . ' VALUES (?, ?, ?, ?, ?, ?)'
+        )->execute([$orderId, $field, $old, $new, $actorRole, $actorId]);
     }
 
     /**
@@ -523,9 +637,12 @@ final class OrderService
      */
     private function fetchProduct(int $productId): ?array
     {
+        // Archived, unlisted or switched-off bags fail like a stock conflict.
         $statement = $this->pdo->prepare(
-            "SELECT id, name, price_centavos, stock, listing_status = 'active' AS is_active"
-            . ' FROM products WHERE id = ?'
+            "SELECT p.id, p.name, p.price_centavos, p.stock,"
+            . " p.listing_status = 'active' AND p.is_available = 1 AS is_active,"
+            . ' p.weaver_id, w.display_name AS weaver_name'
+            . ' FROM products p LEFT JOIN weavers w ON w.id = p.weaver_id WHERE p.id = ?'
         );
         $statement->execute([$productId]);
         $row = $statement->fetch();
@@ -576,16 +693,14 @@ final class OrderService
     }
 
     /**
-     * Inserts the pending, card-paid order and returns its id. The daily H-YYYYMMDD-NNNN
+     * Inserts the pending order with its payment method/status and returns its id. The daily H-YYYYMMDD-NNNN
      * number is read from the current maximum suffix under the write lock;
      * the unique constraint is the only guard the insert needs. Capacity
      * exhaustion fails safely instead of emitting a wider number.
      *
-     * @param list<array{product_id: int, quantity: int, price_centavos: int}> $lines
-     * @param array{result: string, last4?: string, brand?: string} $payment
+     * @param array{method: string, status: string, last4: ?string, brand: ?string, result: ?string} $payment
      */
     private function insertOrder(
-        array $lines,
         array $shipping,
         array $payment,
         string $key,
@@ -598,8 +713,7 @@ final class OrderService
             . ' shipping_postal_code, shipping_region, shipping_fee_centavos,'
             . ' subtotal_centavos, total_centavos, payment_last4, payment_brand,'
             . ' payment_result, idempotency_key, status, payment_method, payment_status)'
-            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,'
-            . ' \'approved\', ?, \'pending\', \'card\', \'paid\')'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'pending\', ?, ?)'
         );
 
         $insert->execute([
@@ -615,9 +729,12 @@ final class OrderService
             $shippingFee,
             $subtotal,
             $subtotal + $shippingFee,
-            (string) $payment['last4'],
-            (string) $payment['brand'],
+            $payment['last4'],
+            $payment['brand'],
+            $payment['result'],
             $key,
+            $payment['method'],
+            $payment['status'],
         ]);
 
         return (int) $this->pdo->lastInsertId();
@@ -664,8 +781,8 @@ final class OrderService
     {
         $insert = $this->pdo->prepare(
             'INSERT INTO order_items (order_id, product_id, name_snapshot,'
-            . ' price_centavos, qty, line_total_centavos)'
-            . ' VALUES (?, ?, ?, ?, ?, ?)'
+            . ' price_centavos, qty, line_total_centavos, weaver_id, weaver_name_snapshot)'
+            . ' VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         foreach ($rows as ['line' => $line, 'product' => $product]) {
@@ -676,6 +793,8 @@ final class OrderService
                 (int) $line['price_centavos'],
                 (int) $line['quantity'],
                 (int) $line['price_centavos'] * (int) $line['quantity'],
+                $product['weaver_id'] === null ? null : (int) $product['weaver_id'],
+                $product['weaver_name'] === null ? null : (string) $product['weaver_name'],
             ]);
         }
     }
@@ -699,7 +818,7 @@ final class OrderService
 
         $items = $this->pdo->prepare(
             'SELECT id, product_id, name_snapshot, price_centavos, qty,'
-            . ' line_total_centavos FROM order_items WHERE order_id = ?'
+            . ' line_total_centavos, weaver_id, weaver_name_snapshot FROM order_items WHERE order_id = ?'
             . ' ORDER BY id ASC'
         );
         $items->execute([(int) $order['id']]);

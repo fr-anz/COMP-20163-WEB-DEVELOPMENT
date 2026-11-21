@@ -1103,11 +1103,51 @@ M9 evidence (2026-11-21, branch `feat/22-schema-v2`, PHP 8.5.12, SQLite 3.54.1):
 - **Done when:** R2–R4, R29–R31 verified at 1440/768/360 px, keyboard and no-JS; review-screen guide applied.
 
 #### M11 — Checkout v2, order lifecycle and tracking (A lead, C UI)
-- [ ] Payment method choice: COD, transfer with proof upload (N11), card simulator (R13, R14).
-- [ ] Placement as `pending` with method/status, weaver item snapshots, events (R15, R44).
-- [ ] Confirmation additions (R16); `/track` with email check and throttle (R32).
-- [ ] Concurrency test re-run for all methods (R15).
+- [x] Payment method choice: COD, transfer with proof upload (N11), card simulator (R13, R14).
+  `POST /checkout/payment`; `PaymentProofService` stages proofs in `data/proofs/tmp/`, copies
+  them to `data/proofs/` inside placement; no route serves proofs (admin view is M13).
+- [x] Placement as `pending` with method/status, weaver item snapshots, events (R15, R44); admin
+  advance/cancel also write events. Deviations in SDD §15.6 (audit reason, active-weaver rule).
+- [x] Confirmation additions (R16); `/track` with email check and throttle (R32), `noindex`;
+  footer "Track order" link.
+- [x] Concurrency test re-run for all methods (R15): PHPUnit and HTTP (evidence below).
+- [ ] N9: new strings are English only until the M14 Translator exists; listed in the PR body.
 - **Done when:** J1 completes with each method; J2 v2 edge cases land on designed screens; no oversell.
+
+M11 evidence (2026-11-21, branch `feat/24-checkout-v2`, PHP 8.5.12, SQLite 3.54.1):
+- [x] `vendor/bin/phpunit` → OK (142 tests, 1084 assertions). New: `PlacementV2Test` (COD/transfer/
+  card statuses, weaver snapshots, opening events, proof stored only on commit and removed on
+  rollback, invalid transfer inputs, `is_available`, six concurrent processes per method → one
+  order, stock 0), `PaymentProofServiceTest`, `TrackingServiceTest` (wrong email = unknown
+  reference, private fields absent, throttle and scoped key), `CheckoutV2FlowTest`, and admin events
+  in `AdminOrderServiceTest`.
+- [x] `composer cs` and `composer lint` exit 0.
+- [x] HTTP smoke on a temp DB (`DB_DSN=sqlite:/tmp/habi-m11/db/app.sqlite php -S 127.0.0.1:8111 -t
+  public public/index.php`, curl with cookie jar + CSRF):
+  - COD: payment 303 → review ("Cash on delivery") → `/order/H-20261121-0001`; confirmation
+    shows the copyable reference, "Cash on delivery", "Unpaid", cash note and `/track` link.
+  - Transfer + `tiny.png` + `GC-445566`: → `H-20261121-0002` `pending/transfer/for_verification`,
+    one `payment_proofs` row, file in `data/proofs/`, `tmp/` empty. A PHP file named `.png` →
+    payment 422 "Upload a JPG, PNG or WebP image."; a 2.2 MB file → "The image is larger than
+    2 MB."; both keep the transfer radio and sender reference, Review redirects back, no order.
+    `/uploads/<proof>`, `/proofs/…`, `/data/proofs/…` and encoded traversal → 404.
+  - Card `4242 4242 4242 4242` → `H-20261121-0003` `pending/card/paid`, last4 4242, Visa;
+    `…0002` → 422 "Card declined — try another card…"; `…9995` → 422 "Insufficient funds…";
+    no order for either; the card radio stays selected.
+  - `/track`: `noindex`; lowercase reference + uppercase email → 200 with chips, items, total,
+    city/region and timeline, no address/phone/name; wrong email and unknown reference → 404
+    with identical pages; blank → 422; 5th failure → 429 `Retry-After: 60`, then a correct lookup
+    is also 429; no CSRF → 403. After an admin confirm the timeline adds "Order confirmed".
+  - Admin: confirming the COD order writes `status pending → confirmed` (admin, id 1); confirming
+    the transfer order is refused "cannot be confirmed until its payment is verified".
+  - Race: stock 1, six sessions at Review per method, six parallel Place → exactly one order per
+    method (`H-…-0004/5/6`), five redirected to the bag with "Only 0 of Maya Clutch left…",
+    stock 0, losers' staged proofs deleted.
+  - Pages contain no "simulat"/"demo" text (N3, D7).
+- [ ] Not run: browser visual review at 1440/768/360 px (review-screen guide), keyboard-only and
+  no-JS purchase in a real browser, screen reader check of the method radios/timeline. No
+  browser was available in this environment.
+- [ ] Not run: production migration/deploy (no schema change in M11).
 
 #### M12 — Weaver module (D lead, A services)
 - [ ] Weaver auth with scoped throttle (R34); `WeaverAuthMiddleware`; ownership filters (N10).

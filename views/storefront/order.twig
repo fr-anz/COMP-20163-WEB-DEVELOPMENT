@@ -3,8 +3,9 @@
   Checkout example's confirmation step 1:1: centred card with the woven
   selvedge strip, completed compact stepper, success mark, thank-you heading
   with the real order number (H-YYYYMMDD-NNNN per PRD R10 — this format
-  prevails over the reference's shorter sample numbers), summary grid with
-  the paid snapshot. The order figures come from the OrderService snapshot
+  prevails over the reference's shorter sample numbers) in a copyable field
+  with the prompt to keep it for /track (R16, R32), summary grid with the
+  order snapshot including payment method and payment status chip. The order figures come from the OrderService snapshot
   (authoritative PHP values); the delivery window is the controller's
   estimate. "See it in Admin" awaits M6 and is intentionally absent.
   Receives exactly: app_name, app_env, cart, csrf_token, shipping, regions,
@@ -13,6 +14,7 @@
 -#}
 {% extends "layouts/base.twig" %}
 {% import "macros/icons.twig" as icons %}
+{% import "storefront/_order-macros.twig" as labels %}
 {% set active_nav = '' %}
 
 {% block title %}Order {{ order.order_number }} — {{ app_name }}{% endblock %}
@@ -41,7 +43,16 @@
           {{ icons.icon('check', 28) }}
         </div>
         <h1 tabindex="-1" class="mt-4 font-display text-[30px] font-bold focus:outline-none @3xl:text-h1">Thank you &mdash; your order is placed</h1>
-        <p class="mt-2 text-ink-2">Order number <strong class="font-mono text-ink">{{ order.order_number }}</strong>.</p>
+        <div class="mt-5">
+          <label for="o-ref" class="field-label">Reference number</label>
+          <div class="flex gap-2">
+            <input id="o-ref" class="input font-mono" readonly value="{{ order.order_number }}" aria-describedby="o-ref-hint">
+            <button type="button" class="btn btn--secondary" data-copy="{{ order.order_number }}" aria-label="Copy reference number" hidden>
+              <span data-copy-label>Copy</span>
+            </button>
+          </div>
+          <p id="o-ref-hint" class="field-hint">Keep this number to <a href="/track" class="link">track your order</a> with your email.</p>
+        </div>
 
         {% set ship_lines = [
           order.customer_name,
@@ -71,11 +82,31 @@
             <dt class="text-caption text-ink-2">Status</dt>
             <dd>{{ {pending: 'Awaiting confirmation', confirmed: 'Confirmed', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled'}[order.status]|default(order.status) }}</dd>
           </div>
+          <div>
+            <dt class="text-caption text-ink-2">Payment</dt>
+            <dd>
+              {%- if order.payment_method == 'card' -%}
+                {{ order.payment_brand|default('Card') }} card ending {{ order.payment_last4 }}
+              {%- else -%}
+                {{ labels.method_label(order.payment_method) }}
+              {%- endif -%}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-caption text-ink-2">Payment status</dt>
+            <dd class="mt-0.5">{{ labels.payment_chip(order.payment_status) }}</dd>
+          </div>
           <div class="@3xl:col-span-2">
             <dt class="text-caption text-ink-2">Delivery</dt>
             <dd>{{ delivery_estimate }}</dd>
           </div>
         </dl>
+
+        {% if order.payment_method == 'transfer' and order.payment_status == 'for_verification' %}
+          <p class="mt-4 flex items-start gap-2 text-small text-ink-2">{{ icons.icon('info', 18, 'mt-0.5 flex-none') }}We'll confirm your order once your transfer is verified.</p>
+        {% elseif order.payment_method == 'cod' and order.payment_status == 'unpaid' %}
+          <p class="mt-4 flex items-start gap-2 text-small text-ink-2">{{ icons.icon('info', 18, 'mt-0.5 flex-none') }}Please have &#8369;{{ (order.total_centavos / 100)|number_format(total_cent == 0 ? 0 : 2, '.', ',') }} ready in cash when your order arrives.</p>
+        {% endif %}
 
         <div class="mt-8 flex flex-wrap gap-3">
           <a href="/products" class="btn btn--primary">

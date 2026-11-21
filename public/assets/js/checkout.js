@@ -16,6 +16,11 @@
  * - Card inputs are rendered empty by the server, use autocomplete="off"
  *   and are never written to storage here; nothing about the card outlives
  *   the browser tab (N4).
+ * - Payment methods (M11): without JavaScript every method's subform is
+ *   visible and the radio decides; here the unselected subforms are hidden.
+ *   The chosen receipt's file name replaces the upload hint, and Copy
+ *   buttons (hidden without JavaScript) copy account and reference numbers.
+ *   Only the card method shows the "Processing payment" status.
  */
 (function () {
   'use strict';
@@ -42,7 +47,54 @@
   var paymentForm = document.querySelector('form[data-checkout-payment]');
   if (paymentForm) {
     paymentForm.addEventListener('submit', function () {
-      busy(paymentForm.querySelector('[data-checkout-submit]'), 'Processing\u2026');
+      var chosen = paymentForm.querySelector('input[name="method"]:checked');
+      var card = !chosen || chosen.value === 'card';
+      busy(paymentForm.querySelector('[data-checkout-submit]'), card ? 'Processing\u2026' : 'Saving\u2026', card);
+    });
+
+    var methods = paymentForm.querySelectorAll('input[name="method"]');
+    var syncPanels = function () {
+      Array.prototype.forEach.call(methods, function (radio) {
+        var panel = radio.getAttribute('aria-controls');
+        panel = panel ? document.getElementById(panel) : null;
+        if (panel) {
+          panel.hidden = !radio.checked;
+        }
+        if (panel) {
+          radio.setAttribute('aria-expanded', radio.checked ? 'true' : 'false');
+        }
+      });
+    };
+    Array.prototype.forEach.call(methods, function (radio) {
+      radio.addEventListener('change', syncPanels);
+    });
+    syncPanels();
+
+    Array.prototype.forEach.call(paymentForm.querySelectorAll('[data-file-input]'), function (input) {
+      var hint = input.closest('div').querySelector('[data-file-name]');
+      var original = hint ? hint.textContent : '';
+      input.addEventListener('change', function () {
+        if (hint) {
+          hint.textContent = input.files && input.files[0] ? input.files[0].name : original;
+        }
+      });
+    });
+  }
+
+  /* --- Copy buttons ---------------------------------------------------------- */
+
+  if (navigator.clipboard && window.isSecureContext) {
+    Array.prototype.forEach.call(document.querySelectorAll('button[data-copy]'), function (button) {
+      var label = button.querySelector('[data-copy-label]');
+      button.hidden = false;
+      button.addEventListener('click', function () {
+        navigator.clipboard.writeText(button.getAttribute('data-copy')).then(function () {
+          if (label) {
+            label.textContent = 'Copied';
+            window.setTimeout(function () { label.textContent = 'Copy'; }, 2000);
+          }
+        });
+      });
     });
   }
 
@@ -86,7 +138,7 @@
     }
   }
 
-  function busy(button, label) {
+  function busy(button, label, showStatus) {
     if (button.getAttribute('aria-busy') === 'true') {
       return;
     }
@@ -102,7 +154,7 @@
     }
     var form = button.closest('form');
     var status = form ? form.querySelector('[data-checkout-processing]') : null;
-    if (status) {
+    if (status && showStatus !== false) {
       status.hidden = false;
       status.classList.remove('hidden');
       status.classList.add('flex');
