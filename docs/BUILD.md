@@ -1058,7 +1058,7 @@ Acceptance status:
 
 ### PRD 2.0 heritage expansion — planned milestones (M9–M15)
 
-Source: the group proposal (2026-11-14) → PRD 2.0. **M9 is implemented; M10–M15 are not.** Design: SDD §15;
+Source: the group proposal (2026-11-14) → PRD 2.0. **M9–M14 are implemented on `dev`; M15 is not.** Design: SDD §15;
 screens: DSD §4 "PRD 2.0 screens"; flows: USER-JOURNEY J1–J4. Order is a dependency order;
 M10, M12 and M14 can run in parallel once M9 lands. Each milestone keeps the §2 Definition of Done.
 

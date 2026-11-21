@@ -4,7 +4,7 @@
 |---|---|
 | Version | 2.0 |
 | Date | 2026-11-21 |
-| Implements | [PRD.md](PRD.md) v2.0 requirements **R1–R44, N1–N12** (cited inline); §§1–14 describe the implemented system; §15 holds the PRD 2.0 design and its status (M9–M13 implemented, M14–M15 planned) |
+| Implements | [PRD.md](PRD.md) v2.0 requirements **R1–R44, N1–N12** (cited inline); §§1–14 describe the implemented system; §15 holds the PRD 2.0 design and its status (M9–M14 implemented, M15 planned) |
 | Design language | [DSD.md](DSD.md) · Build order: [BUILD.md](BUILD.md) · Flows: [USER-JOURNEY.md](USER-JOURNEY.md) |
 
 ---
@@ -15,7 +15,7 @@ Design a PHP e-commerce system that (a) satisfies every R#/N# in the PRD, (b) ru
 with zero install beyond PHP+Composer, and (c) deploys to the web unchanged via Docker
 (Google Cloud Compute Engine e2-micro; Render alternative). Checkout payment is simulated by design (N3).
 PRD 2.0 (from the group proposal, 2026-11-14) adds weavers, a Heritage Journal, more payment
-methods, a merged order lifecycle, tracking and English/Filipino; its design is §15 (M9–M13 implemented; M14–M15 planned).
+methods, a merged order lifecycle, tracking and English/Filipino; its design is §15 (M9–M14 implemented; M15 planned).
 **UI authority:** the published Habi UI/design system is followed 1:1, replacing earlier visual interpretations (DSD §§1–4). Craft discovery remains skippable; shopping is optional.
 
 ## 2. Technology Stack
@@ -148,7 +148,7 @@ Indexes: `products(slug)`, `products(weaver_id)`, `products(category_id,listing_
 
 ## 6. Endpoints
 
-> PRD 2.0 routes (weavers, journal, tracking, language, weaver module, new admin screens) — see §15.3 (implemented except `/lang`, M14).
+> PRD 2.0 routes (weavers, journal, tracking, language, weaver module, new admin screens) — see §15.3 (implemented).
 
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
@@ -497,7 +497,7 @@ Status: **M9 implemented** (data model §15.2, migration §15.9; facts moved to 
 **M11 implemented** (checkout v2 §15.5, placement §15.6, tracking; facts moved to §7–§9;
 the §6 endpoint table still lists v1 routes, see §15.3); **M12 implemented** (§15.1, §15.7);
 **M10 implemented** (storefront rows of §15.3; facts moved to §6); **M13 implemented** (admin rows
-of §15.3, §15.4; facts moved to §6, §8, §10). M14 (§15.8) and M15 are not implemented yet. §§1–14 describe the implemented system. This
+of §15.3, §15.4; facts moved to §6, §8, §10). **M14 implemented** (§15.8, `/lang`; facts moved to §6). M15 is not implemented yet. §§1–14 describe the implemented system. This
 section is the design for the PRD 2.0 requirements tagged [v2-changed]/[v2-new]. When a
 milestone ships, move the implemented facts into the owning section above and shrink this one.
 Stack, deployment and security baseline (§§2, 10, 12) are unchanged; no new dependencies.

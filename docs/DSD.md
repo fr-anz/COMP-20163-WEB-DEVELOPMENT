@@ -243,7 +243,7 @@ and checkout's alert. The reference's "Packing" label is shown as the stored sta
 ### PRD 2.0 screens (BUILD M10–M14)
 
 Status: **M10 storefront, M12 weaver and M13 admin screens implemented** (see the "Implemented in"
-blocks below); the M14 language switch is not. The published reference has no screens for these
+blocks below), including the M14 language switch. The published reference has no screens for these
 features. Compose them only from existing tokens, `.btn`/`.input`/`.chip`/`.link` roles,
 the catalog card, product open sections, checkout panels and the admin shell/tables/dialog
 (§5). Add no new color tokens, fonts or decorative textures behind data. D7 copy rules apply:

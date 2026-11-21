@@ -8,7 +8,9 @@ Habi ("to weave") is a heritage-driven e-commerce prototype for COMP-20163 Web D
 
 **Implemented on `dev` (PRD 2.0, M10–M13):** the heritage storefront (fiber/region filters, product story, Meet the Weavers, Heritage Journal), checkout with cash on delivery, e-wallet/bank transfer with proof of payment and card, the pending → confirmed → packed → shipped → delivered lifecycle with reject/cancel, order tracking by reference number, the weaver module (profile, own listings, stock, orders, earnings) and admin v2 (order/payment actions, proofs, weaver accounts, listing approval, categories, customers, content).
 
-**Planned (BUILD M14–M15, not implemented):** English/Filipino, then evaluation and redeploy. The sections below describe the system on `dev`.
+**English/Filipino (M14):** storefront, checkout and tracking in both languages (see [Languages](#languages)); staff screens stay English.
+
+**Planned (BUILD M15, not implemented):** evaluation, refinement and redeploy. The sections below describe the system on `dev`.
 
 The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the visual authority for tokens, components and inner screens; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
 
