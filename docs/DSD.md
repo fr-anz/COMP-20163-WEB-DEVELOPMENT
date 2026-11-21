@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Version | 2.1 · 2026-11-10 |
+| Version | 2.2 · 2026-11-21 (PRD 2.0 planned screens added in §4) |
 | Authority | [Published Habi UI and design system](https://fit-igloo-66636772.figma.site/) for tokens, type, components and inner screens; this document for the cinematic discovery story and copy rules (D7) |
 | User decision | **D7 (2026-11-10):** cinematic, sequential discovery that tells a story at every scroll until the catalog; no eyebrows, no filler text beside/under headings; no educational/demo/simulated notices — the storefront reads as a real shop. Supersedes the earlier 1:1 rule where they conflict. |
 | Implementation | PHP/Twig, canonical `public/assets/css/app.css`, native JavaScript and the real Three.js viewer |
@@ -166,7 +166,8 @@ values. No provenance notice, "planned estimate" note or viewer-behaviour hint t
 Keep real loading, failure/retry, WebGL image fallback, rotation/tilt/reset/pause,
 reduced-motion behavior and mobile focus containment. No “Demo state” select or CSS model
 pretending to be the real viewer. No invented interior images, technique, handle-drop
-measurement, maker or geographic provenance. M4 enables stock-bounded quantities and
+measurement, maker or geographic provenance (PRD 2.0 shows maker, technique and origin only from
+stored R29 product data; see PRD 2.0 screens below). M4 enables stock-bounded quantities and
 real Add to bag; sold-out products cannot be added.
 
 M3 uses the published secondary small Peek inside / Back outside button as a sibling
@@ -239,6 +240,59 @@ cancel dialog; the sign-in panel composed from the admin lockup, Password field 
 and checkout's alert. The reference's "Packing" label is shown as the stored status
 "Packed". Orders use real `H-YYYYMMDD-NNNN` numbers, never sample data.
 
+### PRD 2.0 screens (planned, BUILD M10–M14)
+
+Status: **planned, not implemented.** The published reference has no screens for these
+features. Compose them only from existing tokens, `.btn`/`.input`/`.chip`/`.link` roles,
+the catalog card, product open sections, checkout panels and the admin shell/tables/dialog
+(§5). Add no new color tokens, fonts or decorative textures behind data. D7 copy rules apply:
+headings stand alone; no "sample", "demo" or "simulated" wording in the UI, although the
+content is sample content (PRD §2). Review every new screen with the review-screen guide
+at 1440, 768 and 360 px. Record new APIs in §5 when they ship.
+
+- **Shell (R30, R31, R33):** desktop links become Discover / Collection / Weavers / Journal;
+  the mobile drawer lists the same. A compact EN | FIL language control sits beside search
+  (native POST form, `aria-pressed` on the active language, visible text labels, no flags).
+  The footer link row adds Weavers, Journal and Track order.
+- **Product story (R29):** an open section titled with the weaver's name, using the existing
+  labeled data rows: Weaver (link to profile), Community, Region, Fiber, Technique; then the
+  story as body text (max 68ch). It sits after Materials and before Dimensions. Products
+  without story data omit the section, never show placeholders. The rule against inventing maker,
+  technique or provenance still holds: show only stored R29 data.
+- **Catalog filters (R2):** material (fiber) and region selects join search/category/sort; at
+  768 px use a 2:1:1:1:1 grid that wraps to two rows; stacked below. Same GET semantics.
+- **Meet the Weavers (`/weavers`, `/weavers/{slug}`, R30):** list uses the catalog grid with a
+  4:5 portrait/illustration card (name, community · region). Profile: portrait left, name,
+  data rows (Community, Region, Fibers, Techniques) and story right at 900 px; stacked below;
+  then "Bags by {name}" with standard product cards. Portraits are illustrations, never photos
+  of real people (PRD §8, §6 below).
+- **Heritage Journal (`/journal`, `/journal/{slug}`, R31):** list of article cards (cover
+  16:9, title, excerpt, date). Article: display title, date, cover, body at 68ch, and a
+  "Sources" list of links styled with `.link`.
+- **Checkout payment (R13):** a native radio group of three bordered option panels (Cash on
+  delivery, E-wallet or bank transfer, Card) using `.check` semantics; the selected panel
+  expands its subform: transfer shows the amount, sample account rows with copy buttons,
+  sender reference field and file input with the admin upload hint pattern; card keeps the
+  v1 card form. Errors stay inline. Works without JavaScript (all subforms visible, method
+  chosen by radio).
+- **Confirmation and tracking (R16, R32):** confirmation adds payment method/status rows and
+  the reference number in a copyable field. `/track` is a narrow panel (reference number,
+  email, Track order); results reuse the order summary panel plus a vertical status timeline
+  (icon + label + timestamp per event, current step emphasized, text for every state).
+- **Status chips (R22):** order statuses Pending, Confirmed, Packed, Shipped, Delivered,
+  Rejected, Cancelled and payment statuses Unpaid, For verification, Paid, Rejected each have
+  an icon + label using existing success/warning/error roles; never color alone.
+- **Weaver module (`/weaver`, R34–R39):** reuse the admin shell with a "Weaver" tag instead of
+  "Admin" and items Dashboard, My bags, Stock, Orders, Earnings, Profile, Log out. Tables and
+  dialogs are the admin ones; listing status chips add Pending review and Deactivated. Earnings
+  uses metric cards (Earned, Pending, Units sold, Your share 100%) above the itemized table.
+- **Admin additions (R18, R22, R40–R43):** dashboard adds metric cards for Orders to confirm,
+  Payments to verify and Sales (today / month); sidebar adds Weavers, Categories, Customers and
+  Journal. Order detail groups items by weaver, shows the event timeline, proof image
+  (opens full size in a dialog) and the allowed actions only (Confirm / Reject…, next status,
+  Cancel…, Accept payment / Refuse payment…, Mark COD paid); destructive actions use the
+  existing destructive dialog with a required reason.
+
 ## 5. Implemented component APIs and compositions
 
 | API / source | Contract |
@@ -285,6 +339,11 @@ process diagrams, four material swatches, divider, textile band and footer selve
 existing fictional catalog. These are stylized illustrations, not photographs or proof
 that an actual maker/material/origin exists. The old illustration direction is removed.
 Supplied reference photographs remain inspiration only and are not published or traced.
+
+PRD 2.0 (planned): weaver portraits and journal covers are original illustrations in the
+same published family (or properly licensed images recorded in a table here with source and
+license). They must not depict or name real people (PRD §8). Journal article text cites its
+secondary sources on the page; quoted passages stay short and attributed.
 
 Both font families retain their shipped SIL OFL 1.1 licenses in `public/assets/fonts/`.
 Exact normal reference variants, downloaded 2026-11-09 from Google Fonts:

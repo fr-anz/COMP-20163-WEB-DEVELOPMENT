@@ -1,6 +1,12 @@
 # Habi
 
-Educational Filipino-inspired handbag storefront. Products and origin labels are fictional demonstrations, not real goods or verified maker stories. M0–M6 provide discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders. M8 adds the production Docker image, CI and deployment to a Google Cloud e2-micro VM, with Render as the alternative ([Deploy](#deploy)). The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the **1:1 visual authority**; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
+Habi ("to weave") is a heritage-driven e-commerce prototype for COMP-20163 Web Development (Group 1, BSIT 3-1N) that presents woven bags by native Filipino weavers as museum-style artifacts and connects weavers directly to buyers. Requirements follow the group proposal via [PRD 2.0](docs/PRD.md); the prototype runs at <https://habi.theavenir.dev/>. All transactions are simulated and all products, prices and maker stories are sample content, not real goods, weavers or verified origins.
+
+**Implemented (M0–M8):** discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, card-only simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders, plus the production Docker image, CI and deployment to a Google Cloud e2-micro VM, with Render as the alternative ([Deploy](#deploy)).
+
+**Planned (PRD 2.0, BUILD M9–M15, not implemented):** weaver accounts and module (profile, own listings, stock, orders, earnings), Meet the Weavers, Heritage Journal, material/region filters, cash on delivery and e-wallet/bank transfer with proof of payment, the pending → confirmed → packed → shipped → delivered order lifecycle with reject/cancel, order tracking by reference number, admin weaver/category/customer/content management, and English/Filipino. The routes and behavior below describe the implemented v1 system.
+
+The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the visual authority for tokens, components and inner screens; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
 
 ## Local setup — three steps
 
@@ -20,7 +26,7 @@ Requires PHP **8.2+**, Composer 2, and PHP extensions `pdo_sqlite`, `mbstring`, 
    ```sh
    php -S localhost:8000 -t public public/index.php
    ```
-   Open <http://localhost:8000>. The first request initializes `data/app.sqlite` and seeds 10 fictional bags across four categories plus your configured administrator. Later requests/restarts preserve data and do not reset credentials. Sign in at <http://localhost:8000/admin> with `ADMIN_SEED_EMAIL` and the password you hashed. A database created before M6 is upgraded in place on the next request (the `login_attempts` table is added; no data is reset).
+   Open <http://localhost:8000>. The first request initializes `data/app.sqlite` and seeds 4 fictional bags, one per category, plus your configured administrator. Later requests/restarts preserve data and do not reset credentials. Sign in at <http://localhost:8000/admin> with `ADMIN_SEED_EMAIL` and the password you hashed. A database created before M6 is upgraded in place on the next request (the `login_attempts` table is added; no data is reset).
 
 `public/index.php` is also the built-in server's router. Keep that last argument: without it PHP 8.2 treats any dotted path as a static file and answers 404 for uploaded images (`/uploads/<name>.png`) before the application runs. Real files in `public/` are still served directly. Optionally set `PHP_CLI_SERVER_WORKERS=4` so a simulated payment does not block other requests.
 

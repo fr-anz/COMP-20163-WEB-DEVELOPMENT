@@ -45,3 +45,9 @@
 - **Decision:** seed catalog trimmed to 4 bags, one per category (Sinag Tote, Lupa Satchel, Tala Sling, Maya Clutch); the six other bags and their SVGs removed. PRD N7 changed from 10 to 4. Procedural 3D bags upgraded for detail/quality.
 - **Consequences:** pagination tests insert fixture rows instead of relying on seed size. Existing databases keep old rows until `php seed/seed.php --force`.
 - **Source:** user request 2026-11-10.
+
+## D9 — 2026-11-21 — accepted by user (via Q&A) — PRD 2.0 from the group proposal
+- **Decision:** the submitted group proposal (2026-11-14; PDF not kept in the repo) is the requirements source; PRD becomes 2.0 (R1–R28/N1–N8 kept, R29–R44/N9–N12 added). Choices: payment offers **COD, e-wallet/bank transfer with proof, and the existing mock card**; order status **pending → confirmed → packed → shipped → delivered** plus rejected/cancelled, with separate payment status; **admins create weaver accounts** (no self-registration); tracking needs reference number + checkout email (privacy addition, labeled in PRD R32).
+- **Reason:** align docs with the proposal submitted to the instructor while preserving implemented v1 behavior and traceability.
+- **Consequences:** SDD §15, DSD §4 "PRD 2.0 screens", USER-JOURNEY J1–J4, BUILD M9–M15 are planned only (docs-only task; no code changed). Team is 5 (track E added). D7 copy rules still apply; sample content must not use real people.
+- **Source:** user request and Q&A 2026-11-21; docs/PRD.md.
