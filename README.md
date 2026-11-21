@@ -4,9 +4,11 @@ Habi ("to weave") is a heritage-driven e-commerce prototype for COMP-20163 Web D
 
 **Implemented (M0–M8):** discovery, searchable SQLite inventory, real procedural exterior/interior 3D inspection, a session-only cart, card-only simulated guest checkout with atomic inventory and an administrator panel for products, stock and orders, plus the production Docker image, CI and deployment to a Google Cloud e2-micro VM, with Render as the alternative ([Deploy](#deploy)).
 
-**Data model v2 (M9):** the PRD 2.0 schema (weavers, categories, journal articles, order events, payment proofs; fiber/region/listing status on products; payment method/status and the v2 order statuses on orders), the native-fiber sample catalog and an in-place upgrade of v1 databases. Card checkout and the admin use the v2 statuses; the features below are not built yet.
+**Data model v2 (M9):** the PRD 2.0 schema (weavers, categories, journal articles, order events, payment proofs; fiber/region/listing status on products; payment method/status and the v2 order statuses on orders), the native-fiber sample catalog and an in-place upgrade of v1 databases.
 
-**Planned (PRD 2.0, BUILD M10–M15, not implemented):** weaver accounts and module (profile, own listings, stock, orders, earnings), Meet the Weavers, Heritage Journal, material/region filters, cash on delivery and e-wallet/bank transfer with proof of payment, the pending → confirmed → packed → shipped → delivered order lifecycle with reject/cancel, order tracking by reference number, admin weaver/category/customer/content management, and English/Filipino. The routes and behavior below describe the implemented v1 system.
+**Implemented on `dev` (PRD 2.0, M10–M13):** the heritage storefront (fiber/region filters, product story, Meet the Weavers, Heritage Journal), checkout with cash on delivery, e-wallet/bank transfer with proof of payment and card, the pending → confirmed → packed → shipped → delivered lifecycle with reject/cancel, order tracking by reference number, the weaver module (profile, own listings, stock, orders, earnings) and admin v2 (order/payment actions, proofs, weaver accounts, listing approval, categories, customers, content).
+
+**Planned (BUILD M14–M15, not implemented):** English/Filipino, then evaluation and redeploy. The sections below describe the system on `dev`.
 
 The [published UI and design system](https://fit-igloo-66636772.figma.site/) is the visual authority for tokens, components and inner screens; [DSD](docs/DSD.md) records its PHP/Twig APIs. Local implementation is separate from the review/merge requirements recorded in BUILD.
 
@@ -222,7 +224,8 @@ rates by region and, when stored, a story section (weaver linked to their profil
 community, region, fiber, technique, story); bags without a 3D config show their images
 only and `/api/product/{slug}/3d` answers 404. `/weavers` and `/weavers/{slug}` show active
 weavers and their active bags (deactivated weavers and the unassigned placeholder are not
-public); `/journal` and `/journal/{slug}` show published articles with their sources. Stories,
+public, and a deactivated weaver's bags leave the collection, cart and checkout until the weaver
+is reactivated or the bags are reassigned); `/journal` and `/journal/{slug}` show published articles with their sources. Stories,
 article bodies and sources are plain text (blank line between paragraphs, one source per line)
 rendered by `views/macros/content.twig`. These pages are indexable and work without JavaScript.
 

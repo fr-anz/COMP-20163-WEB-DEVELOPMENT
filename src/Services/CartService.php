@@ -446,7 +446,7 @@ final class CartService
         $statement = $this->pdo->prepare(
             'SELECT p.id, p.slug, p.name, p.materials, p.price_centavos,'
             . ' CASE WHEN p.is_available = 1 THEN p.stock ELSE 0 END AS stock,'
-            . " p.listing_status = 'active' AS is_active,"
+            . ' (' . ProductService::VISIBLE . ') AS is_active,'
             . ' (SELECT pi.path FROM product_images pi'
             . '  WHERE pi.product_id = p.id'
             . '  ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC'

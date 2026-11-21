@@ -91,8 +91,8 @@ final class SampleContent
                     TXT),
             ],
             [
-                'slug' => 'carmen-bohol',
-                'email' => 'carmen-bohol@weavers.invalid',
+                'slug' => 'carmen-luisiana',
+                'email' => 'carmen-luisiana@weavers.invalid',
                 'display_name' => 'Carmen',
                 'community' => 'Luisiana, Laguna',
                 'region' => 'CALABARZON (Region IV-A)',

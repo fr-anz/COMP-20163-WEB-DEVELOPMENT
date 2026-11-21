@@ -4,7 +4,7 @@
 |---|---|
 | Version | 2.0 |
 | Date | 2026-11-21 |
-| Implements | [PRD.md](PRD.md) v2.0 requirements **R1–R44, N1–N12** (cited inline); §§1–14 describe the implemented v1 system, §15 the planned PRD 2.0 design |
+| Implements | [PRD.md](PRD.md) v2.0 requirements **R1–R44, N1–N12** (cited inline); §§1–14 describe the implemented system; §15 holds the PRD 2.0 design and its status (M9–M13 implemented, M14–M15 planned) |
 | Design language | [DSD.md](DSD.md) · Build order: [BUILD.md](BUILD.md) · Flows: [USER-JOURNEY.md](USER-JOURNEY.md) |
 
 ---
@@ -15,7 +15,7 @@ Design a PHP e-commerce system that (a) satisfies every R#/N# in the PRD, (b) ru
 with zero install beyond PHP+Composer, and (c) deploys to the web unchanged via Docker
 (Google Cloud Compute Engine e2-micro; Render alternative). Checkout payment is simulated by design (N3).
 PRD 2.0 (from the group proposal, 2026-11-14) adds weavers, a Heritage Journal, more payment
-methods, a merged order lifecycle, tracking and English/Filipino; its design is §15 (planned).
+methods, a merged order lifecycle, tracking and English/Filipino; its design is §15 (M9–M13 implemented; M14–M15 planned).
 **UI authority:** the published Habi UI/design system is followed 1:1, replacing earlier visual interpretations (DSD §§1–4). Craft discovery remains skippable; shopping is optional.
 
 ## 2. Technology Stack
@@ -148,7 +148,7 @@ Indexes: `products(slug)`, `products(weaver_id)`, `products(category_id,listing_
 
 ## 6. Endpoints
 
-> PRD 2.0 routes (weavers, journal, tracking, language, weaver module, new admin screens) — see §15.3 (planned).
+> PRD 2.0 routes (weavers, journal, tracking, language, weaver module, new admin screens) — see §15.3 (implemented except `/lang`, M14).
 
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
@@ -491,12 +491,13 @@ All SQL goes through `Support/db()` PDO with DSN from `DB_DSN`. Schema written i
 adapt transaction dialect (BEGIN IMMEDIATE vs SELECT … FOR UPDATE) and verify services during migration.
 SQLite remains the current target; no migration implementation requested.
 
-## 15. Heritage Expansion Design — PRD 2.0 (planned, BUILD M9–M15)
+## 15. Heritage Expansion Design — PRD 2.0 (BUILD M9–M15)
 
 Status: **M9 implemented** (data model §15.2, migration §15.9; facts moved to §5);
 **M11 implemented** (checkout v2 §15.5, placement §15.6, tracking; facts moved to §7–§9;
 the §6 endpoint table still lists v1 routes, see §15.3); **M12 implemented** (§15.1, §15.7);
-**M13 implemented** (admin rows of §15.3, §15.4; facts moved to §6, §8, §10); the rest is design only. §§1–14 describe the implemented system. This
+**M10 implemented** (storefront rows of §15.3; facts moved to §6); **M13 implemented** (admin rows
+of §15.3, §15.4; facts moved to §6, §8, §10). M14 (§15.8) and M15 are not implemented yet. §§1–14 describe the implemented system. This
 section is the design for the PRD 2.0 requirements tagged [v2-changed]/[v2-new]. When a
 milestone ships, move the implemented facts into the owning section above and shrink this one.
 Stack, deployment and security baseline (§§2, 10, 12) are unchanged; no new dependencies.
@@ -600,9 +601,11 @@ then omits the 3D control (R4). Only `listing_status = active`, available-weaver
 facts in §6). Controllers `WeaversController` and `JournalController` share `StorefrontResponder`;
 public reads use `WeaverDirectoryService` (active weavers except the placeholder, public fields only)
 and `JournalService` (`status = published`, newest `published_at` first); `WeaverService` stays the
-weaver module's self-service class. Deviations: products of an inactive weaver (including the
-placeholder that owns upgraded v1 products) stay listed, as in §15.6, but their page shows no weaver
-row and the story section is titled "Story"; the category filter still matches the v1 category name,
+weaver module's self-service class. Visibility (`ProductService::VISIBLE`, owner decision after
+M13): a bag is on the storefront only when its listing is `active` and its weaver is active, or is the
+inactive placeholder that owns upgraded v1 and unreassigned products. The cart and placement use the
+same expression, so a hidden bag already in a cart cannot be ordered. Placeholder-owned bags show no
+weaver row and the story section is titled "Story". Deviation: the category filter still matches the v1 category name,
 not a slug. Weaver and journal pages are indexable (R26) and use `og:type` `profile`/`article`.
 
 ### 15.4 Order and payment state machines (R13, R15, R22, R44)
@@ -786,4 +789,4 @@ article-form, _error-summary}.twig`; order events are read by `OrderService::eve
 > fulfilment/cancel). M8 adds the Docker image, router-script start command, the Google Cloud VM
 > stack (Caddy, SSH deploy), Render blueprint and CI; hosted acceptance is tracked in BUILD M8.
 > Review/merge status is tracked separately in BUILD.
-> PRD 2.0 (R1–R44, N1–N12) is the target traceability baseline; §15 is planned, not implemented.
+> PRD 2.0 (R1–R44, N1–N12) is the target traceability baseline; M9–M13 are implemented (§15 status line), M14–M15 are not.

@@ -869,7 +869,7 @@ final class OrderService
         // Archived, unlisted or switched-off bags fail like a stock conflict.
         $statement = $this->pdo->prepare(
             "SELECT p.id, p.name, p.price_centavos, p.stock,"
-            . " p.listing_status = 'active' AND p.is_available = 1 AS is_active,"
+            . ' (' . ProductService::VISIBLE . ' AND p.is_available = 1) AS is_active,'
             . ' p.weaver_id, w.display_name AS weaver_name'
             . ' FROM products p LEFT JOIN weavers w ON w.id = p.weaver_id WHERE p.id = ?'
         );

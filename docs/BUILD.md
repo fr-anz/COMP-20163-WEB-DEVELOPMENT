@@ -1114,8 +1114,8 @@ M9 content evidence (2026-11-21, branch `docs/22-sourced-content`):
 - [x] Community changes: Quezon narrowed to Sampaloc, Quezon (documented buri town); Basey, Samar
   (tikog) and Catanduanes (abaca) confirmed; Bohol → Luisiana, Laguna for pandan (Bohol sources
   found point to buri/raffia loom weaving; the only Bohol pandan reference was a DTI blog post,
-  while Luisiana's pandan weaving is documented). Slug/email `carmen-bohol` kept because
-  `ProductCatalog` references it; renaming is a follow-up for the owner.
+  while Luisiana's pandan weaving is documented). Slug/email renamed `carmen-bohol` →
+  `carmen-luisiana` in the follow-up PR (fresh installs; existing databases keep their rows).
 - [x] Not supported, so not claimed: a dated origin of the bayong, bayong etymology, waterproofing,
   natural-dye claims for buri/pandan, and a long-standing abaca handloom tradition in Catanduanes
   (sources describe 2025 training). DTI and PIA pages for Luisiana, PNA Baras and NCCA pages could
@@ -1319,9 +1319,9 @@ M13 evidence (2026-11-21, branch `feat/26-admin-v2`, PHP 8.5.12, SQLite 3.54.1):
   classes present in `app.css` (checked with a script against the stylesheet).
 - Found, not fixed (M10 scope): `GET /api/product/{slug}/3d` answers 500 for a product with
   `three_config` NULL (`ProductService::get3dConfig()` JSON-decodes an empty string); SDD §15.3
-  expects JSON 404. Weaver-created listings (M12) already have NULL configs. By source reading (not
-  exercised), deactivated weavers' products stay listed because `ProductService` filters only by
-  `listing_status` (R40 storefront visibility belongs with M10).
+  expects JSON 404. Weaver-created listings (M12) already have NULL configs. Resolved after M13: bags of a
+  deactivated weaver are now hidden from the storefront, cart and checkout (owner decision; the
+  placeholder weaver is exempt), see SDD §15.3 and `DeactivatedWeaverVisibilityTest`.
 
 #### M14 — English/Filipino (E lead, C UI)
 - [x] `Translator`, `LocaleMiddleware`, `POST /lang` (CSRF, session `lang` + one-year `habi_lang` cookie,
