@@ -7,6 +7,7 @@ namespace Habi\Tests\Services;
 use Habi\Bootstrap\Initializer;
 use Habi\Services\AuthService;
 use Habi\Tests\TestSupport\IsolatedDatabaseTestCase;
+use Habi\Tests\TestSupport\WeaverFixtures;
 
 /**
  * Boundary tests for the administrator sign-in throttle (PRD R19, SDD §10):
@@ -14,10 +15,14 @@ use Habi\Tests\TestSupport\IsolatedDatabaseTestCase;
  * email+IP key for 60 seconds during which even the correct password is not
  * checked, the lock expires with the clock, a success clears the counter,
  * and the lock is scoped per email+IP key. Unknown emails and wrong
- * passwords are indistinguishable.
+ * passwords are indistinguishable. Weaver sign-in (R34, SDD §15.1) shares
+ * the rules with role-scoped throttle keys, and deactivated weavers fail
+ * generically.
  */
 final class AuthServiceTest extends IsolatedDatabaseTestCase
 {
+    use WeaverFixtures;
+
     private const EMAIL = 'admin@example.test';
     private const PASSWORD = 'habi-demo-password';
 
@@ -129,5 +134,70 @@ final class AuthServiceTest extends IsolatedDatabaseTestCase
             AuthService::STATUS_LOCKED,
             $this->auth->attempt('ghost@example.test', 'x', '10.0.0.4')['status']
         );
+    }
+
+    public function testWeaverSignInReturnsTheActiveWeaverOnly(): void
+    {
+        $weaverId = $this->insertWeaver('lita', 'tikog-secret');
+        $this->insertWeaver('former', 'tikog-secret', false);
+
+        $result = $this->auth->attemptWeaver('LITA@weavers.test', 'tikog-secret', '10.0.0.5');
+        self::assertSame(AuthService::STATUS_OK, $result['status']);
+        self::assertSame($weaverId, $result['weaver']['id']);
+        self::assertSame('Lita Weaver', $result['weaver']['name']);
+        self::assertArrayNotHasKey('admin', $result);
+
+        // Deactivated weavers, wrong passwords, admins and unusable seed hashes fail the same way.
+        foreach (
+            [
+                ['former@weavers.test', 'tikog-secret'],
+                ['lita@weavers.test', 'wrong'],
+                [self::EMAIL, self::PASSWORD],
+                ['nena-quezon@weavers.invalid', '!'],
+            ] as [$email, $password]
+        ) {
+            self::assertSame(
+                ['status' => AuthService::STATUS_INVALID],
+                $this->auth->attemptWeaver($email, $password, '10.0.0.6')
+            );
+        }
+        // A weaver's credentials never open the admin path either.
+        self::assertSame(
+            AuthService::STATUS_INVALID,
+            $this->auth->attempt('lita@weavers.test', 'tikog-secret', '10.0.0.7')['status']
+        );
+    }
+
+    public function testThrottleKeysAreScopedPerRole(): void
+    {
+        $this->insertWeaver('shared', 'weaver-password');
+        for ($i = 0; $i < 5; $i++) {
+            $this->auth->attempt('shared@weavers.test', 'wrong-password', '10.0.0.8');
+        }
+        self::assertSame(
+            AuthService::STATUS_LOCKED,
+            $this->auth->attempt('shared@weavers.test', 'wrong-password', '10.0.0.8')['status']
+        );
+
+        // The admin lock on the same email + IP does not touch the weaver counter.
+        $result = $this->auth->attemptWeaver('shared@weavers.test', 'weaver-password', '10.0.0.8');
+        self::assertSame(AuthService::STATUS_OK, $result['status']);
+
+        for ($i = 0; $i < 4; $i++) {
+            $this->auth->attemptWeaver('shared@weavers.test', 'wrong-password', '10.0.0.8');
+        }
+        self::assertSame(
+            AuthService::STATUS_LOCKED,
+            $this->auth->attemptWeaver('shared@weavers.test', 'wrong-password', '10.0.0.8')['status']
+        );
+        self::assertSame(
+            AuthService::STATUS_LOCKED,
+            $this->auth->attemptWeaver('shared@weavers.test', 'weaver-password', '10.0.0.8')['status']
+        );
+
+        // Keys are role-prefixed before hashing, never the raw email.
+        $keys = $this->database()->query('SELECT throttle_key FROM login_attempts')->fetchAll(\PDO::FETCH_COLUMN);
+        self::assertContains(hash('sha256', 'admin:shared@weavers.test|10.0.0.8'), $keys);
+        self::assertContains(hash('sha256', 'weaver:shared@weavers.test|10.0.0.8'), $keys);
     }
 }

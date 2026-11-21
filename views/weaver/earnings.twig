@@ -1,0 +1,83 @@
+{#-
+  Weaver Earnings (R39, SDD §15.7): From/To period filter (inclusive UTC
+  order dates), metric cards Earned / Pending / Units sold / Your share
+  100%, and the itemized lines. Shipping fees are never included.
+  Receives: earnings (EarningsService::summary) plus the layout variables.
+-#}
+{% extends "weaver/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% import "weaver/_macros.twig" as wv %}
+{% set active_nav = 'earnings' %}
+
+{% block title %}Earnings{% endblock %}
+
+{% block content %}
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-h2 font-semibold">Earnings</h1>
+    <form method="get" action="/weaver/earnings" data-admin-filters class="flex flex-wrap items-end gap-3">
+      <div class="w-44">
+        <label for="filter-from" class="field-label">From</label>
+        <input id="filter-from" name="from" type="date" class="input" value="{{ earnings.from }}">
+      </div>
+      <div class="w-44">
+        <label for="filter-to" class="field-label">To</label>
+        <input id="filter-to" name="to" type="date" class="input" value="{{ earnings.to }}">
+      </div>
+      <button type="submit" data-filter-submit class="btn btn--secondary">Apply filters</button>
+    </form>
+  </div>
+  <div class="grid grid-cols-2 gap-3 @4xl:grid-cols-4">
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Earned</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ ui.money(earnings.earned_centavos) }}</p>
+      <p class="mt-1.5 text-caption text-ink-2">Delivered and paid</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Pending</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ ui.money(earnings.pending_centavos) }}</p>
+      <p class="mt-1.5 text-caption text-ink-2">Not yet delivered and paid</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Units sold</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ earnings.units }}</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Your share</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ earnings.share_percent }}%</p>
+      <p class="mt-1.5 text-caption text-ink-2">No commission · shipping excluded</p>
+    </div>
+  </div>
+  <section aria-labelledby="lines-h" class="mt-6 min-w-0">
+    <h2 id="lines-h" class="mb-2 text-body font-semibold">Items</h2>
+    <p class="sr-only" role="status">{{ earnings.items|length }} {{ earnings.items|length == 1 ? 'item' : 'items' }} shown</p>
+    <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+      <table class="w-full min-w-[640px] text-left text-small">
+        <caption class="sr-only">Itemized earnings</caption>
+        <thead>
+          <tr>
+            {% for heading in ['Order', 'Date', 'Bag', 'Qty', 'Line total', 'Earnings'] %}
+              <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in earnings.items %}
+            <tr class="hover:bg-page">
+              <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="touch-link inline-block py-0.5 underline-offset-4 hover:underline" href="/weaver/orders/{{ item.order_number|url_encode }}">{{ item.order_number }}</a></td>
+              <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ item.created_at|slice(0, 10) }}</td>
+              <td class="border-b border-line px-3 py-2.5 align-middle">{{ item.name_snapshot }}</td>
+              <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ item.qty }}</td>
+              <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(item.line_total_centavos) }}</td>
+              <td class="border-b border-line px-3 py-2.5 align-middle">{{ wv.bucket_chip(item.bucket) }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="px-3 py-2.5 text-ink-2">
+              {% if earnings.from or earnings.to %}No sales in this period. <a class="link" href="/weaver/earnings">Show all periods</a>{% else %}No sales yet. Sold bags appear here.{% endif %}
+            </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

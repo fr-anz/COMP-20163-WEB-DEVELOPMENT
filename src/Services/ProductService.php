@@ -9,6 +9,8 @@ use PDO;
 /**
  * Read-only queries for the public storefront catalog. Only active products
  * are returned; procedural configs are fetched separately from catalog data.
+ * A product marked unavailable (is_available = 0, R37) reports stock 0, so
+ * it shows and behaves as sold out (R17).
  *
  * Money is integer centavos. Listing pages hold 8 products. Sorting is a
  * fixed allowlist ("featured", the deterministic id order, is the default) so
@@ -58,7 +60,7 @@ final class ProductService
 
         [$conditions, $parameters] = $this->filters($q, $category);
         if ($hideSoldout) {
-            $conditions[] = 'p.stock > 0';
+            $conditions[] = 'p.stock > 0 AND p.is_available = 1';
         }
         $where = $conditions === [] ? '' : ' WHERE ' . implode(' AND ', $conditions);
 
@@ -71,7 +73,8 @@ final class ProductService
 
         $statement = $this->pdo->prepare(
             'SELECT p.id, p.slug, p.name, p.category, p.description, p.materials,
-                    p.place_of_make, p.price_centavos, p.stock, p.low_stock_threshold,
+                    p.place_of_make, p.price_centavos, CASE WHEN p.is_available = 1 THEN p.stock ELSE 0 END AS stock,
+                    p.low_stock_threshold,
                     p.dimensions,
                     (SELECT pi.path FROM product_images pi
                      WHERE pi.product_id = p.id
@@ -133,7 +136,8 @@ final class ProductService
     {
         $statement = $this->pdo->prepare(
             'SELECT p.id, p.slug, p.name, p.category, p.description, p.materials,
-                    p.place_of_make, p.price_centavos, p.stock, p.low_stock_threshold,
+                    p.place_of_make, p.price_centavos, CASE WHEN p.is_available = 1 THEN p.stock ELSE 0 END AS stock,
+                    p.low_stock_threshold,
                     p.dimensions,
                     (SELECT pi.path FROM product_images pi
                      WHERE pi.product_id = p.id
@@ -200,7 +204,8 @@ final class ProductService
 
         $statement = $this->pdo->prepare(
             'SELECT p.id, p.slug, p.name, p.category, p.description, p.materials,
-                    p.place_of_make, p.price_centavos, p.stock, p.low_stock_threshold,
+                    p.place_of_make, p.price_centavos, CASE WHEN p.is_available = 1 THEN p.stock ELSE 0 END AS stock,
+                    p.low_stock_threshold,
                     p.dimensions,
                     (SELECT pi.path FROM product_images pi
                      WHERE pi.product_id = p.id

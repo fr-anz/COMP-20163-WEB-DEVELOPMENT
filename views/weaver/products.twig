@@ -1,0 +1,175 @@
+{#-
+  Weaver "My bags" (R36, R23): the admin Products table for the weaver's
+  own listings with listing status chips (Pending review, Active, Archived,
+  Deactivated) and Add bag. Dialogs are server-rendered: dialog.type
+  'product' (create when dialog.product is null, else edit) or 'archive'.
+  The form carries the R36/R29 fields without SKU, 3D model or status;
+  stock is set only on create (later in Stock, audited). A deactivated
+  listing opens read-only.
+  Receives: products, dialog, listing_labels, options plus the layout variables.
+-#}
+{% extends "weaver/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% import "weaver/_macros.twig" as wv %}
+{% set active_nav = 'products' %}
+{% set dialog_open = dialog is not null %}
+
+{% block title %}My bags{% endblock %}
+
+{% block content %}
+  <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <h1 class="text-h2 font-semibold">My bags</h1>
+    <a class="btn btn--primary btn--sm" href="/weaver/products/new">{{ icons.icon('plus', 18) }}<span>Add bag</span></a>
+  </div>
+  <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+    <table class="w-full min-w-[640px] text-left text-small">
+      <caption class="sr-only">My bags</caption>
+      <thead>
+        <tr>
+          {% for heading in ['Bag', 'Price', 'Listing', 'Stock'] %}
+            <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+          {% endfor %}
+          <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase text-right"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for product in products %}
+          <tr class="hover:bg-page">
+            <td class="border-b border-line px-3 py-2.5 align-middle">
+              <div class="flex items-center gap-3">
+                <div class="h-12 w-10 flex-none overflow-hidden rounded-sm border border-line bg-[#F3EEE4]">
+                  {% if product.image_path %}<img src="{{ product.image_path }}" alt="" width="40" height="48" loading="lazy" class="block h-full w-full object-contain">{% endif %}
+                </div>
+                <span class="font-semibold">{{ product.name }}<span class="block text-caption font-normal text-ink-2">{{ product.category }} · {{ options.fibers[product.fiber]|default(product.fiber) }}</span></span>
+              </div>
+            </td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(product.price_centavos) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ wv.listing_chip(product.listing_status) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ wv.stock_chip(product) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle text-right">
+              <a href="/weaver/products/{{ product.id }}/edit" aria-label="{{ product.listing_status == 'deactivated' ? 'View' : 'Edit' }} {{ product.name }}" title="{{ product.listing_status == 'deactivated' ? 'View' : 'Edit' }} {{ product.name }}" class="icon-btn relative">{{ icons.icon(product.listing_status == 'deactivated' ? 'eye' : 'edit') }}</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="px-3 py-2.5 text-ink-2">No bags yet. <a class="link" href="/weaver/products/new">Add your first bag</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}
+
+{% block dialog %}
+  {% if dialog and dialog.type == 'product' %}
+    {% set product = dialog.product %}
+    {% set locked = product and product.listing_status == 'deactivated' %}
+    {% set v = dialog.values %}
+    {% set e = dialog.errors %}
+    {% embed 'admin/_dialog.twig' with {
+      dialog_id: 'product-dialog',
+      title: locked ? product.name : (product ? 'Edit bag' : 'Add bag'),
+      description: product ? product.name ~ ' · ' ~ listing_labels[product.listing_status] : 'New bags are reviewed by Habi before they appear in the shop.',
+      close_href: '/weaver/products',
+      max_width: '520px',
+      form_action: product ? '/weaver/products/' ~ product.id : '/weaver/products',
+      form_enctype: 'multipart/form-data',
+    } %}
+      {% import "macros/icons.twig" as icons %}
+      {% import "admin/_macros.twig" as ui %}
+      {% block body %}
+        {% if locked %}
+          <div class="mb-4 flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="status">
+            {{ icons.icon('lock', 20, 'mt-0.5 flex-none') }}<p class="text-small font-medium">Deactivated by Habi. This listing can no longer be changed.</p>
+          </div>
+        {% endif %}
+        {% if e|length %}
+          <div class="mb-4 flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert" data-error-summary>
+            {{ icons.icon('alert', 20, 'mt-0.5 flex-none') }}
+            <div class="min-w-0 flex-1">
+              <p class="text-[15px] font-semibold">Check the highlighted fields</p>
+              <ul class="mt-1 space-y-1 text-small">
+                {% for field, message in e %}
+                  <li><a href="#f-{{ field|replace({'_': '-'}) }}" class="underline underline-offset-2">{{ message }}</a></li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        {% endif %}
+        <fieldset class="grid gap-4"{% if locked %} disabled{% endif %}>
+          {{ ui.input('name', 'Bag name', v.name, e, {required: true, maxlength: 80}) }}
+          <div class="grid grid-cols-2 gap-4">
+            {{ ui.select('category', 'Category', v.category, options.categories, e) }}
+            {{ ui.select('fiber', 'Fiber', v.fiber, options.fibers, e) }}
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            {{ ui.input('price', 'Price (PHP)', v.price, e, {required: true, inputmode: 'decimal', placeholder: '1650.00'}) }}
+            {% if product %}
+              <div>
+                <p class="field-label">Stock</p>
+                <p class="flex min-h-11 items-center gap-2 text-small"><strong class="tabular-nums">{{ product.stock }}</strong>{% if not locked %}<a class="link" href="/weaver/stock/{{ product.id }}/adjust">Change in Stock</a>{% endif %}</p>
+              </div>
+            {% else %}
+              {{ ui.input('stock', 'Starting stock', v.stock, e, {required: true, type: 'number', min: 0, max: 9999, inputmode: 'numeric'}) }}
+            {% endif %}
+          </div>
+          {{ ui.input('low_stock_threshold', 'Low-stock threshold', v.low_stock_threshold, e, {required: true, type: 'number', min: 0, max: 99, inputmode: 'numeric'}) }}
+          {{ ui.input('materials', 'Materials', v.materials, e, {required: true, maxlength: 200, placeholder: 'e.g. Tikog with cotton lining'}) }}
+          {{ ui.input('place_of_make', 'Place of make', v.place_of_make, e, {required: true, maxlength: 200}) }}
+          <div class="grid gap-4 @2xl:grid-cols-2">
+            {{ ui.input('community', 'Community', v.community, e, {maxlength: 120}) }}
+            {{ ui.input('region', 'Region', v.region, e, {maxlength: 120}) }}
+          </div>
+          {{ ui.input('technique', 'Weaving technique', v.technique, e, {maxlength: 120}) }}
+          {{ ui.input('description', 'Description', v.description, e, {textarea: true, rows: 3, maxlength: 2000}) }}
+          {{ ui.input('story', 'Story', v.story, e, {textarea: true, rows: 4, maxlength: 4000}) }}
+          <fieldset>
+            <legend class="field-label">Dimensions (cm)</legend>
+            <div class="grid grid-cols-3 gap-3">
+              {{ ui.input('width', 'Width', v.width, e, {required: true, type: 'number', min: 1, max: 200, inputmode: 'numeric'}) }}
+              {{ ui.input('height', 'Height', v.height, e, {required: true, type: 'number', min: 1, max: 200, inputmode: 'numeric'}) }}
+              {{ ui.input('depth', 'Depth', v.depth, e, {required: true, type: 'number', min: 1, max: 200, inputmode: 'numeric'}) }}
+            </div>
+          </fieldset>
+          <div>
+            <p class="field-label" id="f-image">Photo{% if not product %}<span class="ml-1 text-error" aria-hidden="true">*</span>{% endif %}</p>
+            <div class="flex flex-wrap items-center gap-3 rounded-control border-[1.5px] border-dashed border-line-strong bg-page p-3">
+              <div class="h-16 w-[52px] flex-none overflow-hidden rounded-sm border border-line bg-[#F3EEE4]">
+                {% set current = product ? (product.images|first).path|default(null) : null %}
+                {% if current %}<img src="{{ current }}" alt="Current main photo" width="52" height="64" class="block h-full w-full object-contain">{% endif %}
+              </div>
+              <label class="btn btn--secondary btn--sm">
+                {{ icons.icon('upload', 18) }}<span>{{ product ? 'Replace photo' : 'Upload photo' }}</span>
+                <input type="file" name="image" accept="image/jpeg,image/png,image/webp" class="sr-only" data-file-input
+                       aria-describedby="f-image-hint{% if e.image is defined %} f-image-err{% endif %}"{% if e.image is defined %} aria-invalid="true"{% endif %}>
+              </label>
+              <span id="f-image-hint" class="text-caption text-ink-2" data-file-name>JPG, PNG or WebP · up to 2 MB · 4:5, neutral background</span>
+            </div>
+            {{ ui.field_error('f-image', e.image|default(null)) }}
+          </div>
+        </fieldset>
+      {% endblock %}
+      {% block footer %}
+        {% if product and product.listing_status in ['pending_review', 'active'] %}
+          <a class="btn btn--destructive mr-auto" href="/weaver/products/{{ product.id }}/archive">Remove…</a>
+        {% endif %}
+        <a class="btn btn--secondary" href="{{ close_href }}"><span>{{ locked ? 'Close' : 'Cancel' }}</span></a>
+        {% if not locked %}
+          <button type="submit" class="btn btn--primary"><span>{{ product ? 'Save bag' : 'Add bag' }}</span></button>
+        {% endif %}
+      {% endblock %}
+    {% endembed %}
+  {% elseif dialog and dialog.type == 'archive' %}
+    {% embed 'admin/_dialog.twig' with {
+      dialog_id: 'archive-dialog',
+      title: 'Remove ' ~ dialog.product.name ~ '?',
+      description: 'It will be hidden from the shop. Order history is kept.',
+      close_href: '/weaver/products',
+      form_action: '/weaver/products/' ~ dialog.product.id ~ '/archive',
+    } %}
+      {% block footer %}
+        <a class="btn btn--secondary" href="{{ close_href }}"><span>Cancel</span></a>
+        <button type="submit" class="btn btn--destructive"><span>Remove bag</span></button>
+      {% endblock %}
+    {% endembed %}
+  {% endif %}
+{% endblock %}

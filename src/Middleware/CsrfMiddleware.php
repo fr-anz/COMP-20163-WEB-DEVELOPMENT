@@ -42,7 +42,8 @@ final class CsrfMiddleware implements MiddlewareInterface
         }
         $path = $request->getUri()->getPath();
         $admin = $path === '/admin' || str_starts_with($path, '/admin/');
-        $message = $admin
+        $weaver = $path === '/weaver' || str_starts_with($path, '/weaver/');
+        $message = $admin || $weaver
             ? 'Your session expired or this form is stale. Reload the page and try again; nothing was changed.'
             : 'Your session expired or this form is stale. Reload the page and try again; no order was placed.';
         if (str_contains($request->getHeaderLine('Accept'), 'application/json')) {
@@ -57,7 +58,9 @@ final class CsrfMiddleware implements MiddlewareInterface
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>Session expired — Habi</title><main><h1>Reload this form</h1><p>' . $message
             . '</p>'
-            . ($admin ? '<a href="/admin">Return to the admin panel</a>' : '<a href="/cart">Review your bag</a>')
+            . ($admin ? '<a href="/admin">Return to the admin panel</a>'
+                : ($weaver ? '<a href="/weaver">Return to your weaver account</a>'
+                    : '<a href="/cart">Review your bag</a>'))
             . '</main></html>');
 
         return $response->withHeader('Content-Type', 'text/html; charset=UTF-8');

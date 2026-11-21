@@ -12,12 +12,18 @@ use Habi\Controllers\CheckoutController;
 use Habi\Controllers\StorefrontController;
 use Habi\Controllers\TrackController;
 use Habi\Controllers\UploadController;
+use Habi\Controllers\WeaverController;
+use Habi\Controllers\WeaverProductController;
+use Habi\Controllers\WeaverResponder;
+use Habi\Controllers\WeaverRoutes;
 use Habi\Middleware\ErrorHandler;
 use Habi\Middleware\AdminAuthMiddleware;
 use Habi\Middleware\CsrfMiddleware;
+use Habi\Middleware\WeaverAuthMiddleware;
 use Habi\Services\AdminProductService;
 use Habi\Services\AuthService;
 use Habi\Services\CartService;
+use Habi\Services\EarningsService;
 use Habi\Services\ImageUploadService;
 use Habi\Services\ProductService;
 use Habi\Services\OrderService;
@@ -25,6 +31,9 @@ use Habi\Services\PaymentProofService;
 use Habi\Services\PaymentSimulator;
 use Habi\Services\StockService;
 use Habi\Services\TrackingService;
+use Habi\Services\WeaverOrderService;
+use Habi\Services\WeaverProductService;
+use Habi\Services\WeaverService;
 use Habi\Support\Database;
 use Habi\Support\Env;
 use Habi\Support\Session;
@@ -163,8 +172,9 @@ $adminOrders = static fn (): AdminOrderController =>
     new AdminOrderController($adminView(), new OrderService(Database::connection()));
 
 // Slim executes middleware last-added first: response headers, error handler,
-// database initialization, CSRF, administrator authorization, then routing.
+// database initialization, CSRF, weaver and administrator authorization, then routing.
 $app->add(new AdminAuthMiddleware($psr17Factory));
+$app->add(new WeaverAuthMiddleware($psr17Factory));
 $app->add(new CsrfMiddleware(
     $psr17Factory,
     static fn (ServerRequestInterface $request, ResponseInterface $response): ResponseInterface =>
@@ -335,6 +345,30 @@ $app->post('/admin/orders/{number}/cancel', fn (
     ResponseInterface $response,
     array $args
 ): ResponseInterface => $adminOrders()->cancel($request, $response, $args));
+
+// Weaver module (M12, R34–R39). WeaverAuthMiddleware requires an active
+// weaver on every /weaver path except /weaver/login; routes live in
+// WeaverRoutes so WeaverRoutesTest covers exactly these.
+$weaverView = static fn (): WeaverResponder => new WeaverResponder($twig, Session::store());
+WeaverRoutes::register(
+    $app,
+    static fn (): WeaverController => new WeaverController(
+        $weaverView(),
+        Session::store(),
+        new AuthService(Database::connection()),
+        new WeaverService(Database::connection()),
+        new WeaverProductService(Database::connection()),
+        new WeaverOrderService(Database::connection()),
+        new EarningsService(Database::connection()),
+        $uploads()
+    ),
+    static fn (): WeaverProductController => new WeaverProductController(
+        $weaverView(),
+        new WeaverProductService(Database::connection()),
+        new StockService(Database::connection()),
+        $uploads()
+    )
+);
 
 $app->get('/uploads/{name}', fn (
     ServerRequestInterface $request,

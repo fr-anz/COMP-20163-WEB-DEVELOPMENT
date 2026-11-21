@@ -1,0 +1,10 @@
+{#-
+  Weaver sign-in (R34): the admin sign-in panel with the Weaver tag, posting
+  to /weaver/login. Same generic failure message and lockout notice.
+  Receives: app_name, csrf_token, flash, email, message.
+-#}
+{% extends "admin/login.twig" %}
+{% set shell_tag = 'Weaver' %}
+{% set shell_title = 'weaver' %}
+{% set shell_description = 'Habi weaver account: bags, stock, orders and earnings.' %}
+{% set login_action = '/weaver/login' %}

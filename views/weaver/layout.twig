@@ -1,0 +1,19 @@
+{#-
+  Weaver module shell (R34–R39, DSD "PRD 2.0 screens"): the admin shell
+  with a "Weaver" tag and the weaver items Dashboard, My bags, Stock,
+  Orders, Earnings, Profile and Log out. Inherits noindex from the shell
+  (R26). Receives the WeaverResponder variables plus active_nav.
+-#}
+{% extends "admin/layout.twig" %}
+{% set shell_tag = 'Weaver' %}
+{% set shell_title = 'weaver' %}
+{% set shell_description = 'Habi weaver account: bags, stock, orders and earnings.' %}
+{% set shell_logout = '/weaver/logout' %}
+{% set shell_nav = [
+  {key: 'dashboard', href: '/weaver', label: 'Dashboard', icon: 'grid'},
+  {key: 'products', href: '/weaver/products', label: 'My bags', icon: 'bag'},
+  {key: 'stock', href: '/weaver/stock', label: 'Stock', icon: 'box'},
+  {key: 'orders', href: '/weaver/orders', label: 'Orders', icon: 'orders'},
+  {key: 'earnings', href: '/weaver/earnings', label: 'Earnings', icon: 'arrow-up'},
+  {key: 'profile', href: '/weaver/profile', label: 'Profile', icon: 'thread'},
+] %}
