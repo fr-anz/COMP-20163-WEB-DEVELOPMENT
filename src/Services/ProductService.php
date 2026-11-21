@@ -184,7 +184,7 @@ final class ProductService
         $rows = $this->pdo->query(
             "SELECT DISTINCT p.category, COALESCE(NULLIF(c.name_fil, ''), c.name) AS name_fil
              FROM products p LEFT JOIN categories c ON c.id = p.category_id
-             WHERE p.listing_status = 'active'"
+             WHERE " . self::VISIBLE
         )->fetchAll(PDO::FETCH_ASSOC);
         foreach ($rows as $row) {
             $category = (string) $row['category'];
