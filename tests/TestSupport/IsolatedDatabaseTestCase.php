@@ -63,6 +63,27 @@ abstract class IsolatedDatabaseTestCase extends TestCase
         return Database::connection();
     }
 
+    /**
+     * Inserts a minimal Tote owned by the first weaver (initialized database required).
+     */
+    protected function insertProduct(
+        string $sku,
+        string $name,
+        int $priceCentavos,
+        int $stock,
+        string $listingStatus = 'active',
+    ): int {
+        $pdo = $this->database();
+        $pdo->prepare(
+            "INSERT INTO products (sku, slug, name, weaver_id, category_id, category, price_centavos, stock,
+                 listing_status)
+             VALUES (?, ?, ?, (SELECT MIN(id) FROM weavers), (SELECT id FROM categories WHERE name = 'Tote'),
+                 'Tote', ?, ?, ?)"
+        )->execute([$sku, $sku, $name, $priceCentavos, $stock, $listingStatus]);
+
+        return (int) $pdo->lastInsertId();
+    }
+
     protected function migrationsDir(): string
     {
         return habi_repo_root() . '/migrations';

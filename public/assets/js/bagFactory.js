@@ -5,8 +5,9 @@
  * cm, colors, handle_style, material, lining, pockets, optional pattern).
  * All geometry is generated at runtime — no model files.
  *
- * Surface: each bag has a base weave texture per `material`
- * (rattan/canvas/leather) drawn in neutral greys and tinted by `colors.body`,
+ * Surface: each bag has a base weave texture per `material` — a native fiber
+ * (buri/pandan/tikog/abaca) or a v1 look (rattan/canvas/leather) — drawn in
+ * neutral greys and tinted by `colors.body`,
  * plus a Sobel-derived normal map from the same canvas. When the config
  * carries a `pattern` descriptor, the body instead gets a full-color canvas
  * pattern (checker / stripes / pixel-diamond) painted to match the product's
@@ -43,7 +44,10 @@
  */
 import * as THREE from 'three';
 
-const MATERIAL_ROUGHNESS = { rattan: 0.72, canvas: 0.95, leather: 0.48 };
+const MATERIAL_ROUGHNESS = {
+    buri: 0.8, pandan: 0.62, tikog: 0.55, abaca: 0.85,
+    rattan: 0.72, canvas: 0.95, leather: 0.48,
+};
 const BRASS_COLOR = 0xc9a24b;
 const DARK_METAL_COLOR = 0x352820;
 
@@ -277,6 +281,80 @@ function drawCanvasTextile(size) {
     return canvas;
 }
 
+/**
+ * Plain over/under plait of flat strips: `cells` strips per side, `gap` px
+ * between them, `grain` fibre lines along each strip, `sheen` highlight alpha.
+ * Shared by the native fibers; their parameters set the look.
+ */
+function drawPlait(size, { cells, gap, grain, sheen, seed, twill = false }) {
+    const cell = size / cells;
+    const canvas = makeDrawingCanvas(size);
+    const ctx = canvas.getContext('2d');
+    const random = mulberry32(seed);
+
+    ctx.fillStyle = '#3d3d3d';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let row = 0; row < cells; row++) {
+        for (let col = 0; col < cells; col++) {
+            // Twill steps the over/under by one strip per row (diagonal ribs).
+            const horizontal = twill ? Math.floor((col + row) / 2) % 2 === 0 : (row + col) % 2 === 0;
+            const x = col * cell + gap / 2;
+            const y = row * cell + gap / 2;
+            const w = cell - gap;
+            const tone = 0.88 + random() * 0.24;
+            const grey = (v) => Math.round(Math.min(255, v * tone));
+            const gradient = horizontal
+                ? ctx.createLinearGradient(x, y, x, y + w)
+                : ctx.createLinearGradient(x, y, x + w, y);
+            gradient.addColorStop(0, `rgb(${grey(150)},${grey(150)},${grey(150)})`);
+            gradient.addColorStop(0.5, `rgb(${grey(222)},${grey(222)},${grey(222)})`);
+            gradient.addColorStop(1, `rgb(${grey(140)},${grey(140)},${grey(140)})`);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, w, w);
+
+            ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+            ctx.lineWidth = 1;
+            for (let i = 1; i <= grain; i++) {
+                const offset = (i / (grain + 1)) * w + (random() - 0.5) * 2;
+                ctx.beginPath();
+                if (horizontal) {
+                    ctx.moveTo(x, y + offset); ctx.lineTo(x + w, y + offset);
+                } else {
+                    ctx.moveTo(x + offset, y); ctx.lineTo(x + offset, y + w);
+                }
+                ctx.stroke();
+            }
+            if (sheen > 0) {
+                ctx.fillStyle = `rgba(255,255,255,${sheen})`;
+                if (horizontal) ctx.fillRect(x, y + w * 0.3, w, w * 0.12);
+                else ctx.fillRect(x + w * 0.3, y, w * 0.12, w);
+            }
+        }
+    }
+    return canvas;
+}
+
+/** Abaca: loosely spun, irregular strands with stray fibres (matte). */
+function drawAbaca(size) {
+    const canvas = drawPlait(size, { cells: 20, gap: 5, grain: 5, sheen: 0, seed: 0xABACA });
+    const ctx = canvas.getContext('2d');
+    const random = mulberry32(0xF1BE2);
+    for (let i = 0; i < 700; i++) {
+        const x = random() * size;
+        const y = random() * size;
+        const angle = random() * Math.PI;
+        const length = 6 + random() * 18;
+        ctx.strokeStyle = random() > 0.5 ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length);
+        ctx.stroke();
+    }
+    return canvas;
+}
+
 /** Smooth leather with fine pores, without large painted blotches. */
 function drawLeather(size) {
     const canvas = makeDrawingCanvas(size);
@@ -323,6 +401,12 @@ function drawLining(size, coarse) {
 const TEXTURE_SIZE = 1024;
 
 const TEXTURE_MAKERS = {
+    // Buri: wide, flat palm strips; pandan: narrow glossy twill; tikog: very
+    // fine, tight, glossy grass plait; abaca: coarse loose fibre.
+    buri: () => makeSurfaceMaps(drawPlait(TEXTURE_SIZE, { cells: 10, gap: 4, grain: 6, sheen: 0.08, seed: 0xB0121 }), 3, 3, 1.1),
+    pandan: () => makeSurfaceMaps(drawPlait(TEXTURE_SIZE, { cells: 16, gap: 3, grain: 3, sheen: 0.2, seed: 0x9A4DA, twill: true }), 3, 3, 1.0),
+    tikog: () => makeSurfaceMaps(drawPlait(TEXTURE_SIZE, { cells: 28, gap: 2, grain: 1, sheen: 0.26, seed: 0x71C06 }), 3, 3, 0.8),
+    abaca: () => makeSurfaceMaps(drawAbaca(TEXTURE_SIZE), 3, 3, 1.2),
     rattan: () => makeSurfaceMaps(drawRattan(TEXTURE_SIZE), 3, 3, 1.3),
     canvas: () => makeSurfaceMaps(drawCanvasTextile(TEXTURE_SIZE), 4, 4, 0.7),
     leather: () => makeSurfaceMaps(drawLeather(TEXTURE_SIZE), 2, 2, 0.9),

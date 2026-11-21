@@ -7,8 +7,9 @@ namespace Habi\Bootstrap;
 use PDO;
 
 /**
- * Inserts the demo catalog and the first-boot administrator inside the
- * caller's transaction. Credentials come exclusively from the environment;
+ * Inserts the sample weavers, journal articles, native-fiber catalog and the
+ * first-boot administrator inside the caller's transaction (categories come
+ * from HeritageUpgrade). Credentials come exclusively from the environment;
  * they are never defaulted, logged, or echoed.
  */
 final class Seeder
@@ -19,7 +20,8 @@ final class Seeder
     public static function seed(PDO $pdo): void
     {
         self::insertAdmin($pdo, self::adminFromEnv());
-        self::insertCatalog($pdo);
+        self::insertCatalog($pdo, self::insertWeavers($pdo));
+        self::insertArticles($pdo);
     }
 
     /**
@@ -69,7 +71,44 @@ final class Seeder
         ]);
     }
 
-    private static function insertCatalog(PDO $pdo): void
+    /**
+     * @return array<string, array{id: int, community: string, region: string}> keyed by slug
+     */
+    private static function insertWeavers(PDO $pdo): array
+    {
+        $statement = $pdo->prepare(
+            "INSERT INTO weavers (email, password_hash, slug, display_name, community, region, fibers,
+                 techniques, story, is_active)
+             VALUES (:email, '!', :slug, :display_name, :community, :region, :fibers, :techniques, :story, 1)"
+        );
+        $weavers = [];
+        foreach (SampleContent::weavers() as $weaver) {
+            $statement->execute($weaver);
+            $weavers[$weaver['slug']] = [
+                'id' => (int) $pdo->lastInsertId(),
+                'community' => $weaver['community'],
+                'region' => $weaver['region'],
+            ];
+        }
+
+        return $weavers;
+    }
+
+    private static function insertArticles(PDO $pdo): void
+    {
+        $statement = $pdo->prepare(
+            "INSERT INTO journal_articles (slug, title, excerpt, body, sources, status, published_at)
+             VALUES (:slug, :title, :excerpt, :body, :sources, 'published', datetime('now'))"
+        );
+        foreach (SampleContent::articles() as $article) {
+            $statement->execute($article);
+        }
+    }
+
+    /**
+     * @param array<string, array{id: int, community: string, region: string}> $weavers
+     */
+    private static function insertCatalog(PDO $pdo, array $weavers): void
     {
         $imageStatement = $pdo->prepare(
             'INSERT INTO product_images (product_id, path, sort_order, is_primary)
@@ -77,7 +116,7 @@ final class Seeder
         );
 
         foreach (ProductCatalog::products() as $product) {
-            $productId = self::insertProduct($pdo, $product);
+            $productId = self::insertProduct($pdo, $product, $weavers[$product['weaver']]);
             $imageStatement->execute([
                 'product_id' => $productId,
                 'path' => '/assets/img/products/' . $product['slug'] . '.svg',
@@ -87,19 +126,30 @@ final class Seeder
 
     /**
      * @param array<string, mixed> $product
+     * @param array{id: int, community: string, region: string} $weaver
      */
-    private static function insertProduct(PDO $pdo, array $product): int
+    private static function insertProduct(PDO $pdo, array $product, array $weaver): int
     {
         $statement = $pdo->prepare(
-            'INSERT INTO products
-                (sku, slug, name, category, description, materials, place_of_make,
-                 price_centavos, stock, low_stock_threshold, dimensions, three_config, is_active)
+            "INSERT INTO products
+                (sku, slug, name, weaver_id, category_id, category, description, materials, place_of_make,
+                 fiber, community, region, technique, story,
+                 price_centavos, stock, low_stock_threshold, dimensions, three_config, listing_status)
              VALUES
-                (:sku, :slug, :name, :category, :description, :materials, :place_of_make,
-                 :price_centavos, :stock, :low_stock_threshold, :dimensions, :three_config, 1)'
+                (:sku, :slug, :name, :weaver_id, (SELECT id FROM categories WHERE name = :category_name),
+                 :category, :description, :materials, :place_of_make,
+                 :fiber, :community, :region, :technique, :story,
+                 :price_centavos, :stock, :low_stock_threshold, :dimensions, :three_config, 'active')"
         );
 
         $statement->execute([
+            'weaver_id' => $weaver['id'],
+            'category_name' => $product['category'],
+            'fiber' => $product['fiber'],
+            'community' => $weaver['community'],
+            'region' => $weaver['region'],
+            'technique' => $product['technique'],
+            'story' => $product['story'],
             'sku' => $product['sku'],
             'slug' => $product['slug'],
             'name' => $product['name'],

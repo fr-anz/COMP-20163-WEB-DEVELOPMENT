@@ -325,7 +325,7 @@ final class CartServiceTest extends IsolatedDatabaseTestCase
     private function setInactive(int $productId): void
     {
         $this->database()
-            ->prepare('UPDATE products SET is_active = 0 WHERE id = ?')
+            ->prepare("UPDATE products SET listing_status = 'archived' WHERE id = ?")
             ->execute([$productId]);
     }
 }

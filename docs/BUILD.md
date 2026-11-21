@@ -1058,19 +1058,43 @@ Acceptance status:
 
 ### PRD 2.0 heritage expansion — planned milestones (M9–M15)
 
-Source: the group proposal (2026-11-14) → PRD 2.0. **None of M9–M15 is implemented.** Design: SDD §15;
+Source: the group proposal (2026-11-14) → PRD 2.0. **M9 is implemented; M10–M15 are not.** Design: SDD §15;
 screens: DSD §4 "PRD 2.0 screens"; flows: USER-JOURNEY J1–J4. Order is a dependency order;
 M10, M12 and M14 can run in parallel once M9 lands. Each milestone keeps the §2 Definition of Done.
 
 #### M9 — Data model v2, migration and sample content (A lead, E content)
-- [ ] `003_heritage.sql` + `Initializer` column checks: weavers, categories, journal_articles,
-  order_events, payment_proofs; new product/order/order_item/stock_audit columns (SDD §15.2).
-- [ ] In-place v1 → v2 upgrade preserving inventory, orders and admins, with the status mapping
-  and placeholder-weaver rule (SDD §15.9); PHPUnit on a v1 fixture database.
-- [ ] Seed rewrite (N7): 4 native-fiber bags (buri, pandan, tikog or similar; no leather bodies),
-  ≥ 4 sample weavers from distinct communities, ≥ 3 journal articles with sources, 4 categories,
-  sample transfer accounts. Content written from proposal references; no real people (PRD §8).
+- [x] `003_heritage.sql` + `HeritageUpgrade` (`PRAGMA table_info` checks): weavers, categories,
+  journal_articles, order_events, payment_proofs; products/orders rebuilt (v1 CHECKs), new
+  order_item/stock_audit columns (SDD §5, §15.2).
+- [x] In-place v1 → v2 upgrade preserving inventory, orders and admins, with the status mapping
+  and placeholder-weaver rule (SDD §15.9); PHPUnit on a v1 fixture database (`HeritageUpgradeTest`).
+- [x] Seed rewrite (N7): Sinag buri, Lupa tikog, Tala abaca, Maya pandan (no leather bodies);
+  descriptions match the illustrations; 4 categories; 4 fictional weavers (Quezon, Basey Samar,
+  Catanduanes, Bohol); 3 journal articles; fictional transfer accounts (README). 3D viewer has
+  per-fiber plait/fibre textures.
+- [ ] **Content review (open):** weaver stories and article bodies are placeholders and article
+  `sources` are empty (owner's choice for M9). Communities are plausible fiber associations, not
+  verified. Must be written from cited secondary sources before M10 shows them.
+- [x] v1 code adapted (owner's choice): `listing_status` replaces `is_active`; checkout places
+  `pending` card orders (`payment_status = paid`); admin flow pending → confirmed → packed →
+  shipped → delivered, cancel from confirmed/packed; admin-created products get the placeholder
+  weaver, listed on the dashboard until M13 adds reassignment.
 - **Done when:** fresh install and v1 upgrade both boot; existing tests pass; N7 counts hold.
+
+M9 evidence (2026-11-21, branch `feat/22-schema-v2`, PHP 8.5.12, SQLite 3.54.1):
+- [x] `vendor/bin/phpunit` → OK (122 tests, 903 assertions). New: v1 fixture upgrade (rows kept,
+  status/payment mapping, one `migrated from v1` event per order, categories, placeholder weaver,
+  v2 CHECKs, FK check, idempotent second boot) and rollback on a dangling FK; first boot N7 counts.
+- [x] `composer cs` and `composer lint` exit 0.
+- [x] A copy of the local `data/app.sqlite` (v1: 4 products, 0 orders, 1 admin) upgraded in place:
+  4 products `active` on the placeholder weaver, admin kept, `foreign_key_check` empty. The
+  original file was not touched.
+- [x] Fresh DB via `php -S` (`DB_DSN` to a temp file): `/`, `/products`, the four `/product/<slug>`
+  pages and `/admin/login` → 200; the 3D API returns `material` buri/tikog/abaca/pandan.
+- [ ] Not run: browser visual check of the fiber textures, admin flows at 360 px, and a manual
+  checkout. Patterned seed bodies keep their pattern texture; the fiber shows on trim and roughness.
+- [ ] Not run: production migration. Releasing `dev` → `main` deploys and upgrades the live
+  database on the next request; needs owner approval and a backup (M15).
 
 #### M10 — Heritage storefront (C lead, A services, E content)
 - [ ] Material (fiber) and region filters (R2); shipping rates on product page (R3).

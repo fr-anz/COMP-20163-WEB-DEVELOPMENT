@@ -63,14 +63,17 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
 
     public function testSearchAndCategoryCombineIncludingMaterialDescriptions(): void
     {
-        $result = $this->products->list(['q' => 'leather']);
-        self::assertEqualsCanonicalizing(['sinag-tote', 'lupa-satchel'], array_column($result['products'], 'slug'));
+        $result = $this->products->list(['q' => 'lining']);
+        self::assertEqualsCanonicalizing(
+            ['sinag-tote', 'lupa-satchel', 'tala-sling'],
+            array_column($result['products'], 'slug')
+        );
 
-        $result = $this->products->list(['q' => 'leather', 'category' => 'Satchel']);
+        $result = $this->products->list(['q' => 'lining', 'category' => 'Satchel']);
         self::assertSame(1, $result['total']);
         self::assertSame(['lupa-satchel'], array_column($result['products'], 'slug'));
 
-        $result = $this->products->list(['q' => 'GEOMETRIC']);
+        $result = $this->products->list(['q' => 'MARKET']);
         self::assertSame(['sinag-tote'], array_column($result['products'], 'slug'));
         self::assertSame(['Clutch', 'Satchel', 'Sling', 'Tote'], $this->products->categories());
     }
@@ -123,7 +126,9 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
 
     public function testInactiveProductsAreHiddenButSoldOutProductsStayBrowsable(): void
     {
-        $this->database()->prepare('UPDATE products SET is_active = 0 WHERE slug = ?')->execute(['maya-clutch']);
+        $this->database()
+            ->prepare("UPDATE products SET listing_status = 'archived' WHERE slug = ?")
+            ->execute(['maya-clutch']);
         $this->database()->prepare('UPDATE products SET stock = 0 WHERE slug = ?')->execute(['tala-sling']);
 
         $result = $this->products->list();
@@ -151,17 +156,19 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
 
         self::assertSame(
             ['sinag-tote', 'maya-clutch', 'fixture-1'],
-            array_column($this->products->byMaterials(['%straw%', '%raffia%', '%rattan%']), 'slug')
+            array_column($this->products->byMaterials(['%buri%', '%pandan%', '%rattan%']), 'slug')
         );
         self::assertSame(
             ['sinag-tote', 'maya-clutch'],
-            array_column($this->products->byMaterials(['%straw%', '%raffia%', '%rattan%'], 2), 'slug')
+            array_column($this->products->byMaterials(['%buri%', '%pandan%', '%rattan%'], 2), 'slug')
         );
 
-        $this->database()->prepare('UPDATE products SET is_active = 0 WHERE slug = ?')->execute(['maya-clutch']);
+        $this->database()
+            ->prepare("UPDATE products SET listing_status = 'archived' WHERE slug = ?")
+            ->execute(['maya-clutch']);
         self::assertSame(
             ['sinag-tote', 'fixture-1'],
-            array_column($this->products->byMaterials(['%straw%', '%raffia%', '%rattan%']), 'slug')
+            array_column($this->products->byMaterials(['%buri%', '%pandan%', '%rattan%']), 'slug')
         );
 
         self::assertSame([], $this->products->byMaterials([]));
@@ -174,7 +181,9 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
         self::assertIsArray($config);
         $this->database()->prepare('UPDATE products SET stock = 0 WHERE slug = ?')->execute(['maya-clutch']);
         self::assertSame($config, $this->products->get3dConfig('maya-clutch'));
-        $this->database()->prepare('UPDATE products SET is_active = 0 WHERE slug = ?')->execute(['maya-clutch']);
+        $this->database()
+            ->prepare("UPDATE products SET listing_status = 'archived' WHERE slug = ?")
+            ->execute(['maya-clutch']);
         self::assertNull($this->products->get3dConfig('maya-clutch'));
         self::assertNull($this->products->get3dConfig('missing-bag'));
     }
@@ -202,8 +211,9 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
     private function addFixtureBags(int $count, string $materials = ''): void
     {
         $insert = $this->database()->prepare(
-            'INSERT INTO products (sku, slug, name, category, materials, price_centavos, stock)'
-            . " VALUES (?, ?, ?, 'Tote', ?, ?, 5)"
+            'INSERT INTO products (sku, slug, name, weaver_id, category_id, category, materials, price_centavos, stock)'
+            . " VALUES (?, ?, ?, (SELECT MIN(id) FROM weavers), (SELECT id FROM categories WHERE name = 'Tote'),"
+            . " 'Tote', ?, ?, 5)"
         );
         for ($n = 1; $n <= $count; $n++) {
             $insert->execute(["FIX-$n", "fixture-$n", "Fixture $n", $materials, 200000 + $n * 1000]);

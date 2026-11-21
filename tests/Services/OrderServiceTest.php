@@ -45,7 +45,10 @@ final class OrderServiceTest extends IsolatedDatabaseTestCase
         );
 
         // Subtotal 325000 <= 500000, so Metro Manila adds its 12000 fee.
-        self::assertSame('paid', $order['status']);
+        self::assertSame(
+            ['pending', 'card', 'paid'],
+            [$order['status'], $order['payment_method'], $order['payment_status']]
+        );
         self::assertMatchesRegularExpression('/^H-\d{8}-\d{4}$/', (string) $order['order_number']);
         self::assertSame(325000, (int) $order['subtotal_centavos']);
         self::assertSame(12000, (int) $order['shipping_fee_centavos']);
@@ -121,7 +124,7 @@ final class OrderServiceTest extends IsolatedDatabaseTestCase
         }
         $this->database()->exec('DROP TRIGGER reject_item');
         $order = $this->orders->placeOrder($lines, $this->shipping(), $this->payment(), 'retry-after-failure');
-        self::assertSame('paid', $order['status']);
+        self::assertSame('pending', $order['status']);
         $this->assertStock($product, 1);
         self::assertSame(1, $this->countRows('orders'));
         self::assertSame(1, $this->countRows('order_items'));
@@ -292,9 +295,9 @@ final class OrderServiceTest extends IsolatedDatabaseTestCase
         // Seed the day's full four-digit sequence, then refuse to widen
         // the format.
         $this->database()->prepare(
-            'INSERT INTO orders (order_number, status, customer_name, customer_email,'
-            . ' subtotal_centavos, total_centavos, idempotency_key)'
-            . " VALUES (?, 'paid', 'Seed', 'seed@example.com', 0, 0, ?)"
+            'INSERT INTO orders (order_number, status, payment_method, payment_status, customer_name,'
+            . ' customer_email, subtotal_centavos, total_centavos, idempotency_key)'
+            . " VALUES (?, 'confirmed', 'card', 'paid', 'Seed', 'seed@example.com', 0, 0, ?)"
         )->execute(['H-' . date('Ymd') . '-9999', 'seed-key']);
 
         $product = $this->createProduct('tote-k', 'Arko Tote', 100000, 10);
@@ -347,13 +350,7 @@ final class OrderServiceTest extends IsolatedDatabaseTestCase
         int $stock,
         int $active = 1,
     ): int {
-        $insert = $this->database()->prepare(
-            'INSERT INTO products (sku, slug, name, category, price_centavos, stock, is_active)'
-            . " VALUES (?, ?, ?, 'Tote', ?, ?, ?)"
-        );
-        $insert->execute([$sku, $sku, $name, $priceCentavos, $stock, $active]);
-
-        return (int) $this->database()->lastInsertId();
+        return $this->insertProduct($sku, $name, $priceCentavos, $stock, $active === 1 ? 'active' : 'archived');
     }
 
     private function assertStock(int $productId, int $expectedStock): void

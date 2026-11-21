@@ -12,9 +12,9 @@ use PDO;
 use PDOException;
 
 /**
- * Boundary tests for the administrator order workflow (PRD R22): advancing
- * one fulfilment step at a time, rejecting skipped steps, cancelling from
- * paid/packed with per-item stock restoration audited as
+ * Boundary tests for the administrator order workflow (PRD R22, SDD §15.4):
+ * confirming a pending order only once it is paid, advancing one fulfilment
+ * step at a time, rejecting skipped steps, cancelling from confirmed/packed with per-item stock restoration audited as
  * "order_cancelled: <number>", rejecting cancellation after shipping, full
  * rollback when a mid-cancel database failure occurs, and the admin list
  * status/date filters.
@@ -32,7 +32,41 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
         $this->adminId = (int) $this->database()->query('SELECT id FROM admins LIMIT 1')->fetchColumn();
     }
 
-    public function testAdvanceWalksPaidThroughPackedShippedDeliveredOneStepAtATime(): void
+    public function testPendingOrderIsConfirmedOnlyWhenPaidOrCashOnDelivery(): void
+    {
+        $product = $this->createProduct('HBI-ORD-0', 'Confirm Tote', 100000, 10);
+        $order = $this->orders->placeOrder(
+            [['product_id' => $product, 'quantity' => 1, 'price_centavos' => 100000]],
+            $this->shipping(),
+            $this->payment(),
+            'key-confirm-0'
+        );
+        $number = (string) $order['order_number'];
+        self::assertSame(
+            ['pending', 'card', 'paid'],
+            [$order['status'], $order['payment_method'], $order['payment_status']]
+        );
+        self::assertNotContains('pending', OrderService::CANCELLABLE, 'Pending orders are rejected, not cancelled.');
+
+        // An unverified transfer cannot be confirmed; a COD order can.
+        $this->database()->prepare(
+            "UPDATE orders SET payment_method = 'transfer', payment_status = 'for_verification' WHERE order_number = ?"
+        )->execute([$number]);
+        try {
+            $this->orders->advanceStatus($number, 'confirmed');
+            self::fail('Expected an AdminActionException for an unverified transfer.');
+        } catch (AdminActionException) {
+            self::assertSame('pending', $this->statusOf($number));
+        }
+
+        $this->database()->prepare(
+            "UPDATE orders SET payment_method = 'cod', payment_status = 'unpaid' WHERE order_number = ?"
+        )->execute([$number]);
+        $this->orders->advanceStatus($number, 'confirmed');
+        self::assertSame('confirmed', $this->statusOf($number));
+    }
+
+    public function testAdvanceWalksConfirmedThroughPackedShippedDeliveredOneStepAtATime(): void
     {
         $product = $this->createProduct('HBI-ORD-1', 'Flow Tote', 100000, 10);
         $order = $this->placeOrder(
@@ -65,20 +99,20 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
         $number = (string) $order['order_number'];
         try {
             $this->orders->advanceStatus($number, 'shipped');
-            self::fail('Expected an AdminActionException for paid → shipped.');
+            self::fail('Expected an AdminActionException for confirmed → shipped.');
         } catch (AdminActionException) {
-            self::assertSame('paid', $this->statusOf($number));
+            self::assertSame('confirmed', $this->statusOf($number));
         }
 
         try {
             $this->orders->advanceStatus('H-19990101-0001', 'packed');
             self::fail('Expected an AdminActionException for an unknown order.');
         } catch (AdminActionException) {
-            self::assertSame('paid', $this->statusOf($number));
+            self::assertSame('confirmed', $this->statusOf($number));
         }
     }
 
-    public function testCancelFromPaidRestoresEveryItemStockWithOneAuditRowEach(): void
+    public function testCancelFromConfirmedRestoresEveryItemStockWithOneAuditRowEach(): void
     {
         $tote = $this->createProduct('HBI-ORD-3', 'Cancel Tote', 150000, 10);
         $clutch = $this->createProduct('HBI-ORD-4', 'Cancel Clutch', 25000, 5);
@@ -188,7 +222,7 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
             // Expected: the mid-cancel failure must roll everything back.
         }
 
-        self::assertSame('paid', $this->statusOf($number));
+        self::assertSame('confirmed', $this->statusOf($number));
         $this->assertStock($first, 8);
         $this->assertStock($second, 4);
         self::assertCount(0, $this->cancelAuditRows($number));
@@ -199,16 +233,19 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
     {
         $product = $this->createProduct('HBI-ORD-8', 'List Tote', 100000, 20);
         $line = ['product_id' => $product, 'quantity' => 1, 'price_centavos' => 100000];
-        $paid = $this->placeOrder([$line], 'key-list-1');
+        $confirmed = $this->placeOrder([$line], 'key-list-1');
         $packed = $this->placeOrder([$line], 'key-list-2');
         $this->orders->advanceStatus((string) $packed['order_number'], 'packed');
 
         $numbers = static fn (array $result): array => array_column($result['orders'], 'order_number');
 
         self::assertSame([$packed['order_number']], $numbers($this->orders->listForAdmin(['status' => 'packed'])));
-        self::assertSame([$paid['order_number']], $numbers($this->orders->listForAdmin(['status' => 'paid'])));
         self::assertSame(
-            [$packed['order_number'], $paid['order_number']],
+            [$confirmed['order_number']],
+            $numbers($this->orders->listForAdmin(['status' => 'confirmed']))
+        );
+        self::assertSame(
+            [$packed['order_number'], $confirmed['order_number']],
             $numbers($this->orders->listForAdmin([])),
             'Newest first when unfiltered.'
         );
@@ -233,21 +270,22 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
         );
     }
 
-    public function testAdminSummaryCountsPaidAndPackedAsToFulfil(): void
+    public function testAdminSummaryCountsPendingConfirmedAndPackedAsToFulfil(): void
     {
         $product = $this->createProduct('HBI-ORD-9', 'Summary Tote', 100000, 20);
         $line = ['product_id' => $product, 'quantity' => 1, 'price_centavos' => 100000];
         $first = $this->placeOrder([$line], 'key-sum-1');
         $second = $this->placeOrder([$line], 'key-sum-2');
+        $this->orders->placeOrder([$line], $this->shipping(), $this->payment(), 'key-sum-3');
         $this->orders->advanceStatus((string) $first['order_number'], 'packed');
         $this->orders->advanceStatus((string) $first['order_number'], 'shipped');
 
         $summary = $this->orders->adminSummary();
 
-        self::assertSame(1, $summary['to_fulfil'], 'Only the still-paid order remains to fulfil.');
-        self::assertSame(2, $summary['today']);
-        self::assertCount(2, $summary['recent']);
-        self::assertSame($second['order_number'], $summary['recent'][0]['order_number']);
+        self::assertSame(2, $summary['to_fulfil'], 'The confirmed and the pending order remain to fulfil.');
+        self::assertSame(3, $summary['today']);
+        self::assertCount(3, $summary['recent']);
+        self::assertSame($second['order_number'], $summary['recent'][1]['order_number']);
     }
 
     /**
@@ -257,7 +295,11 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
      */
     private function placeOrder(array $lines, string $key): array
     {
-        return $this->orders->placeOrder($lines, $this->shipping(), $this->payment(), $key);
+        // Placed card orders are pending; the workflow under test starts once confirmed.
+        $order = $this->orders->placeOrder($lines, $this->shipping(), $this->payment(), $key);
+        $this->orders->advanceStatus((string) $order['order_number'], 'confirmed');
+
+        return (array) $this->orders->findByNumber((string) $order['order_number']);
     }
 
     /** @return array<string, string> */
@@ -283,13 +325,7 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
 
     private function createProduct(string $sku, string $name, int $priceCentavos, int $stock): int
     {
-        $insert = $this->database()->prepare(
-            'INSERT INTO products (sku, slug, name, category, price_centavos, stock, is_active)'
-            . " VALUES (?, ?, ?, 'Tote', ?, ?, 1)"
-        );
-        $insert->execute([$sku, $sku, $name, $priceCentavos, $stock]);
-
-        return (int) $this->database()->lastInsertId();
+        return $this->insertProduct($sku, $name, $priceCentavos, $stock);
     }
 
     private function statusOf(string $orderNumber): string

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Habi\Services;
 
+use Habi\Bootstrap\HeritageUpgrade;
 use PDO;
 use PDOException;
 use Throwable;
@@ -11,7 +12,7 @@ use Throwable;
 /**
  * Administrator product management (PRD R20, R23).
  *
- * Products are created, edited and archived (is_active = 0) — never deleted,
+ * Products are created, edited and archived (listing_status) — never deleted,
  * so order items keep their product. Prices are entered in pesos and stored
  * as exact integer centavos without floating point. Stock is set once on
  * creation (audited as initial_stock); afterwards it changes only through
@@ -21,7 +22,7 @@ use Throwable;
  */
 final class AdminProductService
 {
-    public const CATEGORIES = ['Tote', 'Satchel', 'Sling', 'Clutch'];
+    public const CATEGORIES = HeritageUpgrade::CATEGORIES;
     public const SHAPES = ['tote' => 'Tote', 'satchel' => 'Satchel', 'sling' => 'Sling', 'clutch' => 'Clutch'];
     /** Handle styles bagFactory.js actually builds for each shape (or none). */
     public const SHAPE_HANDLES = [
@@ -36,7 +37,11 @@ final class AdminProductService
         'crossbody_strap' => 'Crossbody strap',
         'none' => 'No handle',
     ];
-    public const MATERIALS = ['rattan' => 'Rattan-style weave', 'canvas' => 'Canvas', 'leather' => 'Leather-style'];
+    /** Native fibers first; the v1 looks stay so older products remain editable. */
+    public const MATERIALS = [
+        'buri' => 'Buri', 'pandan' => 'Pandan', 'tikog' => 'Tikog', 'abaca' => 'Abaca',
+        'rattan' => 'Rattan-style weave', 'canvas' => 'Canvas', 'leather' => 'Leather-style',
+    ];
     public const LININGS = ['cotton' => 'Cotton', 'canvas' => 'Canvas'];
     public const POCKETS = [
         'interior_zip' => 'Interior zip pocket',
@@ -81,20 +86,20 @@ final class AdminProductService
             $parameters['q_sku'] = $like;
         }
         $conditions[] = match ($stock) {
-            'in' => 'p.is_active = 1 AND p.stock > p.low_stock_threshold',
-            'low' => 'p.is_active = 1 AND p.stock > 0 AND p.stock <= p.low_stock_threshold',
-            'out' => 'p.is_active = 1 AND p.stock = 0',
-            'archived' => 'p.is_active = 0',
+            'in' => "p.listing_status = 'active' AND p.stock > p.low_stock_threshold",
+            'low' => "p.listing_status = 'active' AND p.stock > 0 AND p.stock <= p.low_stock_threshold",
+            'out' => "p.listing_status = 'active' AND p.stock = 0",
+            'archived' => "p.listing_status <> 'active'",
             default => '1 = 1',
         };
 
         $statement = $this->pdo->prepare(
             'SELECT p.id, p.sku, p.slug, p.name, p.category, p.price_centavos, p.stock,
-                    p.low_stock_threshold, p.is_active,
+                    p.low_stock_threshold, p.listing_status = \'active\' AS is_active,
                     (SELECT pi.path FROM product_images pi WHERE pi.product_id = p.id
                      ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC LIMIT 1) AS image_path
              FROM products p WHERE ' . implode(' AND ', $conditions) . '
-             ORDER BY p.is_active DESC, p.id ASC'
+             ORDER BY is_active DESC, p.id ASC'
         );
         $statement->execute($parameters);
 
@@ -117,25 +122,31 @@ final class AdminProductService
     }
 
     /**
-     * Dashboard inventory metrics plus active low-stock products.
+     * Dashboard inventory metrics plus active low-stock products and products
+     * still owned by the placeholder weaver (SDD §15.9).
      *
      * @return array{active: int, units: int, low_or_out: int, thresholds: list<int>,
-     *     low_stock: list<array<string, mixed>>}
+     *     low_stock: list<array<string, mixed>>, unassigned: list<array{id: int, name: string}>}
      */
     public function metrics(): array
     {
         $totals = $this->pdo->query(
-            'SELECT COUNT(*) AS active, COALESCE(SUM(stock), 0) AS units,
+            "SELECT COUNT(*) AS active, COALESCE(SUM(stock), 0) AS units,
                     COALESCE(SUM(stock <= low_stock_threshold), 0) AS low_or_out
-             FROM products WHERE is_active = 1'
+             FROM products WHERE listing_status = 'active'"
         )->fetch();
         $thresholds = $this->pdo->query(
-            'SELECT DISTINCT low_stock_threshold FROM products WHERE is_active = 1 ORDER BY 1'
+            "SELECT DISTINCT low_stock_threshold FROM products WHERE listing_status = 'active' ORDER BY 1"
         )->fetchAll(PDO::FETCH_COLUMN);
         $low = $this->pdo->query(
-            'SELECT id, name, stock, low_stock_threshold FROM products
-             WHERE is_active = 1 AND stock <= low_stock_threshold ORDER BY stock ASC, id ASC'
+            "SELECT id, name, stock, low_stock_threshold FROM products
+             WHERE listing_status = 'active' AND stock <= low_stock_threshold ORDER BY stock ASC, id ASC"
         )->fetchAll();
+        $unassigned = $this->pdo->prepare(
+            'SELECT p.id, p.name FROM products p JOIN weavers w ON w.id = p.weaver_id
+             WHERE w.slug = ? ORDER BY p.id ASC'
+        );
+        $unassigned->execute([HeritageUpgrade::PLACEHOLDER_WEAVER_SLUG]);
 
         return [
             'active' => (int) $totals['active'],
@@ -148,6 +159,10 @@ final class AdminProductService
                 'stock' => (int) $row['stock'],
                 'low_stock_threshold' => (int) $row['low_stock_threshold'],
             ], $low),
+            'unassigned' => array_map(
+                static fn (array $row): array => ['id' => (int) $row['id'], 'name' => (string) $row['name']],
+                $unassigned->fetchAll()
+            ),
         ];
     }
 
@@ -186,7 +201,7 @@ final class AdminProductService
             'low_stock_threshold' => (int) $row['low_stock_threshold'],
             'dimensions' => is_array($dimensions) ? $dimensions : [],
             'three_config' => is_array($config) ? $config : [],
-            'is_active' => (int) $row['is_active'] === 1,
+            'is_active' => $row['listing_status'] === 'active',
             'images' => $images->fetchAll(),
         ];
     }
@@ -363,13 +378,17 @@ final class AdminProductService
         return $this->transaction(function () use ($values, $imagePath, $adminId): int {
             $stock = (int) $values['stock'];
             $this->pdo->prepare(
-                'INSERT INTO products (sku, slug, name, category, description, materials, place_of_make,
-                     price_centavos, stock, low_stock_threshold, dimensions, three_config, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)'
+                "INSERT INTO products (sku, slug, name, weaver_id, category_id, category, description, materials,
+                     place_of_make, fiber, price_centavos, stock, low_stock_threshold, dimensions, three_config,
+                     listing_status)
+                 VALUES (?, ?, ?, ?, (SELECT id FROM categories WHERE name = ?),
+                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')"
             )->execute([
-                $values['sku'], $this->uniqueSlug($values['name']), $values['name'], $values['category'],
+                $values['sku'], $this->uniqueSlug($values['name']), $values['name'],
+                // Weaver assignment arrives with the M13 product form (R20).
+                HeritageUpgrade::placeholderWeaverId($this->pdo), $values['category'], $values['category'],
                 $values['description'], $values['materials'], $values['place_of_make'],
-                $values['price_centavos'], $stock, (int) $values['low_stock_threshold'],
+                self::fiber($values), $values['price_centavos'], $stock, (int) $values['low_stock_threshold'],
                 $this->dimensionsJson($values), $this->configJson($values),
             ]);
             $id = (int) $this->pdo->lastInsertId();
@@ -399,14 +418,15 @@ final class AdminProductService
             $current->execute([$id]);
             $existing = json_decode((string) $current->fetchColumn(), true);
             $update = $this->pdo->prepare(
-                "UPDATE products SET sku = ?, name = ?, category = ?, description = ?, materials = ?,
-                     place_of_make = ?, price_centavos = ?, low_stock_threshold = ?, dimensions = ?,
+                "UPDATE products SET sku = ?, name = ?, category = ?,
+                     category_id = (SELECT id FROM categories WHERE name = ?), description = ?, materials = ?,
+                     place_of_make = ?, fiber = ?, price_centavos = ?, low_stock_threshold = ?, dimensions = ?,
                      three_config = ?, updated_at = datetime('now')
                  WHERE id = ?"
             );
             $update->execute([
-                $values['sku'], $values['name'], $values['category'], $values['description'],
-                $values['materials'], $values['place_of_make'], $values['price_centavos'],
+                $values['sku'], $values['name'], $values['category'], $values['category'], $values['description'],
+                $values['materials'], $values['place_of_make'], self::fiber($values), $values['price_centavos'],
                 (int) $values['low_stock_threshold'], $this->dimensionsJson($values),
                 $this->configJson($values, is_array($existing) ? $existing : []), $id,
             ]);
@@ -424,13 +444,21 @@ final class AdminProductService
         });
     }
 
+    /** The fiber column follows the chosen 3D material; v1 looks count as "other". */
+    private static function fiber(array $values): string
+    {
+        $material = (string) ($values['material'] ?? '');
+
+        return in_array($material, HeritageUpgrade::FIBERS, true) ? $material : 'other';
+    }
+
     /** Archives (false) or restores (true) a product; history is kept. */
     public function setActive(int $id, bool $active): void
     {
         $statement = $this->pdo->prepare(
-            "UPDATE products SET is_active = ?, updated_at = datetime('now') WHERE id = ?"
+            "UPDATE products SET listing_status = ?, updated_at = datetime('now') WHERE id = ?"
         );
-        $statement->execute([$active ? 1 : 0, $id]);
+        $statement->execute([$active ? 'active' : 'archived', $id]);
         if ($statement->rowCount() !== 1) {
             throw new AdminActionException('That product no longer exists.');
         }

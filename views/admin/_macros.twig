@@ -23,16 +23,18 @@
 {% endmacro %}
 
 {% macro status_label(status) -%}
-  {{ {paid: 'Paid', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled'}[status]|default(status|replace({'_': ' '})|capitalize) }}
+  {{ {pending: 'Pending', confirmed: 'Confirmed', packed: 'Packed', shipped: 'Shipped', delivered: 'Delivered', rejected: 'Rejected', cancelled: 'Cancelled'}[status]|default(status|replace({'_': ' '})|capitalize) }}
 {%- endmacro %}
 
 {% macro status_chip(status) %}
   {%- import "macros/icons.twig" as icons -%}
   {%- set styles = {
-    paid: ['bg-info-bg text-info', 'lock'],
+    pending: ['bg-inset text-ink-2', 'info'],
+    confirmed: ['bg-info-bg text-info', 'lock'],
     packed: ['bg-warning-bg text-warning', 'box'],
     shipped: ['bg-inset text-ink', 'truck'],
     delivered: ['bg-success-bg text-success', 'check'],
+    rejected: ['bg-error-bg text-error', 'close'],
     cancelled: ['bg-error-bg text-error', 'close'],
   } -%}
   {%- set style = styles[status]|default(['bg-inset text-ink-2', 'info']) -%}
