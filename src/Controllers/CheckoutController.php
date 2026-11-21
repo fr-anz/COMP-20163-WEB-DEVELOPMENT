@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Habi\Controllers;
 
+use Habi\Bootstrap\SampleContent;
 use Habi\Middleware\ErrorHandler;
 use Habi\Services\CartService;
 use Habi\Services\CheckoutException;
 use Habi\Services\OrderService;
+use Habi\Services\PaymentProofService;
 use Habi\Services\PaymentSimulator;
 use Habi\Services\ShippingService;
 use Habi\Support\Csrf;
@@ -26,6 +28,7 @@ final class CheckoutController
         private readonly SessionStore $session,
         private readonly OrderService $orders,
         private readonly PaymentSimulator $payments,
+        private readonly ?PaymentProofService $proofs = null,
     ) {
     }
 
@@ -59,7 +62,8 @@ final class CheckoutController
 
             return $this->redirect($response, '/checkout');
         }
-        // Editing shipping requires a fresh simulation; keep no prior authorization.
+        // Editing shipping requires a fresh payment choice; keep no prior authorization.
+        $this->clearApproval();
         $this->session->set('checkout', ['shipping' => $validated['shipping']]);
         $this->session->unset('shipping_feedback');
         $this->session->unset('payment_feedback');
@@ -85,15 +89,71 @@ final class CheckoutController
         );
     }
 
+    /**
+     * Stores the chosen payment method (PRD R13): cash on delivery needs no
+     * input; a transfer needs the sender reference and a valid proof image,
+     * staged outside public/ (N11); a card goes through the simulator.
+     * Choosing again always revokes the previous choice and its approval.
+     */
+    public function submitPayment(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $cart = $this->cart->cart();
+        if (($guard = $this->guard($response, $cart)) !== null) {
+            return $guard;
+        }
+        $body = $this->body($request);
+        $method = $body['method'] ?? null;
+        if ($method === 'card') {
+            return $this->simulate($request, $response);
+        }
+        $this->clearApproval();
+        $state = $this->state();
+
+        if ($method === 'cod') {
+            $state['payment'] = ['method' => 'cod'];
+
+            return $this->approve($response, $cart, $state);
+        }
+        if ($method !== 'transfer' || $this->proofs === null) {
+            return $this->paymentFeedback($response, ['method' => 'Choose how you would like to pay.'], null, '');
+        }
+
+        $reference = is_string($body['sender_reference'] ?? null) ? trim($body['sender_reference']) : '';
+        $errors = [];
+        if ($reference === '') {
+            $errors['sender_reference'] = 'Enter the reference number from your transfer receipt.';
+        } elseif (mb_strlen($reference) > OrderService::MAX_SENDER_REFERENCE_LENGTH) {
+            $errors['sender_reference'] = sprintf(
+                'Use at most %d characters.',
+                OrderService::MAX_SENDER_REFERENCE_LENGTH
+            );
+        }
+        $proof = null;
+        try {
+            $proof = $this->proofs->stage($request->getUploadedFiles()['proof'] ?? null);
+        } catch (CheckoutException $invalid) {
+            $errors['proof'] = $invalid->getMessage();
+        }
+        if ($errors !== []) {
+            if ($proof !== null) {
+                $this->proofs->release($proof);
+            }
+
+            return $this->paymentFeedback($response, $errors, null, 'transfer', $reference);
+        }
+        $state['payment'] = ['method' => 'transfer', 'proof' => $proof, 'sender_reference' => $reference];
+
+        return $this->approve($response, $cart, $state);
+    }
+
     public function simulate(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $cart = $this->cart->cart();
         if (($guard = $this->guard($response, $cart)) !== null) {
             return $guard;
         }
+        $this->clearApproval();
         $state = $this->state();
-        unset($state['payment'], $state['fingerprint'], $state['idempotency_key'], $state['lines']);
-        $this->session->set('checkout', $state);
         // The simulator returns only errors/result and optionally last4/brand.
         // Neither submitted body nor PAN/CVC/expiry ever enters session or logs.
         $result = $this->payments->simulate($this->body($request));
@@ -104,25 +164,17 @@ final class CheckoutController
                 default => 'Check the highlighted card details and try again.',
             };
 
-            // PRG keeps no-store POST responses out of native Back history.
             // Flash only safe errors: never the submitted card fields.
-            $this->session->set('payment_feedback', [
-                'errors' => $result['errors'],
-                'message' => $message,
-            ]);
-
-            return $this->redirect($response, '/checkout/payment');
+            return $this->paymentFeedback($response, $result['errors'], $message, 'card');
         }
         $state['payment'] = [
+            'method' => 'card',
             'result' => 'approved',
             'last4' => $result['last4'],
             'brand' => $result['brand'],
         ];
-        $state['fingerprint'] = $this->fingerprint($cart);
-        $state['lines'] = $this->snapshot($cart);
-        $this->session->set('checkout', $state);
 
-        return $this->redirect($response, '/checkout/review');
+        return $this->approve($response, $cart, $state);
     }
 
     public function review(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -156,10 +208,7 @@ final class CheckoutController
         ) {
             return $this->redirect($response, '/checkout/review');
         }
-        if (
-            ($state['payment']['result'] ?? '') !== 'approved'
-            || !isset($state['shipping'], $state['lines'])
-        ) {
+        if (!self::paymentReady($state) || !isset($state['shipping'], $state['lines'])) {
             return $this->redirect($response, '/checkout/payment');
         }
         // Do not reconcile/clamp before the transaction: Place must fail rather
@@ -226,10 +275,10 @@ final class CheckoutController
             return $this->redirect($response, '/checkout');
         }
         if ($approved) {
-            if (($state['payment']['result'] ?? '') !== 'approved') {
+            if (!self::paymentReady($state)) {
                 return $this->redirect($response, '/checkout/payment');
             }
-            if (($state['fingerprint'] ?? '') !== $this->fingerprint($cart)) {
+            if (($state['fingerprint'] ?? '') !== $this->fingerprint($cart, (string) $state['payment']['method'])) {
                 return $this->changedCart($response);
             }
         }
@@ -248,8 +297,62 @@ final class CheckoutController
     private function clearApproval(): void
     {
         $state = $this->state();
+        // A revoked transfer choice leaves its staged proof behind; it is
+        // removed now rather than by the 24-hour purge.
+        if (($state['payment']['method'] ?? '') === 'transfer' && $this->proofs !== null) {
+            $this->proofs->release((string) ($state['payment']['proof'] ?? ''));
+        }
         unset($state['payment'], $state['fingerprint'], $state['idempotency_key'], $state['lines']);
         $this->session->set('checkout', $state);
+    }
+
+    /** Stores a ready payment choice with the reviewed snapshot, then goes to Review. */
+    private function approve(ResponseInterface $response, array $cart, array $state): ResponseInterface
+    {
+        $state['fingerprint'] = $this->fingerprint($cart, (string) $state['payment']['method']);
+        $state['lines'] = $this->snapshot($cart);
+        $this->session->set('checkout', $state);
+        $this->session->unset('payment_feedback');
+
+        return $this->redirect($response, '/checkout/review');
+    }
+
+    /**
+     * PRG keeps no-store POST responses out of native Back history. Only safe
+     * metadata is flashed: errors, the chosen method and the sender reference.
+     */
+    private function paymentFeedback(
+        ResponseInterface $response,
+        array $errors,
+        ?string $message,
+        string $method,
+        string $senderReference = '',
+    ): ResponseInterface {
+        $this->session->set('payment_feedback', [
+            'errors' => $errors,
+            'message' => $message,
+            'method' => $method,
+            'sender_reference' => $senderReference,
+        ]);
+
+        return $this->redirect($response, '/checkout/payment');
+    }
+
+    /** COD and transfer are ready once chosen; a card needs an approved simulation. */
+    private static function paymentReady(array $state): bool
+    {
+        $payment = $state['payment'] ?? null;
+        if (!is_array($payment)) {
+            return false;
+        }
+
+        return match ($payment['method'] ?? null) {
+            'cod' => true,
+            'transfer' => PaymentProofService::isValidName($payment['proof'] ?? null)
+                && is_string($payment['sender_reference'] ?? null),
+            'card' => ($payment['result'] ?? '') === 'approved',
+            default => false,
+        };
     }
 
     private function emptyCart(ResponseInterface $response): ResponseInterface
@@ -276,9 +379,9 @@ final class CheckoutController
         ], $cart['lines']);
     }
 
-    private function fingerprint(array $cart): string
+    private function fingerprint(array $cart, string $method): string
     {
-        return hash('sha256', json_encode($this->snapshot($cart), JSON_THROW_ON_ERROR));
+        return hash('sha256', json_encode([$method, $this->snapshot($cart)], JSON_THROW_ON_ERROR));
     }
 
     private function render(ResponseInterface $response, string $template, array $cart, array $data): ResponseInterface
@@ -300,6 +403,9 @@ final class CheckoutController
             'shipping_fee_centavos' => $fee,
             'total_centavos' => $cart['subtotal_centavos'] + $fee,
             'payment' => $state['payment'] ?? [],
+            'method' => $state['payment']['method'] ?? 'card',
+            'sender_reference' => $state['payment']['sender_reference'] ?? '',
+            'transfer_accounts' => SampleContent::transferAccounts(),
             'idempotency_key' => $state['idempotency_key'] ?? '',
             'errors' => [],
             'message' => null,

@@ -248,30 +248,50 @@ Shipping → Payment → Review → Place order → Confirmation is enforced on 
 Shipping rates: Metro Manila ₱120, Luzon ₱180, Visayas ₱220, Mindanao ₱250; exactly
 ₱5,000 is not free, while ₱5,000.01 is. Enter fictional contact/address details only.
 
-**SIMULATED PAYMENT — no real transaction occurs.** Use a future `MM/YY` and any
-3–4 digit test CVC. Never enter real card details.
+**SIMULATED PAYMENT — no real transaction occurs.** The storefront shows no simulation
+notice (D7), so this README is where that is stated. The payment step offers three methods;
+each places a `pending` order:
+
+| Method | Input | Payment status at placement |
+|---|---|---|
+| Cash on delivery | none | `unpaid` |
+| E-wallet or bank transfer | sender reference (≤ 64 characters) + one proof image (JPEG/PNG/WebP detected from bytes, ≤ 2 MB) | `for_verification` |
+| Card | test card below | `paid` after an approved simulation |
+
+For cards use a future `MM/YY` and any 3–4 digit test CVC. Never enter real card details.
 
 | Test card | Result |
 |---|---|
-| `4242 4242 4242 4242` | Approved simulation; Place creates one pending order with payment paid by card |
+| `4242 4242 4242 4242` | Approved simulation; Place creates one pending order, payment `paid` by card |
 | `4000 0000 0000 0002` | Card declined; no order or decrement |
 | `4000 0000 0000 9995` | Insufficient funds; no order or decrement |
 
 Other Luhn-valid cards approve. Invalid details show inline errors; declines preserve
 shipping and the bag. Only result, last four digits and brand are retained, never full
-card number, expiry or CVC. Changing shipping or bag quantities revokes approval;
-price changes require reviewing the bag again.
+card number, expiry or CVC. Changing shipping, bag quantities or the payment method
+revokes approval; price changes require reviewing the bag again.
+
+Transfer proofs are staged under a random name in `data/proofs/tmp/` and copied to
+`data/proofs/` (outside `public/`, gitignored, on the Docker data volume) only when the
+order commits, with one `payment_proofs` row. No URL serves them; the admin proof view
+arrives with M13. Staged files of abandoned checkouts are removed after 24 hours.
 
 Review issues the idempotency key before displaying Place. Repeating Place returns
 the same `H-YYYYMMDD-NNNN` order without consuming another item. SQLite `BEGIN IMMEDIATE`
 serializes placement; guarded decrements, stock audit, order and item snapshots commit
-or roll back together. Stock/price conflicts explain the correction on the bag page.
+or roll back together, along with each item's weaver snapshot and the order's first
+`order_events` rows. Stock/price conflicts explain the correction on the bag page.
 Transient failures retain the key for an explicit safe retry. Confirmation is visible
 only to the originating session; expiry also loses access. Delivery is explicitly
 simulated: nothing will be charged or shipped. Administrators can advance and cancel
-these orders in `/admin/orders` (see below).
+these orders in `/admin/orders` (see below); each change is recorded as an order event.
 
-**Sample transfer accounts (fictional, for the M11 transfer method):** defined in
+**Tracking:** `/track` (footer link "Track order") needs the reference number and the
+email used at checkout. A wrong email reads exactly like an unknown number; five failed
+lookups from one client lock it for 60 seconds. Results show status, payment status, the
+event history, items, total and the delivery city/region only.
+
+**Sample transfer accounts (fictional, shown by the transfer method):** defined in
 [`src/Bootstrap/SampleContent.php`](src/Bootstrap/SampleContent.php). The institutions and
 numbers do not exist; never replace them with a real account in this repository.
 
