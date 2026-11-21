@@ -1,6 +1,9 @@
 {#-
   Admin dashboard (R18), the published Dashboard example with live data:
-  four metric cards, low-stock alerts (active products at or below their
+  order and sales cards (Orders to confirm, Payments to verify linking to
+  the filtered order list, Sales today and this month with the overall
+  total; sales exclude rejected and cancelled orders), orders by status,
+  four inventory metric cards, low-stock alerts (active products at or below their
   threshold, each linking to the audited adjustment dialog), products still
   owned by the placeholder weaver (SDD §15.9; only when there are any) and
   the five most recent orders. Receives: metrics (AdminProductService::metrics),
@@ -16,6 +19,35 @@
 {% block content %}
   <h1 class="text-h2 font-semibold">Dashboard</h1>
   <div class="mt-4 grid grid-cols-2 gap-3 @4xl:grid-cols-4">
+    <a href="/admin/orders?status=pending" class="rounded-control border border-line bg-surface p-4 hover:bg-page">
+      <p class="text-caption font-medium text-ink-2">Orders to confirm</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ summary.to_confirm }}</p>
+      <p class="mt-1.5 text-caption text-ink-2">{{ summary.today }} placed today</p>
+    </a>
+    <a href="/admin/orders?method=transfer&amp;payment=for_verification" class="rounded-control border border-line bg-surface p-4 hover:bg-page">
+      <p class="text-caption font-medium text-ink-2">Payments to verify</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums{% if summary.payments_to_verify > 0 %} text-warning{% endif %}">{{ summary.payments_to_verify }}</p>
+      <p class="mt-1.5 text-caption text-ink-2">Transfers waiting for review</p>
+    </a>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Sales today</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ ui.money(summary.sales_today) }}</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Sales this month</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ ui.money(summary.sales_month) }}</p>
+      <p class="mt-1.5 text-caption text-ink-2">{{ ui.money(summary.sales_total) }} overall</p>
+    </div>
+  </div>
+  <section aria-labelledby="by-status-h" class="mt-3">
+    <h2 id="by-status-h" class="sr-only">Orders by status</h2>
+    <ul class="flex flex-wrap gap-2">
+      {% for status, count in summary.by_status %}
+        <li><a class="inline-flex items-center gap-2 rounded-control border border-line bg-surface px-3 py-1.5 text-small hover:bg-page" href="/admin/orders?status={{ status }}">{{ ui.status_chip(status) }}<span class="font-semibold tabular-nums">{{ count }}</span></a></li>
+      {% endfor %}
+    </ul>
+  </section>
+  <div class="mt-3 grid grid-cols-2 gap-3 @4xl:grid-cols-4">
     <div class="rounded-control border border-line bg-surface p-4">
       <p class="text-caption font-medium text-ink-2">Active products</p>
       <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ metrics.active }}</p>
@@ -71,7 +103,7 @@
           <caption class="sr-only">Recent orders</caption>
           <thead>
             <tr>
-              {% for heading in ['Order', 'Region', 'Total', 'Status'] %}
+              {% for heading in ['Order', 'Region', 'Total', 'Status', 'Payment'] %}
                 <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
               {% endfor %}
             </tr>
@@ -83,9 +115,10 @@
                 <td class="border-b border-line px-3 py-2.5 align-middle">{{ regions[order.shipping_region]|default(order.shipping_region) }}</td>
                 <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(order.total_centavos) }}</td>
                 <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.status_chip(order.status) }}</td>
+                <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.payment_chip(order.payment_status) }}</td>
               </tr>
             {% else %}
-              <tr><td colspan="4" class="px-3 py-2.5 text-ink-2">No orders yet. Orders appear here once customers check out.</td></tr>
+              <tr><td colspan="5" class="px-3 py-2.5 text-ink-2">No orders yet. Orders appear here once customers check out.</td></tr>
             {% endfor %}
           </tbody>
         </table>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Habi\Controllers;
 
+use Habi\Bootstrap\HeritageUpgrade;
 use Habi\Middleware\ErrorHandler;
 use Habi\Services\AdminActionException;
 use Habi\Services\AdminProductService;
@@ -15,7 +16,8 @@ use Psr\Http\Message\UploadedFileInterface;
 use Throwable;
 
 /**
- * Admin products (R20, R23) and inventory/stock adjustments (R21, R18).
+ * Admin products (R20, R23), listing approval (R40) and inventory/stock
+ * adjustments (R21, R18).
  *
  * Dialogs from the published admin reference are server-rendered overlays
  * on their list page, reached by real URLs (…/new, …/edit, …/archive,
@@ -182,6 +184,62 @@ final class AdminProductController
         return $this->setActive($request, $response, (int) $args['id'], true);
     }
 
+    /** Approves a weaver's pending listing (R40): it goes live in the storefront. */
+    public function approve(
+        ServerRequestInterface $request,
+        ResponseInterface $response,
+        array $args,
+    ): ResponseInterface {
+        $product = $this->products->find((int) $args['id']);
+        if ($product === null) {
+            return $this->notFound($response);
+        }
+        try {
+            $this->products->approve($product['id']);
+            $this->view->flash('success', sprintf('%s was approved and is now in the storefront.', $product['name']));
+        } catch (AdminActionException $failure) {
+            $this->view->flash('error', $failure->getMessage());
+        }
+
+        return $this->view->redirect($response, '/admin/products' . $this->query($request));
+    }
+
+    public function deactivateForm(
+        ServerRequestInterface $request,
+        ResponseInterface $response,
+        array $args,
+    ): ResponseInterface {
+        $product = $this->products->find((int) $args['id']);
+        if ($product === null) {
+            return $this->notFound($response);
+        }
+
+        return $this->renderProducts($request, $response, ['type' => 'deactivate', 'product' => $product]);
+    }
+
+    /** Deactivates a pending or active listing (R40); Restore brings it back. */
+    public function deactivate(
+        ServerRequestInterface $request,
+        ResponseInterface $response,
+        array $args,
+    ): ResponseInterface {
+        $product = $this->products->find((int) $args['id']);
+        if ($product === null) {
+            return $this->notFound($response);
+        }
+        try {
+            $this->products->deactivateListing($product['id']);
+            $this->view->flash('success', sprintf(
+                '%s was deactivated and hidden from the storefront. The weaver can no longer edit it.',
+                $product['name']
+            ));
+        } catch (AdminActionException $failure) {
+            $this->view->flash('error', $failure->getMessage());
+        }
+
+        return $this->view->redirect($response, '/admin/products' . $this->query($request));
+    }
+
     public function inventory(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         return $this->renderInventory($request, $response, null);
@@ -342,7 +400,7 @@ final class AdminProductController
                 'active_nav' => 'products',
                 'list_query' => $this->query($request),
                 'dialog' => $dialog,
-                'options' => $this->options(),
+                'options' => $this->options(is_array($dialog['product'] ?? null) ? $dialog['product'] : null),
             ]
         ));
     }
@@ -367,12 +425,16 @@ final class AdminProductController
     }
 
     /**
+     * @param array<string, mixed>|null $product the product being edited (keeps its current weaver/category)
+     *
      * @return array<string, mixed>
      */
-    private function options(): array
+    private function options(?array $product): array
     {
         return [
-            'categories' => AdminProductService::CATEGORIES,
+            'weavers' => $this->products->weaverOptions($product['weaver_id'] ?? null),
+            'categories' => $this->products->categoryOptions($product['category_id'] ?? null),
+            'fibers' => array_combine(HeritageUpgrade::FIBERS, array_map('ucfirst', HeritageUpgrade::FIBERS)),
             'shapes' => AdminProductService::SHAPES,
             'handle_styles' => AdminProductService::HANDLE_STYLES,
             'materials' => AdminProductService::MATERIALS,

@@ -1,21 +1,33 @@
 {#-
-  Admin order detail (R22). Composed from the published admin pieces (data
-  table, status chip, surface panels, destructive dialog); the reference has
-  no detail screen. Shows item snapshots and totals, customer, shipping
-  address and the payment. Fulfilment moves one step forward at
-  a time; Cancel order… (confirmed/packed only) opens a server-rendered
-  confirmation that restores stock with an audit row per item.
-  Receives: order (with items), next_status, cancellable, confirm_cancel,
-  regions.
+  Admin order detail (R22, R44, N11). Composed from the published admin
+  pieces (data table, status chips, surface panels, destructive dialog);
+  the reference has no detail screen. Items are grouped by weaver (order
+  snapshots), followed by totals, the allowed actions only (Confirm /
+  Reject…, next fulfilment step, Cancel…, Accept payment / Refuse payment…,
+  Mark paid for COD), the proof of payment (admin-only route; opens full
+  size), customer, address and the event history. Reject, Cancel and
+  Refuse are server-rendered destructive dialogs with a required reason.
+  Every action form posts `expected` (status/payment) so a stale view is
+  refused. Receives: order, groups, events, proof, actions, expected,
+  dialog ('reject'|'cancel'|'refuse'|null), reason, errors, max_reason, regions.
 -#}
 {% extends "admin/layout.twig" %}
 {% import "macros/icons.twig" as icons %}
 {% import "admin/_macros.twig" as ui %}
 {% set active_nav = 'orders' %}
-{% set dialog_open = confirm_cancel %}
+{% set dialog_open = dialog is not null %}
 {% set detail_href = '/admin/orders/' ~ order.order_number|url_encode %}
 
 {% block title %}Order {{ order.order_number }}{% endblock %}
+
+{% macro action(href, label, expected, csrf_token, fields = {}, style = 'btn--primary') %}
+  <form method="post" action="{{ href }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="expected" value="{{ expected }}">
+    {% for name, value in fields %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <button type="submit" class="btn {{ style }} btn--sm">{{ label }}</button>
+  </form>
+{% endmacro %}
 
 {% block content %}
   <a href="/admin/orders" class="btn btn--tertiary btn--sm">{{ icons.icon('arrow-left', 18) }}<span>All orders</span></a>
@@ -23,60 +35,117 @@
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="text-h2 font-semibold">Order <span class="font-mono">{{ order.order_number }}</span></h1>
       {{ ui.status_chip(order.status) }}
+      {{ ui.payment_chip(order.payment_status) }}
     </div>
     <p class="mt-1 text-small text-ink-2">Placed {{ order.created_at|slice(0, 16) }} UTC · last updated {{ order.updated_at|slice(0, 16) }} UTC</p>
   </div>
 
   <div class="grid gap-6 @5xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-    <section aria-labelledby="items-h" class="min-w-0">
-      <h2 id="items-h" class="mb-2 text-body font-semibold">Items</h2>
-      <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
-        <table class="w-full min-w-[420px] text-left text-small">
-          <caption class="sr-only">Items in order {{ order.order_number }}</caption>
-          <thead>
-            <tr>
-              {% for heading in ['Product', 'Price', 'Qty', 'Line total'] %}
-                <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase{% if not loop.first %} text-right{% endif %}">{{ heading }}</th>
-              {% endfor %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for item in order.items %}
+    <div class="grid h-fit min-w-0 gap-6">
+      <section aria-labelledby="items-h" class="min-w-0">
+        <h2 id="items-h" class="mb-2 text-body font-semibold">Items</h2>
+        <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+          <table class="w-full min-w-[420px] text-left text-small">
+            <caption class="sr-only">Items in order {{ order.order_number }}, grouped by weaver</caption>
+            <thead>
               <tr>
-                <td class="border-b border-line px-3 py-2.5 align-middle font-semibold">{{ item.name_snapshot }}</td>
-                <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ ui.money(item.price_centavos) }}</td>
-                <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ item.qty }}</td>
-                <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ ui.money(item.line_total_centavos) }}</td>
+                {% for heading in ['Product', 'Price', 'Qty', 'Line total'] %}
+                  <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase{% if not loop.first %} text-right{% endif %}">{{ heading }}</th>
+                {% endfor %}
               </tr>
+            </thead>
+            {% for group in groups %}
+              <tbody>
+                <tr>
+                  <th scope="rowgroup" colspan="3" class="border-b border-line bg-inset px-3 py-2 text-left text-small font-semibold">{{ icons.icon('thread', 16, 'mr-1.5 inline align-[-3px]') }}{{ group.weaver ?: 'No weaver recorded' }}</th>
+                  <td class="border-b border-line bg-inset px-3 py-2 text-right text-caption text-ink-2 tabular-nums">{{ ui.money(group.subtotal) }}</td>
+                </tr>
+                {% for item in group.items %}
+                  <tr>
+                    <td class="border-b border-line px-3 py-2.5 align-middle font-semibold">{{ item.name_snapshot }}</td>
+                    <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ ui.money(item.price_centavos) }}</td>
+                    <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ item.qty }}</td>
+                    <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ ui.money(item.line_total_centavos) }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
             {% endfor %}
-          </tbody>
-          <tfoot class="tabular-nums">
-            <tr><th scope="row" colspan="3" class="px-3 pt-3 text-right font-medium text-ink-2">Subtotal</th><td class="px-3 pt-3 text-right">{{ ui.money(order.subtotal_centavos) }}</td></tr>
-            <tr><th scope="row" colspan="3" class="px-3 pt-1 text-right font-medium text-ink-2">Shipping ({{ regions[order.shipping_region]|default(order.shipping_region) }})</th><td class="px-3 pt-1 text-right">{{ order.shipping_fee_centavos == 0 ? 'Free' : ui.money(order.shipping_fee_centavos) }}</td></tr>
-            <tr><th scope="row" colspan="3" class="px-3 pt-1 pb-3 text-right font-semibold">Total</th><td class="px-3 pt-1 pb-3 text-right font-semibold">{{ ui.money(order.total_centavos) }}</td></tr>
-          </tfoot>
-        </table>
-      </div>
-    </section>
+            <tfoot class="tabular-nums">
+              <tr><th scope="row" colspan="3" class="px-3 pt-3 text-right font-medium text-ink-2">Subtotal</th><td class="px-3 pt-3 text-right">{{ ui.money(order.subtotal_centavos) }}</td></tr>
+              <tr><th scope="row" colspan="3" class="px-3 pt-1 text-right font-medium text-ink-2">Shipping ({{ regions[order.shipping_region]|default(order.shipping_region) }})</th><td class="px-3 pt-1 text-right">{{ order.shipping_fee_centavos == 0 ? 'Free' : ui.money(order.shipping_fee_centavos) }}</td></tr>
+              <tr><th scope="row" colspan="3" class="px-3 pt-1 pb-3 text-right font-semibold">Total</th><td class="px-3 pt-1 pb-3 text-right font-semibold">{{ ui.money(order.total_centavos) }}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="history-h" class="min-w-0">
+        <h2 id="history-h" class="mb-2 text-body font-semibold">History</h2>
+        <ol class="divide-y divide-line rounded-control border border-line bg-surface">
+          {% for event in events %}
+            <li class="flex flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2.5 text-small">
+              <span class="flex-none text-ink-2 tabular-nums">{{ event.created_at|slice(0, 16) }} UTC</span>
+              <span class="min-w-0 flex-1">
+                <span class="font-semibold">{{ event.field == 'status' ? 'Status' : 'Payment' }}:</span>
+                {% if event.old_value %}{{ event.field == 'status' ? ui.status_label(event.old_value) : ui.payment_label(event.old_value) }} → {% endif %}{{ event.field == 'status' ? ui.status_label(event.new_value) : ui.payment_label(event.new_value) }}
+                <span class="block text-caption text-ink-2">{{ event.actor_role == 'admin' ? (event.actor_email ?: 'Administrator') : (event.actor_role == 'customer' ? 'Customer' : 'System') }}{% if event.note %} · {{ event.note }}{% endif %}</span>
+              </span>
+            </li>
+          {% else %}
+            <li class="px-3 py-2.5 text-small text-ink-2">No changes recorded.</li>
+          {% endfor %}
+        </ol>
+      </section>
+    </div>
 
     <div class="grid h-fit gap-4">
       <section aria-labelledby="fulfil-h" class="rounded-control border border-line bg-surface p-4">
         <h2 id="fulfil-h" class="text-body font-semibold">Fulfilment</h2>
-        {% if next_status %}
-          <p class="mt-1 text-small text-ink-2">Next step: mark it {{ ui.status_label(next_status)|lower }}.</p>
-          <form method="post" action="{{ detail_href }}/status" class="mt-3">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="hidden" name="status" value="{{ next_status }}">
-            <button type="submit" class="btn btn--primary btn--sm">Mark as {{ ui.status_label(next_status)|lower }}</button>
-          </form>
+        {% if actions.reject %}
+          <p class="mt-1 text-small text-ink-2">{% if actions.confirm %}Confirm the order or reject it with a reason.{% else %}The payment must be accepted before this order can be confirmed.{% endif %}</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            {% if actions.confirm %}{{ _self.action(detail_href ~ '/status', 'Confirm order', expected, csrf_token, {status: 'confirmed'}) }}{% endif %}
+            <a class="btn btn--destructive btn--sm" href="{{ detail_href }}/reject">Reject…</a>
+          </div>
+        {% elseif actions.next %}
+          <p class="mt-1 text-small text-ink-2">Next step: mark it {{ ui.status_label(actions.next)|lower }}.</p>
+          <div class="mt-3">{{ _self.action(detail_href ~ '/status', 'Mark as ' ~ ui.status_label(actions.next)|lower, expected, csrf_token, {status: actions.next}) }}</div>
         {% else %}
-          <p class="mt-1 text-small text-ink-2">{{ order.status == 'cancelled' ? 'This order was cancelled and its stock restored.' : 'This order is complete.' }}</p>
+          <p class="mt-1 text-small text-ink-2">{% if order.status == 'cancelled' %}This order was cancelled and its stock restored.{% elseif order.status == 'rejected' %}This order was rejected and its stock restored.{% else %}This order is complete.{% endif %}</p>
+          {% if order.status == 'rejected' and order.rejection_reason %}<p class="mt-1 text-small">Reason: {{ order.rejection_reason }}</p>{% endif %}
         {% endif %}
-        {% if cancellable %}
+        {% if actions.cancel %}
           <div class="mt-4 border-t border-line pt-3">
             <a class="btn btn--destructive btn--sm" href="{{ detail_href }}/cancel">Cancel order…</a>
             <p class="mt-2 text-caption text-ink-2">Only before shipping. Every item goes back into stock and the change is audited.</p>
           </div>
+        {% endif %}
+      </section>
+      <section aria-labelledby="pay-h" class="rounded-control border border-line bg-surface p-4 text-small">
+        <h2 id="pay-h" class="mb-2 flex flex-wrap items-center gap-2 text-body font-semibold">Payment {{ ui.payment_chip(order.payment_status) }}</h2>
+        {% if order.payment_method == 'card' %}
+          <p class="flex items-center gap-2">{{ icons.icon('lock', 16, 'flex-none text-info') }}{{ order.payment_brand|default('Card') }} ending {{ order.payment_last4|default('––––') }}</p>
+        {% elseif order.payment_method == 'transfer' %}
+          <p>E-wallet or bank transfer{% if proof %} · reference <span class="font-mono">{{ proof.sender_reference }}</span>{% endif %}</p>
+          {% if proof %}
+            <a href="{{ detail_href }}/proof" target="_blank" rel="noopener" class="mt-3 inline-flex overflow-hidden rounded-sm border border-line bg-page">
+              <img src="{{ detail_href }}/proof" alt="Proof of payment for order {{ order.order_number }}" width="80" height="96" class="block h-24 w-20 object-contain">
+            </a>
+            <p class="mt-1 text-caption text-ink-2">Uploaded {{ proof.uploaded_at|slice(0, 16) }} UTC · <a class="link" href="{{ detail_href }}/proof" target="_blank" rel="noopener">Open full size</a>{% if proof.reviewed_at %} · reviewed {{ proof.reviewed_at|slice(0, 16) }} UTC{% endif %}</p>
+            {% if proof.review_note %}<p class="mt-1 text-caption">Refused: {{ proof.review_note }}</p>{% endif %}
+          {% endif %}
+        {% else %}
+          <p>Cash on delivery</p>
+        {% endif %}
+        {% if actions.review_payment %}
+          <div class="mt-3 flex flex-wrap gap-2">
+            {{ _self.action(detail_href ~ '/payment', 'Accept payment', expected, csrf_token, {action: 'accept'}) }}
+            <a class="btn btn--destructive btn--sm" href="{{ detail_href }}/refuse">Refuse payment…</a>
+          </div>
+        {% elseif actions.cod_paid %}
+          <div class="mt-3">{{ _self.action(detail_href ~ '/payment', 'Mark paid', expected, csrf_token, {action: 'cod_paid'}) }}</div>
+        {% elseif order.payment_method == 'cod' and order.payment_status == 'unpaid' %}
+          <p class="mt-2 text-caption text-ink-2">Mark it paid once the cash is collected at delivery.</p>
         {% endif %}
       </section>
       <section aria-labelledby="customer-h" class="rounded-control border border-line bg-surface p-4 text-small">
@@ -84,6 +153,7 @@
         <p>{{ order.customer_name }}</p>
         <p class="break-words text-ink-2">{{ order.customer_email }}</p>
         {% if order.customer_phone %}<p class="text-ink-2">{{ order.customer_phone }}</p>{% endif %}
+        <p class="mt-2"><a class="link" href="/admin/customers/{{ customer_key }}">All orders from this customer</a></p>
       </section>
       <section aria-labelledby="ship-h" class="rounded-control border border-line bg-surface p-4 text-small">
         <h2 id="ship-h" class="mb-2 text-body font-semibold">Shipping address</h2>
@@ -92,27 +162,37 @@
         <p>{{ order.shipping_city }} {{ order.shipping_postal_code }}</p>
         <p>{{ regions[order.shipping_region]|default(order.shipping_region) }}</p>
       </section>
-      <section aria-labelledby="pay-h" class="rounded-control border border-line bg-surface p-4 text-small">
-        <h2 id="pay-h" class="mb-2 text-body font-semibold">Payment</h2>
-        <p class="flex items-center gap-2">{{ icons.icon('lock', 16, 'flex-none text-info') }}{{ order.payment_brand|default('Card') }} ending {{ order.payment_last4|default('––––') }}</p>
-      </section>
     </div>
   </div>
 {% endblock %}
 
 {% block dialog %}
-  {% if confirm_cancel %}
+  {% if dialog %}
     {% set units = order.items|reduce((sum, item) => sum + item.qty, 0) %}
+    {% set copy = {
+      reject: {title: 'Reject order ' ~ order.order_number ~ '?', action: detail_href ~ '/reject', button: 'Reject order', keep: 'Keep order', label: 'Reason for rejecting', hint: 'The customer sees this reason when tracking the order.',
+        description: units ~ (units == 1 ? ' unit goes' : ' units go') ~ ' back into stock and each change is recorded in the stock audit. This cannot be undone.'},
+      cancel: {title: 'Cancel order ' ~ order.order_number ~ '?', action: detail_href ~ '/cancel', button: 'Cancel order', keep: 'Keep order', label: 'Reason for cancelling', hint: 'Kept in the order history.',
+        description: units ~ (units == 1 ? ' unit goes' : ' units go') ~ ' back into stock and each change is recorded in the stock audit. This cannot be undone.'},
+      refuse: {title: 'Refuse payment for ' ~ order.order_number ~ '?', action: detail_href ~ '/payment', button: 'Refuse payment', keep: 'Back', label: 'Reason for refusing', hint: 'Kept in the order history. Reject the order afterwards if it will not be paid.',
+        description: 'The payment is marked rejected and the order cannot be confirmed.'},
+    }[dialog] %}
     {% embed 'admin/_dialog.twig' with {
-      dialog_id: 'cancel-dialog',
-      title: 'Cancel order ' ~ order.order_number ~ '?',
-      description: units ~ (units == 1 ? ' unit goes' : ' units go') ~ ' back into stock and each change is recorded in the stock audit. This cannot be undone.',
+      dialog_id: dialog ~ '-dialog',
+      title: copy.title,
+      description: copy.description,
       close_href: detail_href,
-      form_action: detail_href ~ '/cancel',
+      form_action: copy.action,
     } %}
+      {% import "admin/_macros.twig" as ui %}
+      {% block body %}
+        <input type="hidden" name="expected" value="{{ expected }}">
+        {% if dialog == 'refuse' %}<input type="hidden" name="action" value="refuse">{% endif %}
+        {{ ui.input('reason', copy.label, reason, errors, {required: true, textarea: true, rows: 3, maxlength: max_reason, hint: copy.hint}) }}
+      {% endblock %}
       {% block footer %}
-        <a class="btn btn--secondary" href="{{ close_href }}"><span>Keep order</span></a>
-        <button type="submit" class="btn btn--destructive"><span>Cancel order</span></button>
+        <a class="btn btn--secondary" href="{{ close_href }}"><span>{{ copy.keep }}</span></a>
+        <button type="submit" class="btn btn--destructive"><span>{{ copy.button }}</span></button>
       {% endblock %}
     {% endembed %}
   {% endif %}

@@ -1,0 +1,57 @@
+{#-
+  Admin weaver account form (R40, R43): sign-in email, the public profile
+  (plain text; story paragraphs separated by a blank line) and photo, plus
+  on creation an optional initial password (empty generates one, shown
+  once after saving). Composed like the weaver Profile page.
+  Receives: weaver (null when creating), values, errors, limits, min_password.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'weavers' %}
+
+{% block title %}{{ weaver ? 'Edit ' ~ weaver.display_name : 'Add weaver' }}{% endblock %}
+
+{% block content %}
+  <a href="/admin/weavers" class="btn btn--tertiary btn--sm">{{ icons.icon('arrow-left', 18) }}<span>All weavers</span></a>
+  <h1 class="mt-2 mb-4 text-h2 font-semibold">{{ weaver ? 'Edit ' ~ weaver.display_name : 'Add weaver' }}</h1>
+  <form method="post" action="{{ weaver ? '/admin/weavers/' ~ weaver.id : '/admin/weavers' }}" enctype="multipart/form-data" novalidate class="max-w-[640px] rounded-panel border border-line bg-surface">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="grid gap-4 px-5 py-4">
+      {% include 'admin/_error-summary.twig' with {errors: errors} only %}
+      {{ ui.input('email', 'Sign-in email', values.email, errors, {required: true, type: 'email', autocomplete: 'off', maxlength: limits.email}) }}
+      {% if not weaver %}
+        {{ ui.input('password', 'Initial password', '', errors, {type: 'password', autocomplete: 'new-password', optional: true, hint: 'At least ' ~ min_password ~ ' characters. Leave empty to generate one; it is shown once after saving.'}) }}
+      {% endif %}
+      {{ ui.input('display_name', 'Display name', values.display_name, errors, {required: true, maxlength: limits.display_name}) }}
+      <div class="grid gap-4 @2xl:grid-cols-2">
+        {{ ui.input('community', 'Community', values.community, errors, {maxlength: limits.community}) }}
+        {{ ui.input('region', 'Region', values.region, errors, {maxlength: limits.region}) }}
+      </div>
+      <div class="grid gap-4 @2xl:grid-cols-2">
+        {{ ui.input('fibers', 'Fibers', values.fibers, errors, {maxlength: limits.fibers, placeholder: 'e.g. tikog, pandan'}) }}
+        {{ ui.input('techniques', 'Techniques', values.techniques, errors, {maxlength: limits.techniques}) }}
+      </div>
+      {{ ui.input('story', 'Story', values.story, errors, {textarea: true, rows: 6, maxlength: limits.story, hint: 'Plain text. Leave a blank line between paragraphs.'}) }}
+      <div>
+        <p class="field-label" id="f-photo">Photo</p>
+        <div class="flex flex-wrap items-center gap-3 rounded-control border-[1.5px] border-dashed border-line-strong bg-page p-3">
+          <div class="h-16 w-[52px] flex-none overflow-hidden rounded-sm border border-line bg-[#F3EEE4]">
+            {% if weaver and weaver.photo_path %}<img src="{{ weaver.photo_path }}" alt="Current profile photo" width="52" height="64" class="block h-full w-full object-contain">{% endif %}
+          </div>
+          <label class="btn btn--secondary btn--sm">
+            {{ icons.icon('upload', 18) }}<span>Upload photo</span>
+            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="sr-only" data-file-input
+                   aria-describedby="f-photo-hint{% if errors.photo is defined %} f-photo-err{% endif %}"{% if errors.photo is defined %} aria-invalid="true"{% endif %}>
+          </label>
+          <span id="f-photo-hint" class="text-caption text-ink-2" data-file-name>JPG, PNG or WebP · up to 2 MB · 4:5 illustration</span>
+        </div>
+        {{ ui.field_error('f-photo', errors.photo|default(null)) }}
+      </div>
+    </div>
+    <div class="flex flex-wrap justify-end gap-2 border-t border-line bg-page px-5 py-3">
+      <a class="btn btn--secondary" href="/admin/weavers"><span>Cancel</span></a>
+      <button type="submit" class="btn btn--primary"><span>{{ weaver ? 'Save weaver' : 'Add weaver' }}</span></button>
+    </div>
+  </form>
+{% endblock %}

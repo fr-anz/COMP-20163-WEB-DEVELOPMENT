@@ -1,0 +1,18 @@
+{#-
+  Error summary shared by admin page forms (the published inline alert with
+  links to each invalid field). Receives: errors (field => message).
+-#}
+{% import "macros/icons.twig" as icons %}
+{% if errors|length %}
+  <div class="flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert" data-error-summary>
+    {{ icons.icon('alert', 20, 'mt-0.5 flex-none') }}
+    <div class="min-w-0 flex-1">
+      <p class="text-[15px] font-semibold">Check the highlighted fields</p>
+      <ul class="mt-1 space-y-1 text-small">
+        {% for field, message in errors %}
+          <li><a href="#f-{{ field|replace({'_': '-'}) }}" class="underline underline-offset-2">{{ message }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endif %}

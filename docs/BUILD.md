@@ -1254,11 +1254,74 @@ M12 evidence (2026-11-21, branch `feat/25-weaver-module`, PHP 8.5.12, SQLite 3.5
   shell's horizontal nav and scrolling tables.
 
 #### M13 — Admin v2 (D lead, A services)
-- [ ] Dashboard order/sales summaries (R18); order list filters and merged status/payment
-  transitions with reasons and events (R22); proof viewing (N11).
-- [ ] Weaver accounts and listing approval (R40); categories (R41); customer records (R42);
+- [x] Dashboard order/sales summaries (R18); order list filters and merged status/payment
+  transitions with reasons and events (R22); proof viewing (N11). Sales = order totals of
+  non-rejected, non-cancelled orders by UTC placement date. Deviations: SDD §15.3, §15.4.
+- [x] Weaver accounts and listing approval (R40); categories (R41); customer records (R42);
   journal and weaver-profile content management (R43); product form v2 fields (R20, R23).
+  Category rule: no deactivation while the category has active or pending-review products.
+  Content is plain text (HTML refused). Listing deactivation has no stored note (no column).
+- [x] N9: admin strings are exempt; no new customer-facing template strings. The admin-entered
+  reject reason is shown on tracking as entered (not translated).
 - **Done when:** J3 passes end to end, including reject/cancel stock restores and audit rows.
+
+M13 evidence (2026-11-21, branch `feat/26-admin-v2`, PHP 8.5.12, SQLite 3.54.1):
+- [x] Tests first: with only the new tests in place, `vendor/bin/phpunit` → 245 tests, 24 errors,
+  4 failures (missing `AdminWeaverService`, `CategoryService`, `CustomerService`,
+  `AdminJournalService`, `PlainText`, transitions); `OrderTransitionTest` alone against the old
+  `OrderService` → 13 tests, 11 errors, 2 failures.
+- [x] `vendor/bin/phpunit` → OK (306 tests, 2208 assertions). New: `OrderTransitionTest` (reject
+  restores stock with `order_rejected:` audit rows and an event with the reason; reasons required;
+  reject only from pending, cancel only from confirmed/packed; rollback when the second audit insert
+  fails; accept → confirmable, proof reviewed; refuse with reason blocks confirm, then reject;
+  payment actions refused for COD/card/rejected; COD paid only from shipped/delivered; stale
+  `expected` state writes nothing; events oldest first; payment/method filters; dashboard
+  counts and sales), `AdminWeaverServiceTest` (entered/generated password signs in through
+  `AuthService`; duplicate email, short password, HTML story refused; deactivated weaver cannot sign
+  in until reactivated; reset invalidates the old password; seeded `!` hash replaced; placeholder
+  never listed or changeable), `CategoryServiceTest`, `CustomerServiceTest`,
+  `AdminJournalServiceTest`, `AdminProductV2Test` (weaver required and never the placeholder for new
+  products; inactive category refused unless current; NULL 3D config; reassignment leaves the
+  dashboard list; approve/deactivate), `PlainTextTest`, `AdminRoutesTest` (route list equals the
+  tested list; all 34 routes redirect signed-out and weaver-only sessions with no writes; proof
+  200 `image/png` + `nosniff` + `no-store` with identical bytes for admins, 404 for COD order,
+  unknown order and missing file; detail shows only allowed actions; reject via form needs a
+  reason (422 dialog) then restores stock; stale payment form refused; generated password shown
+  once and never kept in feedback; approve; escaped customer name; 18 admin screens render 200
+  with `noindex`). Updated: `AdminOrderServiceTest` (cancel takes a reason),
+  `AdminProductServiceTest` (form posts weaver/category ids; nothing lands on the placeholder).
+- [x] `composer cs` and `composer lint` exit 0.
+- [x] HTTP smoke, `DB_DSN=sqlite:/tmp/habi-m13/app.sqlite php -S 127.0.0.1:8113 -t public public/index.php`
+  (fresh temp DB, `ADMIN_SEED_*` exported, no `.env`), curl with cookie jars and CSRF tokens:
+  storefront transfer checkout with a PNG proof → `H-20261121-0001` pending/for_verification;
+  dashboard "Payments to verify" 1; proof route 200 `image/png`, `nosniff`, `no-store`, bytes equal
+  to the upload; anonymous proof → 303 `/admin/login`; Confirm before payment refused (state
+  unchanged); Accept → paid, proof reviewed by admin 1; confirmed → packed → shipped → delivered;
+  seven `order_events` rows (customer ×2, admin ×5). COD order rejected without reason → 303 back
+  to the dialog, unchanged; with "Outside our delivery area" → rejected, `rejection_reason` set,
+  stock 17 → 18 with `order_rejected: H-20261121-0002` (admin 1), event note set, reason visible on
+  `/track`. COD Mark paid while pending refused; after delivery → paid. Confirmed COD order
+  cancelled with a reason → stock 5 → 6 (`order_cancelled: H-20261121-0004`); a stale status form
+  afterwards → "changed … Review it again." Weaver created with an empty password → 16-character
+  temporary password in the next flash only; password set to an entered one → the generated one
+  fails and the new one signs in at `/weaver/login`; listing submitted (pending_review, absent
+  from `/products?q=`), shown under Products → Pending review, Approve → active and listed on
+  `/products`; second Approve refused; weaver deactivated → session redirected to sign-in and
+  sign-in fails; reactivated. Admin product with weaver, category, heritage fields and no 3D →
+  `three_config` NULL, active; new-product weaver list excludes the placeholder. Tote
+  deactivation refused ("still has 3 live products"); an empty new category deactivated. Journal
+  article with HTML refused; plain article with an https source created and published
+  (`published_at` set). 19 admin pages 200; customer detail lists the orders; POST without CSRF
+  → 403. No PHP warnings in the server log; server stopped; smoke files under the gitignored
+  `data/proofs/` and `data/uploads/` removed.
+- [ ] Not run: browser check of J3 at 360/768/1440 px and the review-screen guide (no browser in
+  this environment); the PRD §7 "admin adds a product in < 2 min" timing. Templates use only
+  classes present in `app.css` (checked with a script against the stylesheet).
+- Found, not fixed (M10 scope): `GET /api/product/{slug}/3d` answers 500 for a product with
+  `three_config` NULL (`ProductService::get3dConfig()` JSON-decodes an empty string); SDD §15.3
+  expects JSON 404. Weaver-created listings (M12) already have NULL configs. By source reading (not
+  exercised), deactivated weavers' products stay listed because `ProductService` filters only by
+  `listing_status` (R40 storefront visibility belongs with M10).
 
 #### M14 — English/Filipino (E lead, C UI)
 - [ ] `Translator`, `LocaleMiddleware`, `POST /lang`, catalogs `lang/en.php` + `lang/fil.php` (R33, N9).

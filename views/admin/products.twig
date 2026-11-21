@@ -1,13 +1,15 @@
 {#-
-  Admin Products (R20, R23): published Products table (thumbnail, name,
-  category, price, stock chip, Edit icon) with filters, plus Add product.
-  Dialogs are server-rendered: dialog.type 'product' (create when
-  dialog.product is null, else edit) or 'archive'. The product form is the
-  published Edit product dialog extended with every R20 field: SKU,
-  material/place-of-make labels, dimensions, threshold, the
-  procedural 3D config and validated image upload or a seeded
-  illustration. Stock is set only on create; later changes go through
-  Inventory so they are audited.
+  Admin Products (R20, R23, R40): published Products table (thumbnail, name,
+  weaver, category, price, listing/stock chip, Approve for pending listings,
+  Edit icon) with filters, plus Add product. Dialogs are server-rendered:
+  dialog.type 'product' (create when dialog.product is null, else edit),
+  'archive' or 'deactivate'. The product form is the published Edit product
+  dialog extended with every R20 field: weaver (required; active weavers,
+  plus the current one when editing), category (active categories), SKU,
+  fiber/community/region/technique/story (plain text), material and
+  place-of-make labels, dimensions, threshold, the optional procedural 3D
+  config and validated image upload or a seeded illustration. Stock is set
+  only on create; later changes go through Inventory so they are audited.
   Receives: products, q, stock, list_query, dialog, options, errors.
 -#}
 {% extends "admin/layout.twig" %}
@@ -29,7 +31,7 @@
       <caption class="sr-only">Products</caption>
       <thead>
         <tr>
-          {% for heading in ['Product', 'Category', 'Price', 'Status'] %}
+          {% for heading in ['Product', 'Weaver', 'Category', 'Price', 'Status'] %}
             <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
           {% endfor %}
           <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase text-right"><span class="sr-only">Actions</span></th>
@@ -46,15 +48,24 @@
                 <span class="font-semibold">{{ product.name }}<span class="block text-caption font-normal text-ink-2">{{ product.sku }}</span></span>
               </div>
             </td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ product.weaver_name }}</td>
             <td class="border-b border-line px-3 py-2.5 align-middle">{{ product.category }}</td>
             <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(product.price_centavos) }}</td>
-            <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.stock_chip(product) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.listing_chip(product) }}</td>
             <td class="border-b border-line px-3 py-2.5 align-middle text-right">
+              <div class="flex items-center justify-end gap-1">
+              {% if product.listing_status == 'pending_review' %}
+                <form method="post" action="/admin/products/{{ product.id }}/approve{{ list_query }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button type="submit" class="btn btn--secondary btn--sm">Approve<span class="sr-only"> {{ product.name }}</span></button>
+                </form>
+              {% endif %}
               <a href="/admin/products/{{ product.id }}/edit{{ list_query }}" aria-label="Edit {{ product.name }}" title="Edit {{ product.name }}" class="icon-btn relative">{{ icons.icon('edit') }}</a>
+              </div>
             </td>
           </tr>
         {% else %}
-          <tr><td colspan="5" class="px-3 py-2.5 text-ink-2">No products match these filters. <a class="link" href="/admin/products">Show all products</a></td></tr>
+          <tr><td colspan="6" class="px-3 py-2.5 text-ink-2">No products match these filters. <a class="link" href="/admin/products">Show all products</a></td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -95,9 +106,10 @@
         <div class="grid gap-4">
           {{ ui.input('name', 'Product name', v.name, e, {required: true, maxlength: 80}) }}
           <div class="grid grid-cols-2 gap-4">
-            {{ ui.input('sku', 'SKU', v.sku, e, {required: true, maxlength: 32, autocomplete: 'off', input_class: 'uppercase'}) }}
-            {{ ui.select('category', 'Category', v.category, options.categories|reduce((carry, c) => carry|merge({(c): c}), {}), e) }}
+            {{ ui.select('weaver_id', 'Weaver', v.weaver_id, options.weavers, e, {required: true, placeholder: 'Choose a weaver'}) }}
+            {{ ui.select('category_id', 'Category', v.category_id, options.categories, e, {required: true, placeholder: 'Choose a category'}) }}
           </div>
+          {{ ui.input('sku', 'SKU', v.sku, e, {required: true, maxlength: 32, autocomplete: 'off', input_class: 'uppercase'}) }}
           <div class="grid grid-cols-2 gap-4">
             {{ ui.input('price', 'Price (PHP)', v.price, e, {required: true, inputmode: 'decimal', placeholder: '1650.00'}) }}
             {% if product %}
@@ -111,6 +123,16 @@
           </div>
           {{ ui.input('low_stock_threshold', 'Low-stock threshold', v.low_stock_threshold, e, {required: true, type: 'number', min: 0, max: 99, inputmode: 'numeric', hint: 'Shows “Only N left” and a dashboard alert at or below this.'}) }}
           {{ ui.input('description', 'Description', v.description, e, {textarea: true, rows: 3, maxlength: 2000}) }}
+          <fieldset class="grid gap-4 rounded-control border border-line p-3">
+            <legend class="px-1 text-small font-semibold">Heritage</legend>
+            <div class="grid grid-cols-2 gap-4">
+              {{ ui.select('fiber', 'Fiber', v.fiber, options.fibers, e, {required: true}) }}
+              {{ ui.input('technique', 'Weaving technique', v.technique, e, {maxlength: 120, optional: true}) }}
+              {{ ui.input('community', 'Community', v.community, e, {maxlength: 120, optional: true}) }}
+              {{ ui.input('region', 'Region', v.region, e, {maxlength: 120, optional: true}) }}
+            </div>
+            {{ ui.input('story', 'Story', v.story, e, {textarea: true, rows: 4, maxlength: 4000, optional: true, hint: 'Plain text. Leave a blank line between paragraphs.'}) }}
+          </fieldset>
           {{ ui.input('materials', 'Materials label', v.materials, e, {required: true, maxlength: 200}) }}
           {{ ui.input('place_of_make', 'Place-of-make label', v.place_of_make, e, {required: true, maxlength: 200}) }}
           <fieldset>
@@ -123,6 +145,9 @@
           </fieldset>
           <fieldset class="grid gap-4 rounded-control border border-line p-3">
             <legend class="px-1 text-small font-semibold">3D model</legend>
+            <label class="flex min-h-11 cursor-pointer items-center gap-2.5 text-small">
+              <input class="check" type="checkbox" name="has_3d" value="1"{% if v.has_3d %} checked{% endif %}>Show a 3D model on the product page
+            </label>
             <div class="grid grid-cols-2 gap-4">
               {{ ui.select('shape', 'Shape', v.shape, options.shapes, e) }}
               {{ ui.select('handle_style', 'Handles', v.handle_style, options.handle_styles, e) }}
@@ -171,6 +196,8 @@
       {% block footer %}
         {% if product and product.is_active %}
           <a class="btn btn--destructive mr-auto" href="/admin/products/{{ product.id }}/archive{{ list_query }}">Archive…</a>
+        {% elseif product and product.listing_status == 'pending_review' %}
+          <a class="btn btn--destructive mr-auto" href="/admin/products/{{ product.id }}/deactivate{{ list_query }}">Deactivate…</a>
         {% elseif product %}
           <button type="submit" form="restore-form" class="btn btn--secondary mr-auto">Restore to storefront</button>
         {% endif %}
@@ -178,11 +205,24 @@
         <button type="submit" class="btn btn--primary"><span>{{ product ? 'Save product' : 'Add product' }}</span></button>
       {% endblock %}
     {% endembed %}
-    {% if product and not product.is_active %}
+    {% if product and not product.is_active and product.listing_status != 'pending_review' %}
       <form id="restore-form" method="post" action="/admin/products/{{ product.id }}/restore{{ list_query }}" hidden>
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       </form>
     {% endif %}
+  {% elseif dialog and dialog.type == 'deactivate' %}
+    {% embed 'admin/_dialog.twig' with {
+      dialog_id: 'deactivate-dialog',
+      title: 'Deactivate ' ~ dialog.product.name ~ '?',
+      description: 'It stays hidden from the storefront and the weaver can no longer edit it. Restore brings it back.',
+      close_href: '/admin/products' ~ list_query,
+      form_action: '/admin/products/' ~ dialog.product.id ~ '/deactivate' ~ list_query,
+    } %}
+      {% block footer %}
+        <a class="btn btn--secondary" href="{{ close_href }}"><span>Cancel</span></a>
+        <button type="submit" class="btn btn--destructive"><span>Deactivate listing</span></button>
+      {% endblock %}
+    {% endembed %}
   {% elseif dialog and dialog.type == 'archive' %}
     {% embed 'admin/_dialog.twig' with {
       dialog_id: 'archive-dialog',

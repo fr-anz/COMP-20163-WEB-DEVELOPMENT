@@ -1,0 +1,45 @@
+{#-
+  Admin customer detail (R42): latest contact details, total spent and every
+  order placed with this checkout email, newest first, each linking to the
+  order detail. Receives: customer (email, name, phone, spent, orders), regions.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'customers' %}
+
+{% block title %}{{ customer.name }}{% endblock %}
+
+{% block content %}
+  <a href="/admin/customers" class="btn btn--tertiary btn--sm">{{ icons.icon('arrow-left', 18) }}<span>All customers</span></a>
+  <div class="mt-2 mb-4">
+    <h1 class="text-h2 font-semibold">{{ customer.name }}</h1>
+    <p class="mt-1 break-words text-small text-ink-2">{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p>
+    <p class="mt-1 text-small">{{ customer.orders|length }} {{ customer.orders|length == 1 ? 'order' : 'orders' }} · {{ ui.money(customer.spent) }} spent</p>
+  </div>
+  <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+    <table class="w-full min-w-[640px] text-left text-small">
+      <caption class="sr-only">Orders from {{ customer.email }}</caption>
+      <thead>
+        <tr>
+          {% for heading in ['Order', 'Date', 'Ship to', 'Items', 'Total', 'Status', 'Payment'] %}
+            <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in customer.orders %}
+          <tr class="hover:bg-page">
+            <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="touch-link underline-offset-4 hover:underline" href="/admin/orders/{{ order.order_number|url_encode }}">{{ order.order_number }}</a></td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ order.created_at|slice(0, 10) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ order.customer_name }}<span class="block text-caption text-ink-2">{{ [order.shipping_address1, order.shipping_city, regions[order.shipping_region]|default(order.shipping_region)]|filter(v => v)|join(', ') }}</span></td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ order.items }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(order.total_centavos) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.status_chip(order.status) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.payment_chip(order.payment_status) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

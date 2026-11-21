@@ -1,0 +1,49 @@
+{#-
+  Admin journal article form (R31, R43, N2): title, address (slug; empty
+  generates one from the title), excerpt, plain-text body (blank line
+  between paragraphs), sources (one per line: Author or Organisation.
+  Title. Publisher, Year. URL — http(s) only) and an optional cover image.
+  Saving keeps the status; publishing happens from the list.
+  Receives: article (null when creating), values, errors, limits.
+-#}
+{% extends "admin/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'journal' %}
+
+{% block title %}{{ article ? 'Edit article' : 'Add article' }}{% endblock %}
+
+{% block content %}
+  <a href="/admin/journal" class="btn btn--tertiary btn--sm">{{ icons.icon('arrow-left', 18) }}<span>All articles</span></a>
+  <h1 class="mt-2 mb-4 text-h2 font-semibold">{{ article ? 'Edit article' : 'Add article' }}</h1>
+  <form method="post" action="{{ article ? '/admin/journal/' ~ article.id : '/admin/journal' }}" enctype="multipart/form-data" novalidate class="max-w-[720px] rounded-panel border border-line bg-surface">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="grid gap-4 px-5 py-4">
+      {% include 'admin/_error-summary.twig' with {errors: errors} only %}
+      {{ ui.input('title', 'Title', values.title, errors, {required: true, maxlength: limits.title}) }}
+      {{ ui.input('slug', 'Address', values.slug, errors, {maxlength: limits.slug, optional: true, autocomplete: 'off', hint: 'Shown as /journal/address. Leave empty to create it from the title.'}) }}
+      {{ ui.input('excerpt', 'Excerpt', values.excerpt, errors, {textarea: true, rows: 2, maxlength: limits.excerpt, optional: true}) }}
+      {{ ui.input('body', 'Article text', values.body, errors, {required: true, textarea: true, rows: 14, maxlength: limits.body, hint: 'Plain text. Leave a blank line between paragraphs.'}) }}
+      {{ ui.input('sources', 'Sources', values.sources, errors, {textarea: true, rows: 4, maxlength: limits.sources, optional: true, hint: 'One per line: Author or Organisation. Title. Publisher, Year. https://… (link optional).'}) }}
+      <div>
+        <p class="field-label" id="f-cover">Cover image</p>
+        <div class="flex flex-wrap items-center gap-3 rounded-control border-[1.5px] border-dashed border-line-strong bg-page p-3">
+          {% if article and article.cover_path %}
+            <div class="h-12 w-20 flex-none overflow-hidden rounded-sm border border-line bg-[#F3EEE4]"><img src="{{ article.cover_path }}" alt="Current cover" width="80" height="48" class="block h-full w-full object-contain"></div>
+          {% endif %}
+          <label class="btn btn--secondary btn--sm">
+            {{ icons.icon('upload', 18) }}<span>Upload cover</span>
+            <input type="file" name="cover" accept="image/jpeg,image/png,image/webp" class="sr-only" data-file-input
+                   aria-describedby="f-cover-hint{% if errors.cover is defined %} f-cover-err{% endif %}"{% if errors.cover is defined %} aria-invalid="true"{% endif %}>
+          </label>
+          <span id="f-cover-hint" class="text-caption text-ink-2" data-file-name>JPG, PNG or WebP · up to 2 MB · 16:9</span>
+        </div>
+        {{ ui.field_error('f-cover', errors.cover|default(null)) }}
+      </div>
+    </div>
+    <div class="flex flex-wrap justify-end gap-2 border-t border-line bg-page px-5 py-3">
+      <a class="btn btn--secondary" href="/admin/journal"><span>Cancel</span></a>
+      <button type="submit" class="btn btn--primary"><span>{{ article ? 'Save article' : 'Save draft' }}</span></button>
+    </div>
+  </form>
+{% endblock %}

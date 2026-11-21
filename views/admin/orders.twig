@@ -1,8 +1,9 @@
 {#-
   Admin Orders (R22): the published Orders table with its Status filter,
-  plus inclusive From/To date filters (UTC dates as stored). Order numbers
-  link to the detail page. Native GET form; admin.js submits on change.
-  Receives: orders, status, from, to, page, pages, total, statuses, regions.
+  plus Payment status, Method and inclusive From/To date filters (UTC dates
+  as stored). Order numbers link to the detail page. Native GET form;
+  admin.js submits on change. Receives: orders, status, payment, method,
+  from, to, page, pages, total, statuses, payment_statuses, methods, regions.
 -#}
 {% extends "admin/layout.twig" %}
 {% import "macros/icons.twig" as icons %}
@@ -25,6 +26,24 @@
         </select>
       </div>
       <div class="w-44">
+        <label for="filter-payment" class="field-label">Payment</label>
+        <select id="filter-payment" name="payment" class="input">
+          <option value="">All payments</option>
+          {% for value in payment_statuses %}
+            <option value="{{ value }}"{% if value == payment %} selected{% endif %}>{{ ui.payment_label(value) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="w-44">
+        <label for="filter-method" class="field-label">Method</label>
+        <select id="filter-method" name="method" class="input">
+          <option value="">All methods</option>
+          {% for value in methods %}
+            <option value="{{ value }}"{% if value == method %} selected{% endif %}>{{ ui.method_label(value) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="w-44">
         <label for="filter-from" class="field-label">From</label>
         <input id="filter-from" name="from" type="date" class="input" value="{{ from }}">
       </div>
@@ -41,7 +60,7 @@
       <caption class="sr-only">Orders</caption>
       <thead>
         <tr>
-          {% for heading in ['Order', 'Date', 'Customer', 'Region', 'Items', 'Total', 'Status'] %}
+          {% for heading in ['Order', 'Date', 'Customer', 'Region', 'Items', 'Total', 'Status', 'Payment'] %}
             <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
           {% endfor %}
         </tr>
@@ -56,14 +75,15 @@
             <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ order.items }}</td>
             <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(order.total_centavos) }}</td>
             <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.status_chip(order.status) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle"><span class="flex flex-col items-start gap-1">{{ ui.payment_chip(order.payment_status) }}<span class="text-caption text-ink-2">{{ ui.method_label(order.payment_method) }}</span></span></td>
           </tr>
         {% else %}
-          <tr><td colspan="7" class="px-3 py-2.5 text-ink-2">
-            {% if status or from or to %}No orders match these filters. <a class="link" href="/admin/orders">Show all orders</a>{% else %}No orders yet. Orders appear here once customers check out.{% endif %}
+          <tr><td colspan="8" class="px-3 py-2.5 text-ink-2">
+            {% if status or payment or method or from or to %}No orders match these filters. <a class="link" href="/admin/orders">Show all orders</a>{% else %}No orders yet. Orders appear here once customers check out.{% endif %}
           </td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {{ ui.pagination('/admin/orders', {status: status, from: from, to: to}|filter(v => v), page, pages) }}
+  {{ ui.pagination('/admin/orders', {status: status, payment: payment, method: method, from: from, to: to}|filter(v => v), page, pages) }}
 {% endblock %}

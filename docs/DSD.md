@@ -292,6 +292,19 @@ at 1440, 768 and 360 px. Record new APIs in §5 when they ship.
   (opens full size in a dialog) and the allowed actions only (Confirm / Reject…, next status,
   Cancel…, Accept payment / Refuse payment…, Mark COD paid); destructive actions use the
   existing destructive dialog with a required reason.
+  *Implemented in M13* with only existing classes and macros: a first row of metric cards
+  (Orders to confirm and Payments to verify link to the filtered order list; Sales today and
+  this month with an "overall" caption) above an orders-by-status chip row, then the v1 cards.
+  Order list adds Payment and Method selects and a Payment column (payment chip + method).
+  Order detail: weaver group rows (`bg-inset` row header with the thread icon and the group
+  subtotal) inside the items table, a History list (UTC time, old → new, actor · note), a
+  Payment panel with the proof thumbnail that opens full size in a new tab (not a dialog), and
+  Reject/Cancel/Refuse as the destructive dialog with a required reason textarea. Products add a
+  Weaver column, Pending review/Deactivated chips, an Approve action, a Heritage fieldset and a
+  "Show a 3D model" checkbox in the product dialog. Weavers, Categories, Customers and Journal
+  use the admin table; weaver and article forms are page panels composed like the weaver Profile
+  (`views/admin/_error-summary.twig` shares the error alert); password, deactivate and category
+  dialogs use `_dialog.twig`. Not yet reviewed in a browser (BUILD M13).
 
 **Implemented in M10 (R2–R4, R29–R31)** — composed from the catalog card, product open
 sections and breadcrumb; no new tokens or colors. New utilities in the `app.css` M10 block:
@@ -324,7 +337,7 @@ sections and breadcrumb; no new tokens or colors. New utilities in the `app.css`
 | `cart.js` + `_cart-content.twig` | Native cart forms enhanced with authoritative server fragments; synchronized header count, drawer/page lines and totals, persistent stock notices, add feedback, named quantity/remove controls and accessible native dialog. |
 | `checkout.js` + `checkout-{shipping,payment,review}.twig` | Native PRG forms, server-owned progress/totals, inline errors, first-error/step focus, visible busy status/spinner, reduced motion and card clearing on pagehide/pageshow. `_checkout-stepper.twig` and `_checkout-summary.twig` share responsive progress and native summary disclosure. |
 | `order.twig` | Session-owned order snapshots, status and delivery estimate; no gateway or shipping action is fabricated. |
-| `views/admin/layout.twig` + `_macros.twig` | Admin shell (sidebar/scroll nav, flash) and helpers: `money`, `stock_chip`, `status_chip`, `status_label`, `input`, `select`, `field_error`, `pagination`, `flash`. Templates set `dialog_open` to make the shell `inert` behind a dialog. |
+| `views/admin/layout.twig` + `_macros.twig` | Admin shell (sidebar/scroll nav, flash) and helpers: `money`, `stock_chip`, `status_chip`, `status_label`, `payment_chip`, `payment_label`, `method_label`, `listing_chip`, `active_chip` (M13), `input`, `select`, `field_error`, `pagination`, `flash`. Templates set `dialog_open` to make the shell `inert` behind a dialog. |
 | `views/admin/_dialog.twig` (`{% embed %}`) | Published dialog anatomy (brown/45 scrim, surface panel, header with Close, scrolling body, page-coloured footer) as a server-rendered overlay reached by URL; optional wrapping form. Import macros inside each embed body. |
 | `.btn--destructive` | Reference destructive action (Archive…, Cancel order) — white on status-error. |
 | `admin.js` | Dialog initial focus (first invalid field, first field, else Close), Tab containment, Esc to the close URL; filter auto-submit; password Show/Hide; chosen-file name and early 2 MB warning. Everything works without it. |

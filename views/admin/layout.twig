@@ -21,7 +21,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}Admin{% endblock %} — {{ app_name }} {{ shell_title|default('admin') }}</title>
-  <meta name="description" content="{{ shell_description|default('Habi administration: products, stock and orders.') }}">
+  <meta name="description" content="{{ shell_description|default('Habi administration: products, stock, orders, weavers and content.') }}">
   <link rel="stylesheet" href="/assets/css/app.css">
   <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
 </head>
@@ -47,6 +47,10 @@
           {key: 'inventory', href: '/admin/inventory', label: 'Inventory', icon: 'box'},
           {key: 'orders', href: '/admin/orders', label: 'Orders', icon: 'orders'},
           {key: 'audit', href: '/admin/audit', label: 'Stock audit', icon: 'history'},
+          {key: 'weavers', href: '/admin/weavers', label: 'Weavers', icon: 'thread'},
+          {key: 'categories', href: '/admin/categories', label: 'Categories', icon: 'filter'},
+          {key: 'customers', href: '/admin/customers', label: 'Customers', icon: 'search'},
+          {key: 'journal', href: '/admin/journal', label: 'Journal', icon: 'edit'},
         ]) %}
           <a href="{{ item.href }}"{% if active_nav|default('') == item.key %} aria-current="page"{% endif %}
              class="touch-target flex h-10 flex-none items-center gap-2.5 rounded-control px-3 text-small font-medium whitespace-nowrap {% if active_nav|default('') == item.key %}bg-ink text-inverse{% else %}text-ink hover:bg-inset{% endif %}">

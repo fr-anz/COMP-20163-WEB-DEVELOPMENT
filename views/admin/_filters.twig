@@ -14,9 +14,9 @@
     </div>
   </div>
   <div>
-    <label for="filter-stock" class="field-label">Stock status</label>
+    <label for="filter-stock" class="field-label">Status</label>
     <select id="filter-stock" class="input" name="stock">
-      {% for value, label in {all: 'All', in: 'In stock', low: 'Low stock', out: 'Sold out', archived: 'Archived'} %}
+      {% for value, label in {all: 'All', in: 'In stock', low: 'Low stock', out: 'Sold out', pending: 'Pending review', archived: 'Archived or deactivated'} %}
         <option value="{{ value }}"{% if value == stock %} selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>

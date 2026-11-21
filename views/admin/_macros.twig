@@ -41,6 +41,49 @@
   <span class="chip {{ style[0] }}">{{ icons.icon(style[1], 14) }}{{ _self.status_label(status) }}</span>
 {%- endmacro %}
 
+{% macro payment_label(status) -%}
+  {{ {unpaid: 'Unpaid', for_verification: 'For verification', paid: 'Paid', rejected: 'Rejected'}[status]|default(status|replace({'_': ' '})|capitalize) }}
+{%- endmacro %}
+
+{#- Payment status chip (R22): icon + label, never colour alone. -#}
+{% macro payment_chip(status) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- set styles = {
+    unpaid: ['bg-inset text-ink-2', 'info'],
+    for_verification: ['bg-warning-bg text-warning', 'history'],
+    paid: ['bg-success-bg text-success', 'check'],
+    rejected: ['bg-error-bg text-error', 'close'],
+  } -%}
+  {%- set style = styles[status]|default(['bg-inset text-ink-2', 'info']) -%}
+  <span class="chip {{ style[0] }}">{{ icons.icon(style[1], 14) }}{{ _self.payment_label(status) }}</span>
+{%- endmacro %}
+
+{% macro method_label(method) -%}
+  {{ {cod: 'Cash on delivery', transfer: 'Transfer', card: 'Card'}[method]|default(method) }}
+{%- endmacro %}
+
+{#- Listing status chip for products (R36, R40): Pending review and Deactivated besides stock. -#}
+{% macro listing_chip(product) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- if product.listing_status|default('active') == 'pending_review' -%}
+    <span class="chip bg-warning-bg text-warning">{{ icons.icon('history', 14) }}Pending review</span>
+  {%- elseif product.listing_status|default('active') == 'deactivated' -%}
+    <span class="chip bg-error-bg text-error">{{ icons.icon('lock', 14) }}Deactivated</span>
+  {%- else -%}
+    {{ _self.stock_chip(product) }}
+  {%- endif -%}
+{% endmacro %}
+
+{#- Active/inactive chip for weavers and categories. -#}
+{% macro active_chip(active, inactive_label = 'Deactivated') %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- if active -%}
+    <span class="chip bg-success-bg text-success">{{ icons.icon('check', 14) }}Active</span>
+  {%- else -%}
+    <span class="chip bg-inset text-ink-2">{{ icons.icon('close', 14) }}{{ inactive_label }}</span>
+  {%- endif -%}
+{% endmacro %}
+
 {% macro field_error(id, message) %}
   {%- import "macros/icons.twig" as icons -%}
   {%- if message -%}
