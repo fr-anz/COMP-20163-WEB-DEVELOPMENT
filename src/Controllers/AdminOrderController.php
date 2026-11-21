@@ -55,7 +55,7 @@ final class AdminOrderController
         $number = (string) $args['number'];
         $target = AdminResponder::body($request)['status'] ?? '';
         try {
-            $this->orders->advanceStatus($number, is_string($target) ? $target : '');
+            $this->orders->advanceStatus($number, is_string($target) ? $target : '', $this->view->adminId());
             $this->view->flash('success', sprintf('Order %s is now %s.', $number, $target));
         } catch (AdminActionException $failure) {
             $this->view->flash('error', $failure->getMessage());

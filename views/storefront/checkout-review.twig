@@ -8,7 +8,8 @@
   rejected server-side and route back to the bag with an explanatory notice.
   Receives exactly: app_name, app_env, cart, csrf_token, shipping (array),
   regions (key => label), shipping_fee_centavos (int), total_centavos (int),
-  payment (result/last4/brand), idempotency_key, errors, message, step.
+  payment (method plus card result/last4/brand or transfer sender_reference),
+  idempotency_key, errors, message, step.
 -#}
 {% extends "layouts/base.twig" %}
 {% import "macros/icons.twig" as icons %}
@@ -73,7 +74,15 @@
             <div class="flex items-start justify-between gap-4 p-4">
               <div>
                 <p class="text-small font-semibold">Payment</p>
-                <p class="mt-1 text-small whitespace-pre-line text-ink-2">{{ payment.brand|default('card') }} card ending {{ payment.last4|default('') }}</p>
+                <p class="mt-1 text-small whitespace-pre-line text-ink-2">
+                  {%- if payment.method|default('') == 'cod' -%}
+                    Cash on delivery
+                  {%- elseif payment.method|default('') == 'transfer' -%}
+                    E-wallet or bank transfer · reference {{ payment.sender_reference }}
+                  {%- else -%}
+                    {{ payment.brand|default('card') }} card ending {{ payment.last4|default('') }}
+                  {%- endif -%}
+                </p>
               </div>
               <a href="/checkout/payment" aria-label="Edit payment" class="btn btn--tertiary btn--sm">
                 {{ icons.icon('edit', 18) }}

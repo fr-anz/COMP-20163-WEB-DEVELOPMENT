@@ -221,13 +221,16 @@ or saving returns to the same list.
 
 ## 7. Cart & Checkout Flow (state machine)
 
-> PRD 2.0 payment-method branching (COD, transfer with proof, card) — see §15.5 (planned).
+Payment-method branching (R13) is implemented since M11 (`POST /checkout/payment`).
 
 ```
-[Browse] ──add──▶ [cart] ──checkout──▶ [shipping] ──valid──▶ [payment]
-[payment] ──simulate──▶ [result]
-[result] ──approved──▶ [review] ──Place order──▶ [place] ──commit──▶ [confirmation]
-[result] ──declined/insufficient──▶ [payment] (no order, stock unchanged)
+[Browse] ──add──▶ [cart] ──checkout──▶ [shipping] ──valid──▶ [payment: choose method]
+[payment] ──cod──▶ [review]
+[payment] ──transfer + sender reference + valid proof──▶ [review]
+[payment] ──transfer invalid (no/bad/oversized file, no reference)──▶ [payment] (inline errors)
+[payment] ──card──▶ simulate ──approved──▶ [review]
+[payment] ──card declined/insufficient/invalid──▶ [payment] (no order, stock unchanged)
+[review] ──Place order──▶ [place] ──commit──▶ [confirmation] (status pending)
 [shipping] ──invalid──▶ [shipping] (inline errors)
 [place] ──stock failure──▶ [cart] (rollback, notice, stock correction)
 ```
@@ -247,7 +250,10 @@ or saving returns to the same list.
 - Session cookies have lifetime zero, HttpOnly and SameSite=Lax; no localStorage or
   persistent cart database exists. The cart explains that expiry loses its contents.
 - Checkout is available from both the bag page and drawer. Expired/empty sessions return to the bag with an actionable explanation.
-- `$_SESSION['checkout']` holds validated `shipping`, an approved non-sensitive `payment` result, reviewed `lines` and their `fingerprint`, and the preissued `idempotency_key`. Quantity mutations revoke approval/key while retaining shipping. Shipping edits require a new simulation; price changes cannot silently alter the reviewed order.
+- `$_SESSION['checkout']` holds validated `shipping`, a ready non-sensitive `payment` choice, reviewed `lines` and their `fingerprint`, and the preissued `idempotency_key`. `payment` is `{method: cod}`, `{method: transfer, proof, sender_reference}` (proof = random staged file name) or `{method: card, result: approved, last4, brand}`. The fingerprint covers the method and the line snapshot. Quantity mutations, shipping edits and every new payment submission revoke the choice/key while retaining shipping; a revoked transfer choice deletes its staged proof. Price changes cannot silently alter the reviewed order.
+- `POST /checkout/payment` (multipart) reads `method`: `card` delegates to the simulator (§9; `POST /api/payment/simulate` remains a card-only alias); `transfer` requires `sender_reference` (≤ 64 characters) and a `proof` image staged by `PaymentProofService` (§15.5). Only errors, the chosen method and the sender reference are flashed.
+- Confirmation shows the reference number in a copyable read-only field with a link to `/track`, payment method and a payment-status chip, plus a COD cash or transfer-verification note (R16).
+- `GET /track` / `POST /track` (`TrackController`, `TrackingService`, `noindex`): reference number + checkout email (case-insensitive) must both match; wrong email, unknown and malformed references return one generic 404 message. Results show status/payment chips, items, total, method, city/region and an `order_events` timeline in Asia/Manila time — never the address lines, phone, name or email. Failures count in `login_attempts` under `sha256('track:' . client IP)`; the fifth locks for 60 s (429 + `Retry-After`), successes do not reset the count, blank fields are 422 inline errors and not counted (R32).
 - Review requires shipping and approval for the exact current snapshot. Place uses the reviewed quantities without first clamping: live stock/active/price changes fail and roll back, then the bag is reconciled with an explanatory notice.
 - The key is generated before the Place form renders and survives transient retry. Committed keys/numbers remain in session `completed_orders`; repeats return that order before inspecting any new bag. This map also grants order-page access; predictable numbers alone never grant access.
 - Invalid shipping and invalid/declined payment use POST/Redirect/GET: only safe shipping redisplay values or field-error/message metadata are flashed, never PAN/expiry/CVC. The redirected GET displays inline errors (422). This prevents Chromium's no-store POST Back-history cache miss; subsequent Back returns a cleared card form.
@@ -269,11 +275,16 @@ Try:
             WHERE id = product_id AND stock >= qty.
         Require exactly one affected row.
         Insert the stock_audit entry using a prepared statement.
-    Insert the order (status pending, payment card/paid) with the same idempotency key and unique order number.
-    Insert order_items snapshots.
-    Commit the transaction and return the order.
+    (Products must be listing_status active and is_available; otherwise fail like a stock conflict.)
+    Insert the order (status pending; payment_method + payment_status: cod/unpaid,
+        transfer/for_verification, card/paid) with the same idempotency key and unique order number.
+    Insert order_items snapshots, including the product's weaver_id and display name.
+    Insert order_events: status NULL → pending and payment_status NULL → <initial>, actor customer.
+    Transfer: copy the staged proof into data/proofs/ and insert the payment_proofs row.
+    Commit the transaction, then delete the staged proof, and return the order.
 On failure:
-    Roll back; no order or stock decrement from this attempt survives.
+    Roll back; no order or stock decrement from this attempt survives. A copied proof is
+    deleted; the staged proof stays so a retry with the same key can succeed.
     Return the appropriate error; retries retain the same idempotency key.
 ```
 
@@ -288,13 +299,16 @@ On failure:
   numbers. Results below zero are rejected. Reasons: Restock received, Damaged in storage,
   Count correction, Returned item (+ optional note). New products audit `initial_stock`.
   Fulfilment moves `pending → confirmed → packed → shipped → delivered` one step at a time;
-  confirm requires `payment_status = paid` unless the method is COD (§15.4). Reject and
-  order events on transitions arrive with M11/M13.
+  confirm requires `payment_status = paid` unless the method is COD (§15.4). Advance and
+  cancel append an `order_events` row (actor `admin`, admin id) in the same transaction;
+  reject and payment transitions arrive with M13.
+- M11 runs the no-oversell check for every method in PHPUnit (`PlacementV2Test`: six
+  processes place the last unit concurrently per method → exactly one order, stock 0).
 - SQLite tuning: `PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;`.
 
 ## 9. Simulated Payment (R13, R14, N3, N4)
 
-> In PRD 2.0 this simulator serves only the card method; COD and transfer are in §15.4–15.5 (planned).
+> This simulator serves only the card method; COD and transfer are in §7 (M11).
 
 `PaymentSimulator` (M5):
 
@@ -303,8 +317,8 @@ On failure:
    `4000 0000 0000 9995` → `insufficient_funds`; any other Luhn-valid → `approved`.
 3. Simulated latency 1.5–2.5 s (server-side `usleep`), spinner in UI.
 4. **Card number is never persisted** — only non-sensitive result (approved/declined/insufficient_funds,
-   `payment_last4` + brand) stored in checkout session (N4); expiry and CVC are discarded too. The payment page and confirmation page
-   show the banner: "SIMULATED PAYMENT — no real transaction occurs" (N3). Native forms work without JavaScript; `checkout.js` adds a processing status/spinner without persisting input.
+   `payment_last4` + brand) stored in checkout session (N4); expiry and CVC are discarded too. Per D7 no simulation banner is shown; the test cards
+   are documented in README only (N3). Native forms work without JavaScript; `checkout.js` adds a processing status/spinner without persisting input.
 5. **Enforcement:** Review step requires approved payment result in session; Place requires approved
    payment and generates idempotency key before showing the form.
 ## 10. Security Design (N2, N4)
@@ -426,7 +440,8 @@ SQLite remains the current target; no migration implementation requested.
 ## 15. Heritage Expansion Design — PRD 2.0 (planned, BUILD M9–M15)
 
 Status: **M9 implemented** (data model §15.2, migration §15.9; facts moved to §5);
-the rest is design only. §§1–14 describe the implemented system. This
+**M11 implemented** (checkout v2 §15.5, placement §15.6, tracking; facts moved to §7–§9;
+the §6 endpoint table still lists v1 routes, see §15.3); the rest is design only. §§1–14 describe the implemented system. This
 section is the design for the PRD 2.0 requirements tagged [v2-changed]/[v2-new]. When a
 milestone ships, move the implemented facts into the owning section above and shrink this one.
 Stack, deployment and security baseline (§§2, 10, 12) are unchanged; no new dependencies.
@@ -520,6 +535,10 @@ then omits the 3D control (R4). Only `listing_status = active`, available-weaver
 
 ### 15.4 Order and payment state machines (R13, R15, R22, R44)
 
+*Partly implemented in M11:* placement sets the initial status/payment status per method and
+writes the opening events (§8); confirm/advance/cancel write `order_events` (actor admin).
+Reject, payment accept/refuse and Mark COD paid remain planned for M13.
+
 ```
 status:   pending ──confirm──▶ confirmed ──▶ packed ──▶ shipped ──▶ delivered
           pending ──reject(reason)──▶ rejected          (restores stock)
@@ -542,6 +561,12 @@ payment:  cod:      unpaid ──mark paid (at/after delivery)──▶ paid
 
 ### 15.5 Checkout v2 flow (R10–R16)
 
+*Implemented in M11 (see §7, §8).* Deviations: the 24 h purge of staged proofs runs when a
+new proof is staged (not on boot); a revoked transfer choice deletes its staged file at once.
+`POST /api/payment/simulate` stays as a card-only alias of `POST /checkout/payment`. No route
+serves proofs yet: the admin proof view (`GET /admin/orders/{number}/proof`) is M13
+(`PaymentProofService::locate()` is ready for it).
+
 ```
 [shipping] ──valid──▶ [payment: choose method]
    cod      ──▶ [review]
@@ -558,6 +583,14 @@ payment:  cod:      unpaid ──mark paid (at/after delivery)──▶ paid
   as v1 does for card results. The review fingerprint includes the method.
 
 ### 15.6 Placement transaction changes (R15, R44)
+
+*Implemented in M11 (see §8).* Deviations: `stock_audit` keeps the reason `order_placed`
+(the order number is issued after the decrements and `StockService::describeReason()` and the
+admin audit read the bare reason); placement also writes a `payment_status: NULL → <initial>`
+event so tracking has a payment timestamp; the active-weaver check is **not** enforced yet,
+because the storefront still lists products of the inactive placeholder weaver (every
+upgraded v1 product, §15.9) and enforcing it only at Place would make them unbuyable.
+`is_available = 1` is enforced. Adopt the weaver rule together with storefront visibility (M10/M12).
 
 The §8 pseudocode stays, with these differences inside the same transaction: the order is
 inserted as `pending` with `payment_method`/`payment_status`; each `order_items` row copies the

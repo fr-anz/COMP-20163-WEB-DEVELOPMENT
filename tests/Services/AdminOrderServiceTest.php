@@ -288,6 +288,43 @@ final class AdminOrderServiceTest extends IsolatedDatabaseTestCase
         self::assertSame($second['order_number'], $summary['recent'][1]['order_number']);
     }
 
+    public function testAdvanceAndCancelAppendAdminOrderEvents(): void
+    {
+        $product = $this->createProduct('HBI-ORD-EV', 'Event Tote', 100000, 4);
+        $order = $this->orders->placeOrder(
+            [['product_id' => $product, 'quantity' => 1, 'price_centavos' => 100000]],
+            $this->shipping(),
+            $this->payment(),
+            'key-events'
+        );
+        $number = (string) $order['order_number'];
+        $this->orders->advanceStatus($number, 'confirmed', $this->adminId);
+        $this->orders->advanceStatus($number, 'packed', $this->adminId);
+        $this->orders->cancel($number, $this->adminId);
+
+        $statement = $this->database()->prepare(
+            'SELECT field, old_value, new_value, actor_role, actor_id FROM order_events
+             WHERE order_id = ? ORDER BY id'
+        );
+        $statement->execute([(int) $order['id']]);
+        self::assertSame(
+            [
+                ['status', null, 'pending', 'customer', null],
+                ['payment_status', null, 'paid', 'customer', null],
+                ['status', 'pending', 'confirmed', 'admin', $this->adminId],
+                ['status', 'confirmed', 'packed', 'admin', $this->adminId],
+                ['status', 'packed', 'cancelled', 'admin', $this->adminId],
+            ],
+            array_map(
+                static fn (array $row): array => [
+                    $row['field'], $row['old_value'], $row['new_value'], $row['actor_role'],
+                    $row['actor_id'] === null ? null : (int) $row['actor_id'],
+                ],
+                $statement->fetchAll(PDO::FETCH_ASSOC)
+            )
+        );
+    }
+
     /**
      * @param list<array{product_id: int, quantity: int, price_centavos: int}> $lines
      *

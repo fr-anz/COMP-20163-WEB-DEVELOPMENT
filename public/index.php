@@ -10,6 +10,7 @@ use Habi\Controllers\AdminResponder;
 use Habi\Controllers\CartController;
 use Habi\Controllers\CheckoutController;
 use Habi\Controllers\StorefrontController;
+use Habi\Controllers\TrackController;
 use Habi\Controllers\UploadController;
 use Habi\Controllers\WeaverController;
 use Habi\Controllers\WeaverProductController;
@@ -26,8 +27,10 @@ use Habi\Services\EarningsService;
 use Habi\Services\ImageUploadService;
 use Habi\Services\ProductService;
 use Habi\Services\OrderService;
+use Habi\Services\PaymentProofService;
 use Habi\Services\PaymentSimulator;
 use Habi\Services\StockService;
+use Habi\Services\TrackingService;
 use Habi\Services\WeaverOrderService;
 use Habi\Services\WeaverProductService;
 use Habi\Services\WeaverService;
@@ -119,17 +122,26 @@ $cart = static function () use ($twig): CartController {
     );
 };
 
-$checkout = static function () use ($twig): CheckoutController {
+// Proofs of payment live in data/proofs/, outside public/; no route serves them (N11).
+$checkout = static function () use ($twig, $repoRoot): CheckoutController {
     $session = Session::store();
+    $proofs = new PaymentProofService($repoRoot . '/data/proofs');
 
     return new CheckoutController(
         $twig,
         new CartService(Database::connection(), $session),
         $session,
-        new OrderService(Database::connection()),
-        new PaymentSimulator()
+        new OrderService(Database::connection(), $proofs),
+        new PaymentSimulator(),
+        $proofs
     );
 };
+
+$track = static fn (): TrackController => new TrackController(
+    $twig,
+    new CartService(Database::connection(), Session::store()),
+    new TrackingService(Database::connection())
+);
 
 $uploads = static fn (): ImageUploadService => new ImageUploadService($repoRoot . '/data/uploads');
 $adminView = static fn (): AdminResponder => new AdminResponder($twig, Session::store());
@@ -379,6 +391,11 @@ $app->get('/checkout/payment', fn (
     ResponseInterface $response
 ): ResponseInterface => $checkout()->payment($request, $response));
 
+$app->post('/checkout/payment', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $checkout()->submitPayment($request, $response));
+
 $app->post('/api/payment/simulate', fn (
     ServerRequestInterface $request,
     ResponseInterface $response
@@ -399,6 +416,16 @@ $app->get('/order/{orderNumber}', fn (
     ResponseInterface $response,
     array $args
 ): ResponseInterface => $checkout()->confirmation($request, $response, $args));
+
+$app->get('/track', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $track()->form($request, $response));
+
+$app->post('/track', fn (
+    ServerRequestInterface $request,
+    ResponseInterface $response
+): ResponseInterface => $track()->lookup($request, $response));
 
 $app->get('/', fn (
     ServerRequestInterface $request,
