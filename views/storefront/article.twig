@@ -1,0 +1,47 @@
+{#-
+  Heritage Journal article (R31): display title, date, 16:9 cover (only
+  when the article has one), plain-text body at 68ch and the "Sources"
+  list (omitted when empty), both rendered by macros/content.twig.
+  Receives article.
+-#}
+{% extends "layouts/base.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "macros/content.twig" as content %}
+{% set active_nav = 'journal' %}
+
+{% block title %}{{ article.title }} — {{ app_name }}{% endblock %}
+
+{% block description %}{% if article.excerpt|trim != '' %}{{ article.excerpt }}{% else %}{% set lead = article.body|replace({"\r\n": "\n"})|split("\n\n")|first|trim %}{{ lead|length > 155 ? lead|slice(0, 154) ~ '…' : lead }}{% endif %}{% endblock %}
+{% block og_type %}article{% endblock %}
+
+{% block content %}
+  <article class="mx-auto max-w-[720px] px-4 py-6 @3xl:px-8 @3xl:py-10">
+    <nav aria-label="Breadcrumb">
+      <ol class="flex flex-wrap items-center gap-1 text-small text-ink-2">
+        <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/">Home</a>{{ icons.icon('chevron-right', 16) }}</li>
+        <li class="flex items-center gap-1"><a class="link touch-target inline-flex items-center justify-center py-2" href="/journal">Journal</a>{{ icons.icon('chevron-right', 16) }}</li>
+        <li class="flex items-center gap-1"><span class="font-medium text-ink" aria-current="page">{{ article.title }}</span></li>
+      </ol>
+    </nav>
+
+    <h1 class="mt-5 font-display text-[30px] font-bold @3xl:text-display">{{ article.title }}</h1>
+    {% if article.published_on %}<p class="mt-3 text-small text-ink-2"><time datetime="{{ article.published_on }}">{{ article.published_on|date('j F Y') }}</time></p>{% endif %}
+
+    {% if article.cover_path %}
+    <div class="mt-6 aspect-[16/9] overflow-hidden rounded-panel border border-line bg-[#F3EEE4]">
+      <img src="{{ article.cover_path }}" alt="" class="block h-full w-full object-cover" width="720" height="405" fetchpriority="high" decoding="async">
+    </div>
+    {% endif %}
+
+    <div class="mt-6 max-w-[68ch] text-[17px]">
+      {{ content.paragraphs(article.body, 'mt-4') }}
+    </div>
+
+    {% if article.sources|trim != '' %}
+    <section class="mt-10 border-t border-line pt-6" aria-labelledby="sources">
+      <h2 id="sources" class="text-body font-semibold">Sources</h2>
+      {{ content.sources(article.sources, 'mt-3 list-decimal space-y-2 pl-5 text-small text-ink-2') }}
+    </section>
+    {% endif %}
+  </article>
+{% endblock %}

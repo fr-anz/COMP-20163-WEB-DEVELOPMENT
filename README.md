@@ -213,6 +213,19 @@ Search and category combine; pagination retains those filters and sorting. Out-o
 
 Canonical visual source: [`public/assets/css/app.css`](public/assets/css/app.css), using the published semantic roles and shared native component/utility classes. [DSD](docs/DSD.md) is the visual/asset contract: reproduce the reference, not the earlier UI. Fonts and SVG artwork are local; no React runtime, Tailwind build or CDN is needed. Reference photographs are not website assets. PRD §9 resolves sample business-value conflicts without authorizing visual redesign.
 
+### Heritage storefront
+
+M10 (PRD R2–R4, R29–R31): the collection also filters by material (fiber) and region
+(`/products?fiber=&region=`, only values active bags carry; combinable with search,
+category, sort, Hide sold-out bags and pagination). A product page lists the shipping
+rates by region and, when stored, a story section (weaver linked to their profile,
+community, region, fiber, technique, story); bags without a 3D config show their images
+only and `/api/product/{slug}/3d` answers 404. `/weavers` and `/weavers/{slug}` show active
+weavers and their active bags (deactivated weavers and the unassigned placeholder are not
+public); `/journal` and `/journal/{slug}` show published articles with their sources. Stories,
+article bodies and sources are plain text (blank line between paragraphs, one source per line)
+rendered by `views/macros/content.twig`. These pages are indexable and work without JavaScript.
+
 ### Exterior and interior viewer
 
 Open a product and choose **3D**. Desktop inspection is inline; below 900 px

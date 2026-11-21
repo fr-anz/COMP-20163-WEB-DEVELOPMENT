@@ -53,6 +53,31 @@
     mainImage: page.querySelector('[data-gallery-image]'),
   };
 
+  function wireGallery() {
+    if (!els.thumbs || !els.mainImage) return;
+    els.thumbs.hidden = false;
+    els.thumbs.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-gallery-thumb]');
+      if (!button) return;
+      els.mainImage.src = button.dataset.src;
+      if (button.dataset.alt) els.mainImage.alt = button.dataset.alt;
+      for (const other of els.thumbs.querySelectorAll('[data-gallery-thumb]')) {
+        const selected = other === button;
+        other.setAttribute('aria-pressed', String(selected));
+        other.classList.toggle('border-ink', selected);
+        for (const token of ['border-transparent', 'opacity-80', 'hover:opacity-100']) {
+          other.classList.toggle(token, !selected);
+        }
+      }
+    });
+  }
+
+  // R4: a product without a 3D config renders no viewer; only the gallery runs.
+  if (!els.viewer) {
+    wireGallery();
+    return;
+  }
+
   const wideQuery = window.matchMedia(WIDE_QUERY);
   const reducedMotionQuery = window.matchMedia(REDUCED_QUERY);
 
@@ -387,23 +412,7 @@
   });
 
   // Gallery: works without JS (main image only); thumbs appear when JS runs.
-  if (els.thumbs && els.mainImage) {
-    els.thumbs.hidden = false;
-    els.thumbs.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-gallery-thumb]');
-      if (!button) return;
-      els.mainImage.src = button.dataset.src;
-      if (button.dataset.alt) els.mainImage.alt = button.dataset.alt;
-      for (const other of els.thumbs.querySelectorAll('[data-gallery-thumb]')) {
-        const selected = other === button;
-        other.setAttribute('aria-pressed', String(selected));
-        other.classList.toggle('border-ink', selected);
-        for (const token of ['border-transparent', 'opacity-80', 'hover:opacity-100']) {
-          other.classList.toggle(token, !selected);
-        }
-      }
-    });
-  }
+  wireGallery();
 
   // Below 900px the reference shows the fullscreen affordance: an expand
   // glyph on the 3D toggle.

@@ -1097,10 +1097,44 @@ M9 evidence (2026-11-21, branch `feat/22-schema-v2`, PHP 8.5.12, SQLite 3.54.1):
   database on the next request; needs owner approval and a backup (M15).
 
 #### M10 — Heritage storefront (C lead, A services, E content)
-- [ ] Material (fiber) and region filters (R2); shipping rates on product page (R3).
-- [ ] Museum-style story section (R29); products without 3D config hide the 3D control (R4).
-- [ ] Meet the Weavers list/profile (R30); Heritage Journal list/article (R31); header/footer links.
+- [x] Material (fiber) and region filters (R2), allowlisted to values active bags carry and combined with
+  search/category/sort/Hide sold-out/pagination; shipping rates on the product page from `ShippingService` (R3).
+- [x] Museum-style story section (R29; only an active, public weaver is shown or linked, never the placeholder);
+  products without a 3D config drop the 3D control and `/api/product/{slug}/3d` answers 404 (R4).
+- [x] Meet the Weavers list/profile (R30); Heritage Journal list/article (R31); header, drawer and footer links.
+  Title/description/canonical/OG on every new page, indexable (R26). Home material scenes now use `products.fiber`.
+- [ ] N9: new strings are English only until M14 builds the Translator (listed in the M10 PR for M14).
+- [ ] Content: weaver stories, article bodies and sources are still the M9 placeholders (content review open in M9).
 - **Done when:** R2–R4, R29–R31 verified at 1440/768/360 px, keyboard and no-JS; review-screen guide applied.
+
+M10 evidence (2026-11-21, branch `feat/23-heritage-storefront`, PHP 8.5.12, SQLite 3.54.1):
+- [x] Tests first: the new tests failed before implementation (`vendor/bin/phpunit` → 9 errors, 2 failures:
+  missing `WeaverDirectoryService`, `JournalService`, `macros/content.twig`, `fiber`/`story` keys).
+- [x] `vendor/bin/phpunit` → OK (214 tests, 1741 assertions). New: `ProductServiceTest` (fiber/region allowlist and
+  combination with q/category/sort/hide sold-out/page, unknown and array values ignored, options from active bags
+  only, `byFiber`, `byWeaver` excludes pending/deactivated, story fields, weaver null when deactivated or the
+  placeholder, NULL/blank `three_config` → no config and `has_3d` false), `WeaverDirectoryServiceTest`,
+  `JournalServiceTest` (drafts hidden), `ContentMacrosTest` (paragraphs/sources escaped, only http(s) links), and
+  `HeritagePagesTest` (real controllers + Twig: weaver/journal pages, 404s, meta/OG, story, rates, 3D control and
+  config 404, filter options and pagination URL).
+- [x] `composer cs` and `composer lint` exit 0.
+- [x] HTTP smoke on a fresh temp DB (`DB_DSN=sqlite:/tmp/habi-m10/app.sqlite php -S 127.0.0.1:8110 -t public
+  public/index.php`, curl; fixtures set with `sqlite3`: placeholder weaver owning Maya with `three_config` NULL,
+  Rosa deactivated, one draft article, an article body with `<script>` and two sources, a two-paragraph Tala story),
+  53/53 checks passed: `/`, `/products`, `/weavers`, `/journal`, `/weavers/nena-quezon`,
+  `/journal/history-of-the-bayong`, both product pages and Sinag's 3D API → 200; `/weavers/rosa-basey`,
+  `/weavers/unassigned`, unknown weaver/article, the draft and Maya's 3D API → 404; `fiber=abaca` + Bicol region +
+  Hide sold-out → "1 bag" with both options selected; `fiber=leather&region=Nowhere` ignored ("4 bags"); Tala shows
+  the Lorna profile link, both story paragraphs, the four R12 rates and the 3D toggle; Maya has no `data-view*`,
+  import map or placeholder name and keeps its image; the weaver list omits Rosa and the placeholder; profile shows
+  "Bags by Nena" and `og:type` profile; the article escapes the script, links the source with `rel="noopener"`, has
+  `og:type` article; the draft is absent from `/journal`; all four new pages have canonical and description and no
+  `noindex`; header/footer link Weavers, Journal and Track order; home fiber scenes link to real bags. `/track`,
+  `/cart`, `/admin/login`, `/weaver/login` → 200. Server log had no PHP warnings; the server was stopped.
+- [x] No-JS: every new page and the filters are server-rendered GET pages (checked in the curl output); the
+  filter form keeps its Apply button. Template classes were checked against `app.css` with a script.
+- [ ] Not run: browser review at 1440/768/360 px with the review-screen guide, keyboard-only pass and reduced
+  motion (no browser in this environment); the `product.js` no-3D branch was only syntax-checked (`node --check`).
 
 #### M11 — Checkout v2, order lifecycle and tracking (A lead, C UI)
 - [x] Payment method choice: COD, transfer with proof upload (N11), card simulator (R13, R14).

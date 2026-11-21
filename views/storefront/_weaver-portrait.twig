@@ -1,0 +1,12 @@
+{#-
+  Weaver portrait frame (R30): the stored photo/illustration, or the woven
+  swatch of the weaver's first fiber when there is none (never an invented
+  likeness). Receives weaver (WeaverDirectoryService row), fiber_art
+  (fiber => material artwork id) and optional eager (bool). Decorative:
+  the weaver's name always sits beside it.
+-#}
+{% set first_fiber = weaver.fibers|split(',')|first|trim|lower %}
+{% set portrait = weaver.photo_path ?: '/assets/img/reference/material-' ~ (fiber_art[first_fiber] ?? 'fiber') ~ '.svg' %}
+<div class="relative aspect-[4/5] overflow-hidden rounded-panel border border-line bg-[#F3EEE4]">
+  <img src="{{ portrait }}" alt="" class="block h-full w-full object-cover" width="480" height="600" {% if eager|default(false) %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async">
+</div>
