@@ -433,6 +433,17 @@ Stack, deployment and security baseline (§§2, 10, 12) are unchanged; no new de
 
 ### 15.1 Roles and authentication (R19, R34, N2, N10)
 
+*Weaver and admin parts implemented in M12* (`AuthService::attemptWeaver`, `WeaverAuthMiddleware`,
+`WeaverRoutes`; tests: `AuthServiceTest`, `WeaverAuthMiddlewareTest`, `WeaverRoutesTest`). The `track:`
+key belongs to M11. Facts beyond this plan: the middleware loads the active weaver on every
+`/weaver` request (path normalized like `AdminAuthMiddleware`) and passes it as the `weaver` request
+attribute, the only source of the id used in ownership filters; a deactivated weaver's session
+loses `weaver_id` on the next request. Deactivated weavers fail sign-in with the generic error.
+Admin sign-in clears `weaver_id`; weaver sign-in clears `admin_id`. Prefixing the keys orphans
+pre-M12 `login_attempts` rows once (existing admin counters restart). Foreign or missing weaver
+resources render the standalone `ErrorHandler::page(404)`; weaver responses carry
+`X-Robots-Tag: noindex, nofollow` besides the shell's robots meta (R26).
+
 | Role | Session key | Routes | Middleware |
 |---|---|---|---|
 | Customer (guest) | `cart`, `checkout`, `completed_orders`, `lang` | storefront, `/track` | CSRF |
@@ -556,6 +567,25 @@ an `order_events` row records `status: NULL → pending` (actor `customer`); for
 weaver at placement, otherwise the place fails like a stock conflict.
 
 ### 15.7 Weaver module services (R35–R39)
+
+*Implemented in M12* (tests: `WeaverProductServiceTest`, `WeaverStockTest`, `WeaverOrderServiceTest`,
+`WeaverRoutesTest`). Deviations from the plan below:
+- `WeaverProductService` has its own validation using `AdminProductService`'s rules, messages and
+  helpers (`CATEGORIES`, `parsePesos`) for the shared fields, plus fiber (controlled list), community,
+  region, technique and story (R29). Owner, SKU (`HBI-W<weaver>-<6 hex>`), status and 3D config come
+  from the server; new rows have `three_config = NULL`. Deactivated listings are read-only for the
+  weaver: edit, archive, availability and stock changes are all refused. Weaver-archived listings
+  are restored by an admin (no weaver restore).
+- `StockService` gained `adjustAsWeaver()` and an optional weaver id on `preview()` instead of an
+  actor parameter; weaver lookups are limited to the weaver's own non-deactivated listings inside
+  the same `BEGIN IMMEDIATE` transaction. The audit log names a weaver actor by display name.
+- `WeaverService` (profile, R35) updates only active weavers; photos go through `ImageUploadService`.
+- `is_available = 0` makes `ProductService` and `CartService` report stock 0 (sold out, R17). The
+  placement check (§15.6) is M11's.
+- The earnings period filters by order placement date (inclusive UTC dates, as admin orders do).
+- Routes behind §15.3's `/weaver/products…`: `GET /weaver/products`, `/new`, `/{id}/edit`, `/{id}/archive`;
+  `POST /weaver/products`, `/{id}`, `/{id}/archive`, `/{id}/availability`, `/{id}/stock`; the Stock screen
+  is `GET /weaver/stock`, `/weaver/stock/{id}/adjust`, `/weaver/stock/{id}/review` (two-step dialogs as in admin).
 
 - `WeaverProductService` reuses `AdminProductService` validation minus 3D config and SKU
   (generated); new rows get `listing_status = pending_review`. Edits to `deactivated` rows are refused.

@@ -1,0 +1,53 @@
+{#-
+  Weaver order detail (R38, N4, N10): only the weaver's own lines of the
+  order, their total, order and payment status and the delivery
+  city/region. Weavers do not change order status.
+  Receives: order (WeaverOrderService::find) plus the layout variables.
+-#}
+{% extends "weaver/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% import "weaver/_macros.twig" as wv %}
+{% set active_nav = 'orders' %}
+
+{% block title %}Order {{ order.order_number }}{% endblock %}
+
+{% block content %}
+  <a href="/weaver/orders" class="btn btn--tertiary btn--sm">{{ icons.icon('arrow-left', 18) }}<span>All orders</span></a>
+  <div class="mt-2 mb-4">
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="text-h2 font-semibold">Order <span class="font-mono">{{ order.order_number }}</span></h1>
+      {{ ui.status_chip(order.status) }}
+      {{ wv.payment_chip(order.payment_status) }}
+    </div>
+    <p class="mt-1 text-small text-ink-2">Placed {{ order.created_at|slice(0, 16) }} UTC · Delivery to {{ order.shipping_city }}{% if order.shipping_city %}, {% endif %}{{ regions[order.shipping_region]|default(order.shipping_region) }}</p>
+  </div>
+  <section aria-labelledby="items-h" class="min-w-0">
+    <h2 id="items-h" class="mb-2 text-body font-semibold">Your items</h2>
+    <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+      <table class="w-full min-w-[420px] text-left text-small">
+        <caption class="sr-only">Your items in order {{ order.order_number }}</caption>
+        <thead>
+          <tr>
+            {% for heading in ['Bag', 'Price', 'Qty', 'Line total'] %}
+              <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase{% if not loop.first %} text-right{% endif %}">{{ heading }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in order.items %}
+            <tr>
+              <td class="border-b border-line px-3 py-2.5 align-middle font-semibold">{{ item.name_snapshot }}</td>
+              <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ ui.money(item.price_centavos) }}</td>
+              <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ item.qty }}</td>
+              <td class="border-b border-line px-3 py-2.5 align-middle text-right tabular-nums">{{ ui.money(item.line_total_centavos) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="tabular-nums">
+          <tr><th scope="row" colspan="3" class="px-3 pt-3 pb-3 text-right font-semibold">Your total</th><td class="px-3 pt-3 pb-3 text-right font-semibold">{{ ui.money(order.total_centavos) }}</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+{% endblock %}

@@ -1110,11 +1110,46 @@ M9 evidence (2026-11-21, branch `feat/22-schema-v2`, PHP 8.5.12, SQLite 3.54.1):
 - **Done when:** J1 completes with each method; J2 v2 edge cases land on designed screens; no oversell.
 
 #### M12 — Weaver module (D lead, A services)
-- [ ] Weaver auth with scoped throttle (R34); `WeaverAuthMiddleware`; ownership filters (N10).
-- [ ] Profile (R35), listings with pending review (R36), stock/availability with audit (R37),
-  own order items (R38), earnings summary (R39).
-- [ ] Ownership tests: every weaver route returns 404 for another weaver's resource.
+- [x] Weaver auth with scoped throttle (R34); `WeaverAuthMiddleware`; ownership filters (N10).
+  `AuthService` keys are `admin:`/`weaver:`-prefixed before hashing; deactivated weavers fail with the
+  generic error; sign-in/out regenerate the session ID and CSRF token; one staff role per session.
+- [x] Profile (R35), listings with pending review (R36), stock/availability with audit (R37),
+  own order items (R38), earnings summary (R39). Weaver pages are `noindex` (R26). Deviations: SDD §15.1, §15.7.
+- [x] Ownership tests: every weaver route returns 404 for another weaver's resource
+  (`WeaverRoutesTest` fails if a route is added without being listed and tested).
+- [ ] N9: weaver strings are English only until M14 builds the Translator (listed in the M12 PR for M14).
 - **Done when:** J4 passes on a 360 px phone viewport; N10 tests green.
+
+M12 evidence (2026-11-21, branch `feat/25-weaver-module`, PHP 8.5.12, SQLite 3.54.1):
+- [x] Tests first: the new tests failed before implementation (`vendor/bin/phpunit` → 57 errors,
+  1 failure: missing `attemptWeaver`, `adjustAsWeaver`, weaver classes).
+- [x] `vendor/bin/phpunit` → OK (180 tests, 1411 assertions). New: `AuthServiceTest` (weaver sign-in,
+  deactivated/unusable hash generic, role-scoped keys), `WeaverAuthMiddlewareTest` (encoded paths, admin
+  session refused, deactivated signed out, `/weavers` public), `WeaverProductServiceTest`, `WeaverStockTest`,
+  `WeaverOrderServiceTest` (no customer contact/address, earnings buckets, shipping and rejected/cancelled
+  excluded, period), `WeaverRoutesTest` (route list equals the tested list; 11 foreign/missing resource cases
+  → 404 with no row or audit change; every protected route redirects signed-out, admin-only and deactivated
+  sessions; own pages noindex and own rows only; create, edit, archive, availability, audited stock; deactivated
+  listing unchanged; profile scoped; login generic/throttled/one role).
+- [x] `composer cs` and `composer lint` exit 0.
+- [x] HTTP smoke, `DB_DSN=sqlite:/tmp/habi-m12/app.sqlite php -S 127.0.0.1:8112 -t public public/index.php`
+  (fresh temp DB; weaver hashes set with `sqlite3`; one weaver deactivated; two orders inserted with
+  `order_items.weaver_id` because placement snapshots are M11), curl with cookie jar and CSRF token:
+  bad password and deactivated weaver → 303, then 422 "Invalid email or password."; 5 failures → 429 lockout,
+  correct password still locked; good login → 303 `/weaver`, dashboard 200 with `X-Robots-Tag` and robots meta
+  `noindex, nofollow`; profile edit with photo → 303, only own row changed; add listing (form also sent another
+  `weaver_id` and `listing_status=active`) → own row `pending_review`, `three_config` NULL, SKU `HBI-W2-…`,
+  absent from `/products?q=` and `/product/<slug>` 404; stock 6 → 8 → 303 with a `stock_audit` row
+  (`weaver_id` 2, `admin_id` NULL), admin audit shows "by Rosa of Basey"; Mark sold out → stock API 0;
+  own orders list/detail without customer name/email/address; earnings ₱3,450 earned and "100%"; empty period;
+  another weaver's product (edit/archive/adjust/review GET; update/archive/availability/stock POST) and order
+  → 404 with the row unchanged; POST without CSRF → 403; weaver deactivated mid-session → 303 sign-in;
+  logout → 303 and the old token 403; admin sign-in ends the weaver session and the reverse. Re-run on a
+  fresh temp DB after the last code change with the same results; server log had no PHP warnings; the
+  server was stopped and the smoke uploads (gitignored `data/uploads/`) removed.
+- [ ] Not run: browser check of J4 at 360/768/1440 px (no browser in this environment) and the review-screen
+  guide; the "stock update < 30 s" timing. Templates use only classes present in `app.css` and the admin
+  shell's horizontal nav and scrolling tables.
 
 #### M13 — Admin v2 (D lead, A services)
 - [ ] Dashboard order/sales summaries (R18); order list filters and merged status/payment

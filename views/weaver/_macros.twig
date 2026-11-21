@@ -1,0 +1,48 @@
+{#-
+  Weaver-module chips (DSD "PRD 2.0 screens"): listing status adds Pending
+  review and Deactivated; payment status and earnings bucket; availability.
+  Icon + label, never colour alone, using the existing status roles.
+-#}
+{% macro listing_chip(status) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- set styles = {
+    pending_review: ['bg-warning-bg text-warning', 'history', 'Pending review'],
+    active: ['bg-success-bg text-success', 'check', 'Active'],
+    archived: ['bg-inset text-ink-2', 'box', 'Archived'],
+    deactivated: ['bg-error-bg text-error', 'lock', 'Deactivated'],
+  } -%}
+  {%- set style = styles[status]|default(['bg-inset text-ink-2', 'info', status]) -%}
+  <span class="chip {{ style[0] }}">{{ icons.icon(style[1], 14) }}{{ style[2] }}</span>
+{%- endmacro %}
+
+{% macro payment_chip(status) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- set styles = {
+    unpaid: ['bg-inset text-ink-2', 'info', 'Unpaid'],
+    for_verification: ['bg-warning-bg text-warning', 'history', 'For verification'],
+    paid: ['bg-success-bg text-success', 'check', 'Paid'],
+    rejected: ['bg-error-bg text-error', 'close', 'Rejected'],
+  } -%}
+  {%- set style = styles[status]|default(['bg-inset text-ink-2', 'info', status]) -%}
+  <span class="chip {{ style[0] }}">{{ icons.icon(style[1], 14) }}{{ style[2] }}</span>
+{%- endmacro %}
+
+{% macro bucket_chip(bucket) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- if bucket == 'earned' -%}
+    <span class="chip bg-success-bg text-success">{{ icons.icon('check', 14) }}Earned</span>
+  {%- else -%}
+    <span class="chip bg-inset text-ink-2">{{ icons.icon('history', 14) }}Pending</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{#- Stock chip that also reflects the weaver's sold-out switch. -#}
+{% macro stock_chip(product) %}
+  {%- import "macros/icons.twig" as icons -%}
+  {%- import "admin/_macros.twig" as ui -%}
+  {%- if not product.is_available -%}
+    <span class="chip bg-error-bg text-error"><span class="h-2 w-2 rotate-45 border-[1.5px] border-current" aria-hidden="true"></span>Marked sold out</span>
+  {%- else -%}
+    {{ ui.stock_chip({stock: product.stock, low_stock_threshold: product.low_stock_threshold}) }}
+  {%- endif -%}
+{%- endmacro %}

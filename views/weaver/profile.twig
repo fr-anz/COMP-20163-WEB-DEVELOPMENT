@@ -1,0 +1,66 @@
+{#-
+  Weaver profile (R35): the weaver's own public profile fields and photo,
+  saved immediately. Email and password are managed by Habi admins. Photo
+  upload uses ImageUploadService rules (JPG/PNG/WebP, 2 MB).
+  Receives: weaver, values, errors, limits plus the layout variables.
+-#}
+{% extends "weaver/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% set active_nav = 'profile' %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+  <h1 class="mb-4 text-h2 font-semibold">Profile</h1>
+  <form method="post" action="/weaver/profile" enctype="multipart/form-data" novalidate class="max-w-[640px] rounded-panel border border-line bg-surface">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="grid gap-4 px-5 py-4">
+      {% if errors|length %}
+        <div class="flex gap-3 rounded-control border px-4 py-3 bg-error-bg text-error border-error/30" role="alert" data-error-summary>
+          {{ icons.icon('alert', 20, 'mt-0.5 flex-none') }}
+          <div class="min-w-0 flex-1">
+            <p class="text-[15px] font-semibold">Check the highlighted fields</p>
+            <ul class="mt-1 space-y-1 text-small">
+              {% for field, message in errors %}
+                <li><a href="#f-{{ field|replace({'_': '-'}) }}" class="underline underline-offset-2">{{ message }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      {% endif %}
+      <div>
+        <p class="field-label">Sign-in email</p>
+        <p class="text-small">{{ weaver.email }}</p>
+      </div>
+      {{ ui.input('display_name', 'Display name', values.display_name, errors, {required: true, maxlength: limits.display_name}) }}
+      <div class="grid gap-4 @2xl:grid-cols-2">
+        {{ ui.input('community', 'Community', values.community, errors, {maxlength: limits.community}) }}
+        {{ ui.input('region', 'Region', values.region, errors, {maxlength: limits.region}) }}
+      </div>
+      <div class="grid gap-4 @2xl:grid-cols-2">
+        {{ ui.input('fibers', 'Fibers', values.fibers, errors, {maxlength: limits.fibers, placeholder: 'e.g. tikog, pandan'}) }}
+        {{ ui.input('techniques', 'Techniques', values.techniques, errors, {maxlength: limits.techniques}) }}
+      </div>
+      {{ ui.input('story', 'Story', values.story, errors, {textarea: true, rows: 6, maxlength: limits.story}) }}
+      <div>
+        <p class="field-label" id="f-photo">Photo</p>
+        <div class="flex flex-wrap items-center gap-3 rounded-control border-[1.5px] border-dashed border-line-strong bg-page p-3">
+          <div class="h-16 w-[52px] flex-none overflow-hidden rounded-sm border border-line bg-[#F3EEE4]">
+            {% if weaver.photo_path %}<img src="{{ weaver.photo_path }}" alt="Current profile photo" width="52" height="64" class="block h-full w-full object-contain">{% endif %}
+          </div>
+          <label class="btn btn--secondary btn--sm">
+            {{ icons.icon('upload', 18) }}<span>Upload photo</span>
+            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="sr-only" data-file-input
+                   aria-describedby="f-photo-hint{% if errors.photo is defined %} f-photo-err{% endif %}"{% if errors.photo is defined %} aria-invalid="true"{% endif %}>
+          </label>
+          <span id="f-photo-hint" class="text-caption text-ink-2" data-file-name>JPG, PNG or WebP · up to 2 MB · 4:5</span>
+        </div>
+        {{ ui.field_error('f-photo', errors.photo|default(null)) }}
+      </div>
+    </div>
+    <div class="flex flex-wrap justify-end gap-2 border-t border-line bg-page px-5 py-3">
+      <button type="submit" class="btn btn--primary"><span>Save profile</span></button>
+    </div>
+  </form>
+{% endblock %}

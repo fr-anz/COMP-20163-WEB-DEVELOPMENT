@@ -294,6 +294,31 @@ only confirmed or packed orders can be cancelled, which restores
 every item's stock in one transaction. Images must be real JPEG, PNG or WebP files
 up to 2 MB (checked by content); otherwise choose a seeded demo illustration.
 
+### Weaver module
+
+Weavers sign in at `/weaver/login` (M12, PRD R34–R39). There is no self-registration:
+admins create weaver accounts (M13). Until then, give a weaver a password on a local
+or test database, for example
+`sqlite3 data/app.sqlite "UPDATE weavers SET password_hash = '<hash>' WHERE slug = 'rosa-basey'"`
+with a hash from the [Local setup](#local-setup--three-steps) command; seeded weavers
+start with an unusable hash. Sign-in uses the admin rules (generic error, five failures
+per email+IP lock it for 60 s) with separate counters, and a session holds one staff
+role: signing in as a weaver signs out the administrator and the reverse. Deactivated
+weavers cannot sign in and are signed out on their next request.
+
+| Route | Purpose |
+|---|---|
+| `/weaver` | Dashboard: earned, pending, units sold, listings pending review, own low-stock bags, recent orders |
+| `/weaver/profile` | Own public profile: name, community, region, fibers, techniques, story, photo |
+| `/weaver/products…` | Own bags: add (starts **Pending review**, hidden from the shop until approved), edit, remove (archive); no 3D config, SKU or status fields |
+| `/weaver/stock…`, `POST /weaver/products/{id}/stock` | Two-step stock change with reason (audited with the weaver as actor); Mark sold out / available |
+| `/weaver/orders…` | Orders containing own items: reference, date, own lines, status, payment, delivery city/region (no customer contact or address) |
+| `/weaver/earnings?from=&to=` | Earned (delivered and paid), pending, units sold, itemized lines; share 100%, shipping excluded |
+
+Every query filters by the signed-in weaver; another weaver's bag or order answers
+404. A listing an admin deactivated is read-only for its weaver. A bag marked sold
+out shows as sold out in the shop. Weaver pages are `noindex`.
+
 ### Viewer dependencies
 
 Three.js **0.160.1 / r160**, MIT, is vendored locally: official

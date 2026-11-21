@@ -9,14 +9,18 @@ use PDO;
 use Throwable;
 
 /**
- * Administrator sign-in with throttling (PRD R19, SDD §10).
+ * Administrator and weaver sign-in with throttling (PRD R19, R34, SDD §10,
+ * §15.1).
  *
  * Passwords are checked with password_verify. An unknown email is verified
  * against an existing administrator's hash (same algorithm and cost), so
  * both failure kinds take the same time and return the same generic result.
- * Failures are counted per hashed email+client-IP key in login_attempts:
- * the fifth consecutive failure locks that key for 60 seconds, during which
- * even a correct password is not checked. A success clears the key.
+ * Deactivated weavers are treated as unknown. Failures are counted per
+ * hashed role+email+client-IP key in login_attempts (the role prefix,
+ * "admin:" or "weaver:", is added before hashing so roles never share a
+ * counter): the fifth consecutive failure locks that key for 60 seconds,
+ * during which even a correct password is not checked. A success clears
+ * the key.
  *
  * The slow password hashing runs outside any transaction, so sign-in
  * traffic never holds SQLite's write lock against checkout or inventory.
@@ -52,17 +56,41 @@ final class AuthService
      */
     public function attempt(string $email, string $password, string $clientIp): array
     {
+        return $this->authenticate('admin', $email, $password, $clientIp);
+    }
+
+    /**
+     * Weaver sign-in (R34): same rules, own throttle counters, active weavers only.
+     *
+     * @return array{
+     *     status: string,
+     *     weaver?: array{id: int, email: string, name: string},
+     *     retry_after?: int
+     * }
+     */
+    public function attemptWeaver(string $email, string $password, string $clientIp): array
+    {
+        return $this->authenticate('weaver', $email, $password, $clientIp);
+    }
+
+    /**
+     * @param 'admin'|'weaver' $role
+     *
+     * @return array<string, mixed>
+     */
+    private function authenticate(string $role, string $email, string $password, string $clientIp): array
+    {
         $email = trim($email);
-        $key = hash('sha256', mb_strtolower($email) . '|' . $clientIp);
+        $key = hash('sha256', $role . ':' . mb_strtolower($email) . '|' . $clientIp);
 
         $locked = $this->lockedFor($key);
         if ($locked > 0) {
             return ['status' => self::STATUS_LOCKED, 'retry_after' => $locked];
         }
 
-        $admin = $this->findAdmin($email);
-        $valid = password_verify($password, $admin['password_hash'] ?? $this->timingHash())
-            && $admin !== null && $email !== '' && $password !== '';
+        $account = $this->findAccount($role, $email);
+        $valid = password_verify($password, $account['password_hash'] ?? $this->timingHash())
+            && $account !== null && $email !== '' && $password !== '';
 
         $this->pdo->exec('BEGIN IMMEDIATE');
         try {
@@ -85,15 +113,16 @@ final class AuthService
             if ($valid) {
                 $this->pdo->prepare('DELETE FROM login_attempts WHERE throttle_key = ?')->execute([$key]);
                 $this->pdo->exec('COMMIT');
-                if (password_needs_rehash($admin['password_hash'], PASSWORD_DEFAULT)) {
-                    $this->pdo->prepare('UPDATE admins SET password_hash = ? WHERE id = ?')
-                        ->execute([password_hash($password, PASSWORD_DEFAULT), $admin['id']]);
+                if (password_needs_rehash($account['password_hash'], PASSWORD_DEFAULT)) {
+                    $table = $role === 'weaver' ? 'weavers' : 'admins';
+                    $this->pdo->prepare('UPDATE ' . $table . ' SET password_hash = ? WHERE id = ?')
+                        ->execute([password_hash($password, PASSWORD_DEFAULT), $account['id']]);
                 }
 
-                return ['status' => self::STATUS_OK, 'admin' => [
-                    'id' => (int) $admin['id'],
-                    'email' => (string) $admin['email'],
-                    'name' => (string) $admin['name'],
+                return ['status' => self::STATUS_OK, $role => [
+                    'id' => (int) $account['id'],
+                    'email' => (string) $account['email'],
+                    'name' => (string) $account['name'],
                 ]];
             }
 
@@ -133,7 +162,7 @@ final class AuthService
 
     /**
      * A real administrator hash for unknown-email verification: identical
-     * algorithm and cost, and it cannot authenticate because no admin row
+     * algorithm and cost, and it cannot authenticate because no account row
      * matched the submitted email.
      */
     private function timingHash(): string
@@ -144,16 +173,19 @@ final class AuthService
     }
 
     /**
+     * The administrator, or the active weaver, with this email.
+     *
      * @return array<string, mixed>|null
      */
-    private function findAdmin(string $email): ?array
+    private function findAccount(string $role, string $email): ?array
     {
         if ($email === '') {
             return null;
         }
-        $statement = $this->pdo->prepare(
-            'SELECT id, email, name, password_hash FROM admins WHERE lower(email) = lower(?) LIMIT 1'
-        );
+        $statement = $this->pdo->prepare($role === 'weaver'
+            ? 'SELECT id, email, display_name AS name, password_hash FROM weavers
+               WHERE lower(email) = lower(?) AND is_active = 1 LIMIT 1'
+            : 'SELECT id, email, name, password_hash FROM admins WHERE lower(email) = lower(?) LIMIT 1');
         $statement->execute([$email]);
         $row = $statement->fetch();
 

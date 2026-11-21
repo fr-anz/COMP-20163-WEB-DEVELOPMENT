@@ -1,0 +1,82 @@
+{#-
+  Weaver dashboard (J4 step 2, R37–R39): earnings snapshot metric cards,
+  own low-stock bags with Adjust, and recent orders containing own items.
+  Receives: weaver, earnings (EarningsService::summary), counts, low_stock,
+  recent (WeaverOrderService::recent) plus the layout variables.
+-#}
+{% extends "weaver/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% import "weaver/_macros.twig" as wv %}
+{% set active_nav = 'dashboard' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+  <h1 class="text-h2 font-semibold">{{ weaver.display_name }}</h1>
+  <div class="mt-4 grid grid-cols-2 gap-3 @4xl:grid-cols-4">
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Earned</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ ui.money(earnings.earned_centavos) }}</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Pending</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ ui.money(earnings.pending_centavos) }}</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Units sold</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ earnings.units }}</p>
+    </div>
+    <div class="rounded-control border border-line bg-surface p-4">
+      <p class="text-caption font-medium text-ink-2">Pending review</p>
+      <p class="mt-1 text-[26px] leading-none font-semibold tabular-nums">{{ counts.pending_review }}</p>
+      <p class="mt-1.5 text-caption text-ink-2">{{ counts.active }} active in the shop</p>
+    </div>
+  </div>
+
+  <div class="mt-6 grid gap-6 @5xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+    <section aria-labelledby="low-stock-h">
+      <h2 id="low-stock-h" class="mb-2 flex items-center gap-2 text-body font-semibold">{{ icons.icon('alert', 18) }} Low-stock alerts</h2>
+      <ul class="divide-y divide-line rounded-control border border-line bg-surface">
+        {% for product in low_stock %}
+          <li class="flex items-center gap-3 px-3 py-2.5">
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-small font-semibold">{{ product.name }}</p>
+              {{ wv.stock_chip(product) }}
+            </div>
+            <a class="btn btn--secondary btn--sm" href="/weaver/stock/{{ product.id }}/adjust"><span>Adjust</span><span class="sr-only"> stock for {{ product.name }}</span></a>
+          </li>
+        {% else %}
+          <li class="flex items-center gap-2 px-3 py-2.5 text-small text-ink-2">{{ icons.icon('check', 16) }}None of your bags is at or below its low-stock threshold.</li>
+        {% endfor %}
+      </ul>
+    </section>
+    <section aria-labelledby="recent-h" class="min-w-0">
+      <h2 id="recent-h" class="mb-2 text-body font-semibold">Recent orders</h2>
+      <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+        <table class="w-full min-w-[640px] text-left text-small">
+          <caption class="sr-only">Recent orders with your bags</caption>
+          <thead>
+            <tr>
+              {% for heading in ['Order', 'Your items', 'Your total', 'Status'] %}
+                <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in recent %}
+              <tr>
+                <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="touch-link inline-block py-1 underline-offset-4 hover:underline" href="/weaver/orders/{{ order.order_number|url_encode }}">{{ order.order_number }}</a></td>
+                <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ order.units }}</td>
+                <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(order.total_centavos) }}</td>
+                <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.status_chip(order.status) }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="px-3 py-2.5 text-ink-2">No orders yet. Orders with your bags appear here.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+{% endblock %}

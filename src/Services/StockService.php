@@ -8,14 +8,17 @@ use PDO;
 use Throwable;
 
 /**
- * Administrator stock adjustments and the stock audit log (PRD R18, R21).
+ * Administrator and weaver stock adjustments and the stock audit log
+ * (PRD R18, R21, R37).
  *
  * Adjustments are two-step: preview() validates and shows current → new
- * without writing; adjust() repeats the validation inside a SQLite write
- * transaction and applies the change only if stock still equals the value
- * the administrator reviewed. A concurrent checkout or adjustment therefore
- * never gets silently overwritten. Every applied change writes one
- * stock_audit row with product, old → new, reason, timestamp and admin.
+ * without writing; adjust() (admin) or adjustAsWeaver() repeats the
+ * validation inside a SQLite write transaction and applies the change only
+ * if stock still equals the value that was reviewed. A concurrent checkout
+ * or adjustment therefore never gets silently overwritten. Every applied
+ * change writes one stock_audit row with product, old → new, reason,
+ * timestamp and exactly one actor (admin_id or weaver_id). Weaver calls
+ * only see the weaver's own listings that are not deactivated (N10, R36).
  */
 final class StockService
 {
@@ -43,10 +46,10 @@ final class StockService
      *
      * @throws AdminActionException
      */
-    public function preview(int $productId, mixed $change, mixed $reason, mixed $note): array
+    public function preview(int $productId, mixed $change, mixed $reason, mixed $note, ?int $weaverId = null): array
     {
         [$change, $reason, $note] = $this->validate($change, $reason, $note);
-        $product = $this->product($productId);
+        $product = $this->product($productId, $weaverId);
         $new = $product['stock'] + $change;
         if ($new < 0) {
             throw new AdminActionException(
@@ -81,11 +84,47 @@ final class StockService
         mixed $note,
         int $adminId,
     ): array {
+        return $this->apply($productId, $expectedStock, $change, $reason, $note, 'admin_id', $adminId);
+    }
+
+    /**
+     * A weaver's reviewed change to their own listing (R37); same rules as adjust().
+     *
+     * @return array{old_stock: int, new_stock: int}
+     *
+     * @throws AdminActionException
+     */
+    public function adjustAsWeaver(
+        int $productId,
+        int $weaverId,
+        int $expectedStock,
+        mixed $change,
+        mixed $reason,
+        mixed $note,
+    ): array {
+        return $this->apply($productId, $expectedStock, $change, $reason, $note, 'weaver_id', $weaverId);
+    }
+
+    /**
+     * @param 'admin_id'|'weaver_id' $actorColumn
+     *
+     * @return array{old_stock: int, new_stock: int}
+     */
+    private function apply(
+        int $productId,
+        int $expectedStock,
+        mixed $change,
+        mixed $reason,
+        mixed $note,
+        string $actorColumn,
+        int $actorId,
+    ): array {
         [$change, $reason, $note] = $this->validate($change, $reason, $note);
+        $weaverId = $actorColumn === 'weaver_id' ? $actorId : null;
 
         $this->pdo->exec('BEGIN IMMEDIATE');
         try {
-            $product = $this->product($productId);
+            $product = $this->product($productId, $weaverId);
             if ($product['stock'] !== $expectedStock) {
                 throw new AdminActionException(
                     sprintf(
@@ -105,17 +144,19 @@ final class StockService
                 );
             }
 
+            $owner = $weaverId === null ? '' : " AND weaver_id = ? AND listing_status <> 'deactivated'";
             $update = $this->pdo->prepare(
-                "UPDATE products SET stock = ?, updated_at = datetime('now') WHERE id = ? AND stock = ?"
+                "UPDATE products SET stock = ?, updated_at = datetime('now') WHERE id = ? AND stock = ?" . $owner
             );
-            $update->execute([$new, $productId, $expectedStock]);
+            $update->execute(array_merge([$new, $productId, $expectedStock], $weaverId === null ? [] : [$weaverId]));
             if ($update->rowCount() !== 1) {
                 throw new AdminActionException('Stock changed during the update. Review it and try again.');
             }
 
             $this->pdo->prepare(
-                'INSERT INTO stock_audit (product_id, admin_id, old_stock, new_stock, reason) VALUES (?, ?, ?, ?, ?)'
-            )->execute([$productId, $adminId, $expectedStock, $new, $note === '' ? $reason : $reason . ' — ' . $note]);
+                'INSERT INTO stock_audit (product_id, ' . $actorColumn . ', old_stock, new_stock, reason)
+                 VALUES (?, ?, ?, ?, ?)'
+            )->execute([$productId, $actorId, $expectedStock, $new, $note === '' ? $reason : $reason . ' — ' . $note]);
 
             $this->pdo->exec('COMMIT');
 
@@ -146,10 +187,11 @@ final class StockService
 
         $statement = $this->pdo->prepare(
             'SELECT a.id, a.product_id, p.name AS product_name, a.old_stock, a.new_stock,
-                    a.reason, a.created_at, ad.email AS admin_email
+                    a.reason, a.created_at, ad.email AS admin_email, w.display_name AS weaver_name
              FROM stock_audit a
              JOIN products p ON p.id = a.product_id
-             LEFT JOIN admins ad ON ad.id = a.admin_id' . $where . '
+             LEFT JOIN admins ad ON ad.id = a.admin_id
+             LEFT JOIN weavers w ON w.id = a.weaver_id' . $where . '
              ORDER BY a.id DESC
              LIMIT :limit OFFSET :offset'
         );
@@ -169,7 +211,7 @@ final class StockService
             'change' => (int) $row['new_stock'] - (int) $row['old_stock'],
             'reason' => self::describeReason((string) $row['reason']),
             'created_at' => (string) $row['created_at'],
-            'actor' => $row['admin_email'] === null ? 'system' : (string) $row['admin_email'],
+            'actor' => (string) ($row['admin_email'] ?? $row['weaver_name'] ?? 'system'),
         ], $statement->fetchAll());
 
         return ['entries' => $entries, 'page' => $page, 'pages' => $pages, 'total' => $total];
@@ -231,12 +273,22 @@ final class StockService
     }
 
     /**
+     * The product, or for a weaver only their own listing that is not deactivated.
+     *
      * @return array{id: int, name: string, stock: int}
      */
-    private function product(int $productId): array
+    private function product(int $productId, ?int $weaverId = null): array
     {
-        $statement = $this->pdo->prepare('SELECT id, name, stock FROM products WHERE id = ?');
-        $statement->execute([$productId]);
+        if ($weaverId === null) {
+            $statement = $this->pdo->prepare('SELECT id, name, stock FROM products WHERE id = ?');
+            $statement->execute([$productId]);
+        } else {
+            $statement = $this->pdo->prepare(
+                "SELECT id, name, stock FROM products
+                 WHERE id = ? AND weaver_id = ? AND listing_status <> 'deactivated'"
+            );
+            $statement->execute([$productId, $weaverId]);
+        }
         $row = $statement->fetch();
         if ($row === false) {
             throw new AdminActionException('That product no longer exists.');

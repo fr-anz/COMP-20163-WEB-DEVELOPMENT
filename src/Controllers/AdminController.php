@@ -57,6 +57,9 @@ final class AdminController
         $result = $this->auth->attempt($email, $password, $ip);
         if ($result['status'] === AuthService::STATUS_OK) {
             Session::regenerate();
+            // One staff role per session (SDD §15.1): an admin sign-in ends any weaver sign-in.
+            $this->session->unset('weaver_id');
+            $this->session->unset('weaver_email');
             $this->session->set('admin_id', $result['admin']['id']);
             $this->session->set('admin_email', $result['admin']['email']);
             Csrf::rotate($this->session);

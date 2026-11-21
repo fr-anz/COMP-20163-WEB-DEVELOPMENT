@@ -1,0 +1,46 @@
+{#-
+  Weaver Orders (R38, N4): orders containing the weaver's items with the
+  reference, date, delivery city/region, own units and total, order and
+  payment status. No customer name, email, phone or address.
+  Receives: orders, page, pages, total plus the layout variables.
+-#}
+{% extends "weaver/layout.twig" %}
+{% import "macros/icons.twig" as icons %}
+{% import "admin/_macros.twig" as ui %}
+{% import "weaver/_macros.twig" as wv %}
+{% set active_nav = 'orders' %}
+
+{% block title %}Orders{% endblock %}
+
+{% block content %}
+  <h1 class="mb-4 text-h2 font-semibold">Orders</h1>
+  <p class="sr-only" role="status">{{ total }} {{ total == 1 ? 'order' : 'orders' }} found</p>
+  <div class="relative overflow-x-auto rounded-control border border-line bg-surface">
+    <table class="w-full min-w-[640px] text-left text-small">
+      <caption class="sr-only">Orders with your bags</caption>
+      <thead>
+        <tr>
+          {% for heading in ['Order', 'Date', 'Delivery', 'Your items', 'Your total', 'Status', 'Payment'] %}
+            <th scope="col" class="border-b border-line bg-page px-3 py-2.5 text-caption font-semibold tracking-wide text-ink-2 uppercase">{{ heading }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+          <tr class="hover:bg-page">
+            <td class="border-b border-line px-3 py-2.5 align-middle font-mono font-semibold"><a class="touch-link inline-block py-0.5 underline-offset-4 hover:underline" href="/weaver/orders/{{ order.order_number|url_encode }}">{{ order.order_number }}</a></td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ order.created_at|slice(0, 10) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ order.shipping_city }}{% if order.shipping_city %}, {% endif %}{{ regions[order.shipping_region]|default(order.shipping_region) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ order.units }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle tabular-nums">{{ ui.money(order.total_centavos) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ ui.status_chip(order.status) }}</td>
+            <td class="border-b border-line px-3 py-2.5 align-middle">{{ wv.payment_chip(order.payment_status) }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="px-3 py-2.5 text-ink-2">No orders yet. Orders with your bags appear here.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ ui.pagination('/weaver/orders', {}, page, pages) }}
+{% endblock %}
