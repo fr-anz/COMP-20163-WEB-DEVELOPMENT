@@ -68,6 +68,12 @@
           <li>
             <a href="/products" class="relative flex h-11 items-center px-3 text-[15px] font-medium {% if active_nav|default('') == 'collection' %}text-ink{% else %}text-ink-2 hover:text-ink{% endif %}"{% if active_nav|default('') == 'collection' %} aria-current="page"{% endif %}>Collection{% if active_nav|default('') == 'collection' %}<span class="absolute inset-x-3 bottom-1.5 h-[3px] bg-action" aria-hidden="true"></span>{% endif %}</a>
           </li>
+          <li>
+            <a href="/weavers" class="relative flex h-11 items-center px-3 text-[15px] font-medium {% if active_nav|default('') == 'weavers' %}text-ink{% else %}text-ink-2 hover:text-ink{% endif %}"{% if active_nav|default('') == 'weavers' %} aria-current="page"{% endif %}>Weavers{% if active_nav|default('') == 'weavers' %}<span class="absolute inset-x-3 bottom-1.5 h-[3px] bg-action" aria-hidden="true"></span>{% endif %}</a>
+          </li>
+          <li>
+            <a href="/journal" class="relative flex h-11 items-center px-3 text-[15px] font-medium {% if active_nav|default('') == 'journal' %}text-ink{% else %}text-ink-2 hover:text-ink{% endif %}"{% if active_nav|default('') == 'journal' %} aria-current="page"{% endif %}>Journal{% if active_nav|default('') == 'journal' %}<span class="absolute inset-x-3 bottom-1.5 h-[3px] bg-action" aria-hidden="true"></span>{% endif %}</a>
+          </li>
         </ul>
       </nav>
       <div class="ml-auto flex items-center gap-1">
@@ -97,6 +103,8 @@
         <ul class="p-2">
           <li><a href="/" class="flex h-14 w-full items-center justify-between rounded-control px-3 text-left font-display text-h3 font-semibold hover:bg-inset">Discover{{ icons.icon('chevron-right') }}</a></li>
           <li><a href="/products" class="flex h-14 w-full items-center justify-between rounded-control px-3 text-left font-display text-h3 font-semibold hover:bg-inset">Collection{{ icons.icon('chevron-right') }}</a></li>
+          <li><a href="/weavers" class="flex h-14 w-full items-center justify-between rounded-control px-3 text-left font-display text-h3 font-semibold hover:bg-inset">Weavers{{ icons.icon('chevron-right') }}</a></li>
+          <li><a href="/journal" class="flex h-14 w-full items-center justify-between rounded-control px-3 text-left font-display text-h3 font-semibold hover:bg-inset">Journal{{ icons.icon('chevron-right') }}</a></li>
           <li class="mt-2 border-t border-line pt-2">
             <a href="/cart" data-cart-bag class="flex h-12 w-full items-center gap-3 rounded-control px-3 text-left font-medium hover:bg-inset">
               {{ icons.icon('bag') }} Your bag
@@ -132,6 +140,8 @@
           <li><a href="/products" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Collection</a></li>
           <li><a href="/cart" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Your bag</a></li>
           <li><a href="/track" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Track order</a></li>
+          <li><a href="/weavers" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Weavers</a></li>
+          <li><a href="/journal" class="touch-link inline-block py-1.5 underline-offset-4 hover:underline">Journal</a></li>
         </ul>
       </nav>
     </div>

@@ -2,11 +2,11 @@
 {% import "macros/icons.twig" as icons %}
 {% set active_nav = 'collection' %}
 
-{% set has_filters = q != '' or category != '' or sort != 'featured' or hide_sold_out %}
+{% set has_filters = q != '' or category != '' or fiber != '' or region != '' or sort != 'featured' or hide_sold_out %}
 
 {% block title %}The collection — {{ app_name }}{% endblock %}
 
-{% block description %}Browse the Habi collection: woven-style bags across {{ categories|length }} categories. Search, filter by category, and sort by featured, date or price.{% endblock %}
+{% block description %}Browse the Habi collection: woven-style bags across {{ categories|length }} categories. Search, filter by category, material or region, and sort by featured, date or price.{% endblock %}
 
 {% block content %}
   <div class="mx-auto max-w-[1280px] px-4 py-8 @3xl:px-8 @3xl:py-12">
@@ -20,7 +20,7 @@
        JS the button stays visible and the form submits natively. #}
     <form role="search" method="get" action="/products" data-filters
           class="mt-6">
-      <div class="grid gap-4 @3xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] @3xl:items-end">
+      <div class="grid gap-4 @3xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] @5xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] @3xl:items-end">
         <div>
           <label for="collection-search" class="field-label">Search</label>
           <div class="relative">
@@ -39,6 +39,24 @@
           </select>
         </div>
         <div>
+          <label for="filter-fiber" class="field-label">Material</label>
+          <select id="filter-fiber" class="input" name="fiber">
+            <option value="">All materials</option>
+            {% for key, label in fibers %}
+              <option value="{{ key }}"{% if key == fiber %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="filter-region" class="field-label">Region</label>
+          <select id="filter-region" class="input" name="region">
+            <option value="">All regions</option>
+            {% for name in regions %}
+              <option value="{{ name }}"{% if name == region %} selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
           <label for="filter-sort" class="field-label">Sort by</label>
           <select id="filter-sort" class="input" name="sort">
             <option value="featured"{% if sort == 'featured' %} selected{% endif %}>Featured</option>
@@ -51,7 +69,7 @@
       </div>
 
       <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p class="text-small text-ink-2" role="status" aria-live="polite">{{ total }} bags</p>
+        <p class="text-small text-ink-2" role="status" aria-live="polite">{{ total }} {{ total == 1 ? 'bag' : 'bags' }}</p>
         <label class="flex min-h-11 cursor-pointer items-center gap-2.5 text-small font-medium">
           <input class="check" type="checkbox" name="hide_sold_out" value="1"{% if hide_sold_out %} checked{% endif %}>Hide sold-out bags</label>
       </div>
@@ -70,7 +88,7 @@
       <div class="mt-4">
         <div class="rounded-panel border border-line bg-surface p-6">
           <h2 class="font-display text-h3 font-semibold">No bags match those filters</h2>
-          <p class="mt-1 text-small text-ink-2">Try a different search term or category &mdash; or clear the filters to see the whole collection.</p>
+          <p class="mt-1 text-small text-ink-2">Try a different search term or filter &mdash; or clear the filters to see the whole collection.</p>
           <p class="mt-3"><a class="link touch-link" href="/products">Clear filters</a></p>
         </div>
       </div>

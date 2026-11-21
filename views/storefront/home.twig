@@ -4,7 +4,9 @@
   1. Opening: dark full-height stage, strands draw behind the headline.
   2. The weave: a sticky stage (.story-weave) builds one loom diagram in
      three steps; storefront.js sets data-step from scroll progress.
-  3. Materials: four alternating scenes, each linking to a real product.
+  3. Materials: four fiber scenes (artwork id => fiber in
+     StorefrontController::MATERIAL_FIBERS), each linking to the first
+     active product of that fiber.
   4. The bag: the first three featured products.
   5. Finale: dark call to the collection, continuing into the footer.
   Continuity (motion only): the wrapper's background/text colour follows the
@@ -25,10 +27,10 @@
 {% set active_nav = 'discover' %}
 
 {% set materials = [
-    { id: 'fiber', name: 'Natural fiber', line: 'Undyed strands in close rows. The tone shifts from strand to strand.' },
-    { id: 'strip', name: 'Flat strip', line: 'Wide strips crossed one over one under, into a firm checker.' },
-    { id: 'yarn', name: 'Yarn inlay', line: 'Coloured yarn worked into a fiber ground as a single band.' },
-    { id: 'loom', name: 'Loom cloth', line: 'Warp stripes woven on a loom, then cut and stitched into panels.' },
+    { id: 'strip', name: 'Buri', line: 'Strips of buri palm, crossed one over one under into a firm checker.' },
+    { id: 'fiber', name: 'Tikog', line: 'Dried tikog grass, flattened and plaited close, as for a banig mat.' },
+    { id: 'yarn', name: 'Pandan', line: 'Pandan leaves, softened and plaited into fine patterns.' },
+    { id: 'loom', name: 'Abaca', line: 'Abaca fiber, woven on a loom into striped cloth.' },
 ] %}
 
 {# Loom diagram geometry: 7 warp and 7 weft strands on a 64-unit pitch. The

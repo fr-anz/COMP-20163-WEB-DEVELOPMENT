@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Habi\Services;
 
+use Habi\Bootstrap\HeritageUpgrade;
 use PDO;
 
 /**
@@ -14,11 +15,30 @@ use PDO;
  *
  * Money is integer centavos. Listing pages hold 8 products. Sorting is a
  * fixed allowlist ("featured", the deterministic id order, is the default) so
- * no user input ever reaches the ORDER BY clause.
+ * no user input ever reaches the ORDER BY clause. Fiber and region filters
+ * accept only values that active products carry (R2).
  */
 final class ProductService
 {
     private const PER_PAGE = 8;
+
+    /** Customer-facing fiber names, in HeritageUpgrade::FIBERS order. */
+    public const FIBER_LABELS = [
+        'buri' => 'Buri',
+        'pandan' => 'Pandan',
+        'tikog' => 'Tikog',
+        'abaca' => 'Abaca',
+        'other' => 'Other fiber',
+    ];
+
+    /** Catalog columns shared by every product query ("p" is products). */
+    private const COLUMNS = 'p.id, p.slug, p.name, p.category, p.description, p.materials,
+        p.place_of_make, p.price_centavos, CASE WHEN p.is_available = 1 THEN p.stock ELSE 0 END AS stock,
+        p.low_stock_threshold, p.dimensions, p.fiber, p.community, p.region, p.technique,
+        (SELECT pi.path FROM product_images pi
+         WHERE pi.product_id = p.id
+         ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
+         LIMIT 1) AS image_path';
 
     /**
      * Deterministic sort fragments; the user-facing sort key must exist here.
@@ -40,14 +60,15 @@ final class ProductService
     /**
      * Paginated, filtered catalog listing.
      *
-     * Accepted filters: q (string), category (string), sort (allowlist key),
-     * page (positive integer), hide_soldout (bool). Malformed values fall
-     * back to their defaults; the page is clamped to the available range.
+     * Accepted filters: q (string), category (string), fiber and region
+     * (values from fibers()/regions()), sort (allowlist key), page (positive
+     * integer), hide_soldout (bool). Malformed or unknown values fall back to
+     * their defaults; the page is clamped to the available range.
      *
      * @return array{
      *     products: list<array<string, mixed>>, total: int, page: int,
-     *     pages: int, per_page: int, q: string, category: string, sort: string,
-     *     hide_soldout: bool
+     *     pages: int, per_page: int, q: string, category: string, fiber: string,
+     *     region: string, sort: string, hide_soldout: bool
      * }
      */
     public function list(array $filters = []): array
@@ -57,8 +78,12 @@ final class ProductService
         $sort = self::SORTS[$this->scalar($filters['sort'] ?? '')] ?? self::SORTS['featured'];
         $page = $this->positiveInt($filters['page'] ?? 1);
         $hideSoldout = (bool) ($filters['hide_soldout'] ?? false);
+        $fiber = $this->scalar($filters['fiber'] ?? '');
+        $fiber = isset($this->fibers()[$fiber]) ? $fiber : '';
+        $region = $this->scalar($filters['region'] ?? '');
+        $region = in_array($region, $this->regions(), true) ? $region : '';
 
-        [$conditions, $parameters] = $this->filters($q, $category);
+        [$conditions, $parameters] = $this->filters($q, $category, $fiber, $region);
         if ($hideSoldout) {
             $conditions[] = 'p.stock > 0 AND p.is_available = 1';
         }
@@ -72,14 +97,7 @@ final class ProductService
         $page = min($page, $pages);
 
         $statement = $this->pdo->prepare(
-            'SELECT p.id, p.slug, p.name, p.category, p.description, p.materials,
-                    p.place_of_make, p.price_centavos, CASE WHEN p.is_available = 1 THEN p.stock ELSE 0 END AS stock,
-                    p.low_stock_threshold,
-                    p.dimensions,
-                    (SELECT pi.path FROM product_images pi
-                     WHERE pi.product_id = p.id
-                     ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
-                     LIMIT 1) AS image_path
+            'SELECT ' . self::COLUMNS . '
              FROM products p' . $where . '
              ORDER BY ' . $sort . '
              LIMIT :limit OFFSET :offset'
@@ -101,6 +119,8 @@ final class ProductService
             'per_page' => self::PER_PAGE,
             'q' => $q,
             'category' => $category,
+            'fiber' => $fiber,
+            'region' => $region,
             'sort' => array_search($sort, self::SORTS, true),
             'hide_soldout' => $hideSoldout,
         ];
@@ -128,26 +148,62 @@ final class ProductService
     }
 
     /**
+     * Fibers carried by active products, key => label, in the controlled
+     * list's order (R2 material filter options and allowlist).
+     *
+     * @return array<string, string>
+     */
+    public function fibers(): array
+    {
+        $present = $this->pdo->query(
+            "SELECT DISTINCT fiber FROM products WHERE listing_status = 'active'"
+        )->fetchAll(PDO::FETCH_COLUMN);
+
+        $fibers = [];
+        foreach (HeritageUpgrade::FIBERS as $fiber) {
+            if (in_array($fiber, $present, true)) {
+                $fibers[$fiber] = self::FIBER_LABELS[$fiber];
+            }
+        }
+
+        return $fibers;
+    }
+
+    /**
+     * Non-empty regions of origin carried by active products, alphabetically
+     * (R2 region filter options and allowlist).
+     *
+     * @return list<string>
+     */
+    public function regions(): array
+    {
+        return array_map('strval', $this->pdo->query(
+            "SELECT DISTINCT region FROM products
+             WHERE listing_status = 'active' AND TRIM(region) <> ''
+             ORDER BY region ASC"
+        )->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    /**
      * A single active product by slug, or null when missing or inactive.
+     * Adds the R29 story, whether a 3D config exists (R4) and the maker as
+     * "weaver" — null unless the weaver is active and public, so the
+     * placeholder weaver never appears on the storefront.
      *
      * @return array<string, mixed>|null
      */
     public function getBySlug(string $slug): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT p.id, p.slug, p.name, p.category, p.description, p.materials,
-                    p.place_of_make, p.price_centavos, CASE WHEN p.is_available = 1 THEN p.stock ELSE 0 END AS stock,
-                    p.low_stock_threshold,
-                    p.dimensions,
-                    (SELECT pi.path FROM product_images pi
-                     WHERE pi.product_id = p.id
-                     ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
-                     LIMIT 1) AS image_path
+            'SELECT ' . self::COLUMNS . ', p.story,
+                    (p.three_config IS NOT NULL AND TRIM(p.three_config) <> \'\') AS has_3d,
+                    w.slug AS weaver_slug, w.display_name AS weaver_name
              FROM products p
+             LEFT JOIN weavers w ON w.id = p.weaver_id AND w.is_active = 1 AND w.slug <> :placeholder
              WHERE p.slug = :slug AND p.listing_status = \'active\'
              LIMIT 1'
         );
-        $statement->execute(['slug' => $slug]);
+        $statement->execute(['slug' => $slug, 'placeholder' => HeritageUpgrade::PLACEHOLDER_WEAVER_SLUG]);
         $row = $statement->fetch();
 
         if ($row === false) {
@@ -155,6 +211,12 @@ final class ProductService
         }
 
         $product = $this->hydrate($row);
+        $product['story'] = (string) $row['story'];
+        $product['has_3d'] = (int) $row['has_3d'] === 1;
+        $product['weaver'] = $row['weaver_slug'] === null ? null : [
+            'slug' => (string) $row['weaver_slug'],
+            'display_name' => (string) $row['weaver_name'],
+        ];
         $images = $this->pdo->prepare(
             'SELECT path FROM product_images WHERE product_id = :id
              ORDER BY is_primary DESC, sort_order ASC, id ASC'
@@ -166,7 +228,8 @@ final class ProductService
     }
 
     /**
-     * Per-product procedural parameters, including for sold-out products.
+     * Per-product procedural parameters, including for sold-out products;
+     * null for missing/inactive products and products without a config (R4).
      *
      * @return array<string, mixed>|null
      */
@@ -177,46 +240,52 @@ final class ProductService
         );
         $statement->execute(['slug' => $slug]);
         $config = $statement->fetchColumn();
+        if (!is_string($config) || trim($config) === '') {
+            return null;
+        }
 
-        return $config === false ? null : json_decode((string) $config, true, 512, JSON_THROW_ON_ERROR);
+        $decoded = json_decode($config, true, 512, JSON_THROW_ON_ERROR);
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     /**
-     * Products whose material text matches one of the LIKE patterns, in
-     * deterministic id order — used for the home page "Seen in" chips.
-     *
-     * @param list<string> $patterns SQL LIKE patterns (trusted, may contain %)
+     * Active products of one fiber in deterministic id order — the home
+     * page material scenes link to the first one (R1).
      *
      * @return list<array<string, mixed>>
      */
-    public function byMaterials(array $patterns, int $limit = 3): array
+    public function byFiber(string $fiber, int $limit = 3): array
     {
-        if ($patterns === []) {
-            return [];
-        }
-
-        $conditions = [];
-        $parameters = [];
-        foreach (array_values($patterns) as $index => $pattern) {
-            $conditions[] = 'p.materials LIKE :material_' . $index;
-            $parameters['material_' . $index] = $pattern;
-        }
-
         $statement = $this->pdo->prepare(
-            'SELECT p.id, p.slug, p.name, p.category, p.description, p.materials,
-                    p.place_of_make, p.price_centavos, CASE WHEN p.is_available = 1 THEN p.stock ELSE 0 END AS stock,
-                    p.low_stock_threshold,
-                    p.dimensions,
-                    (SELECT pi.path FROM product_images pi
-                     WHERE pi.product_id = p.id
-                     ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
-                     LIMIT 1) AS image_path
+            'SELECT ' . self::COLUMNS . '
              FROM products p
-             WHERE p.listing_status = \'active\' AND (' . implode(' OR ', $conditions) . ')
+             WHERE p.listing_status = \'active\' AND p.fiber = :fiber
              ORDER BY p.id ASC
-             LIMIT ' . max(1, $limit)
+             LIMIT :limit'
         );
-        $statement->execute($parameters);
+        $statement->bindValue(':fiber', $fiber, PDO::PARAM_STR);
+        $statement->bindValue(':limit', max(1, $limit), PDO::PARAM_INT);
+        $statement->execute();
+
+        return array_map($this->hydrate(...), $statement->fetchAll());
+    }
+
+    /**
+     * A weaver's active products in deterministic id order (R30 profile).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function byWeaver(int $weaverId): array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT ' . self::COLUMNS . '
+             FROM products p
+             WHERE p.listing_status = \'active\' AND p.weaver_id = :weaver
+             ORDER BY p.id ASC'
+        );
+        $statement->bindValue(':weaver', $weaverId, PDO::PARAM_INT);
+        $statement->execute();
 
         return array_map($this->hydrate(...), $statement->fetchAll());
     }
@@ -226,7 +295,7 @@ final class ProductService
      *
      * @return array{0: list<string>, 1: array<string, string>}
      */
-    private function filters(string $q, string $category): array
+    private function filters(string $q, string $category, string $fiber, string $region): array
     {
         $conditions = ["p.listing_status = 'active'"];
         $parameters = [];
@@ -246,6 +315,16 @@ final class ProductService
         if ($category !== '') {
             $conditions[] = 'p.category = :category';
             $parameters['category'] = $category;
+        }
+
+        if ($fiber !== '') {
+            $conditions[] = 'p.fiber = :fiber';
+            $parameters['fiber'] = $fiber;
+        }
+
+        if ($region !== '') {
+            $conditions[] = 'p.region = :region';
+            $parameters['region'] = $region;
         }
 
         return [$conditions, $parameters];
@@ -312,6 +391,11 @@ final class ProductService
             'stock' => (int) $row['stock'],
             'low_stock_threshold' => (int) $row['low_stock_threshold'],
             'dimensions' => $dimensions,
+            'fiber' => (string) $row['fiber'],
+            'fiber_label' => self::FIBER_LABELS[(string) $row['fiber']] ?? self::FIBER_LABELS['other'],
+            'community' => (string) $row['community'],
+            'region' => (string) $row['region'],
+            'technique' => (string) $row['technique'],
             'image_path' => $row['image_path'] === null ? null : (string) $row['image_path'],
         ];
     }

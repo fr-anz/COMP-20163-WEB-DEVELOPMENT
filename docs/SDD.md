@@ -153,9 +153,11 @@ Indexes: `products(slug)`, `products(weaver_id)`, `products(category_id,listing_
 | Method | Path | Purpose | Auth |
 |---|---|---|---|
 | GET | `/` | Home (R1) | – |
-| GET | `/products?q=&category=&sort=&page=` | Listing + search/filter/sort (R2) | – |
-| GET | `/product/{slug}` | Detail page (R3, R4–R6 viewer mount) | – |
-| GET | `/api/product/{slug}/3d` | JSON 3D config for viewer (R6) | – |
+| GET | `/products?q=&category=&fiber=&region=&sort=&hide_sold_out=&page=` | Listing + search/filter/sort (R2) | – |
+| GET | `/product/{slug}` | Detail page (R3 incl. shipping rates, R29 story, R4–R6 viewer mount) | – |
+| GET | `/weavers`, `/weavers/{slug}` | Meet the Weavers list and profile with active products (R30) | – |
+| GET | `/journal`, `/journal/{slug}` | Published Heritage Journal articles (R31) | – |
+| GET | `/api/product/{slug}/3d` | JSON 3D config for viewer (R6); 404 without a config (R4) | – |
 | GET | `/api/product/{slug}/stock` | Live stock for qty cap (R9) | – |
 | GET | `/cart` | Cart page (R8) | session |
 | POST | `/cart/add` | Add item (R7) | session + CSRF |
@@ -177,7 +179,9 @@ Indexes: `products(slug)`, `products(weaver_id)`, `products(category_id,listing_
 Implemented stock response: `{slug, stock, low_stock_threshold}` with `Cache-Control:
 no-store`; missing/inactive products return JSON 404 `{error: "Product not found"}`.
 Listing uses eight products per page and combines literal name/description/material search,
-category and optional `hide_sold_out=1`; pagination preserves these values. Sort values are
+category, `fiber`, `region` and optional `hide_sold_out=1`; pagination preserves these values.
+`fiber` and `region` accept only values that active products carry (`ProductService::fibers()`,
+`regions()`); anything else is ignored (M10). Sort values are
 `featured`, `newest`, `price_asc`, `price_desc`; featured uses stable catalog ID order and is
 the default. Newest uses creation date and ID. Out-of-range pages clamp to available pages.
 
@@ -194,8 +198,9 @@ the opening. Tote handles fold outward about their fixed rim axis; side-anchored
 satchel/sling handles stay put. Maya's connected flap rotates about the back-top hinge.
 Pattern shells duplicate their back-centre UV seam with whole-circumference repeats;
 vertical stripe dye stays solid beneath fine, low-contrast woven threads.
-The endpoint uses `Cache-Control: no-store`; missing/inactive products return the same
-JSON 404 as stock. Sold-out products remain inspectable. Detail gallery images are
+The endpoint uses `Cache-Control: no-store`; missing/inactive products and products whose
+`three_config` is NULL or blank (M10, R4) return the same JSON 404 as stock; their page omits the
+Images/3D toggle, viewer markup, 3D dialog and Three.js import map. Sold-out products remain inspectable. Detail gallery images are
 ordered primary-first, then `sort_order` and ID; catalog queries do not load galleries
 or model configs. M4 enables stock-validated purchase controls.
 
@@ -532,6 +537,15 @@ Indexes added: `products(weaver_id)`, `products(category_id, listing_status)`,
 
 `/api/product/{slug}/3d` returns JSON 404 for products without a config; the product page
 then omits the 3D control (R4). Only `listing_status = active`, available-weaver products are public.
+
+*Storefront rows implemented in M10* (`/products` fiber/region, `/weavers`, `/journal`, the 3D 404;
+facts in §6). Controllers `WeaversController` and `JournalController` share `StorefrontResponder`;
+public reads use `WeaverDirectoryService` (active weavers except the placeholder, public fields only)
+and `JournalService` (`status = published`, newest `published_at` first); `WeaverService` stays the
+weaver module's self-service class. Deviations: products of an inactive weaver (including the
+placeholder that owns upgraded v1 products) stay listed, as in §15.6, but their page shows no weaver
+row and the story section is titled "Story"; the category filter still matches the v1 category name,
+not a slug. Weaver and journal pages are indexable (R26) and use `og:type` `profile`/`article`.
 
 ### 15.4 Order and payment state machines (R13, R15, R22, R44)
 
