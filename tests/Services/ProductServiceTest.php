@@ -242,8 +242,10 @@ final class ProductServiceTest extends IsolatedDatabaseTestCase
         self::assertNotSame(HeritageUpgrade::PLACEHOLDER_WEAVER_SLUG, $weaverSlug);
         self::assertNotSame('', $product['weaver']['display_name']);
 
+        // A deactivated weaver's bag leaves the storefront entirely.
         $this->database()->prepare('UPDATE weavers SET is_active = 0 WHERE slug = ?')->execute([$weaverSlug]);
-        self::assertNull($this->products->getBySlug('tala-sling')['weaver']);
+        self::assertNull($this->products->getBySlug('tala-sling'));
+        $this->database()->prepare('UPDATE weavers SET is_active = 1 WHERE slug = ?')->execute([$weaverSlug]);
 
         $placeholder = HeritageUpgrade::placeholderWeaverId($this->database());
         $this->database()->prepare('UPDATE weavers SET is_active = 1 WHERE id = ?')->execute([$placeholder]);
