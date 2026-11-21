@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| Version | 2.0 · 2026-11-21 (PRD 2.0 milestones M9–M15 added) |
+| Version | 2.1 · 2026-11-21 (PRD 2.0 milestones M9–M15; single-maintainer workflow, D10) |
 | Basis | [PRD.md](PRD.md) R#/N# · [SDD.md](SDD.md) architecture · [DSD.md](DSD.md) components · [USER-JOURNEY.md](USER-JOURNEY.md) flows |
-| Team | **5 people** (Group 1, BSIT 3-1N; leader Mel Carl A. Chacon), feature-phased milestones (no fixed deadline). M0–M8 used tracks A–D; track E is added for PRD 2.0. Track-to-person assignment is not recorded. |
+| Team | **1 maintainer** since 2026-11-21 (D10), who also reviews. PRD 2.0 comes from Group 1's proposal (BSIT 3-1N, 5 members, leader Mel Carl A. Chacon). Feature-phased milestones, no fixed deadline. Tracks A–E remain work areas for scoping milestones; the maintainer owns all of them. |
 | Stack | PHP 8.2+, Composer, Slim 4, Twig 3, PDO SQLite, vendored Three.js, Docker → Google Cloud e2-micro (Render alternative) |
 
 ---
@@ -21,8 +21,8 @@
 
 Integration points: A+B meet at `GET /api/product/{slug}/3d`; A+C meet at cart/checkout
 endpoints; C+D meet at admin templates; all meet at DSD tokens in `app.css`.
-Sync: one shared `main` branch; feature branches integrate to main; small PRs, daily 15-min standup;
-milestone = all track tasks done + acceptance criteria green.
+Branching and releases: §4 (feature → `dev` → `main`). Milestone = all track tasks done + acceptance
+criteria green.
 
 ## 1. Milestones
 
@@ -1102,7 +1102,7 @@ M10, M12 and M14 can run in parallel once M9 lands. Each milestone keeps the §2
 #### M14 — English/Filipino (E lead, C UI)
 - [ ] `Translator`, `LocaleMiddleware`, `POST /lang`, catalogs `lang/en.php` + `lang/fil.php` (R33, N9).
 - [ ] All storefront and checkout templates/JS strings moved to keys; `*_fil` content fallback; `<html lang>` (R26).
-- [ ] Catalog parity test; Filipino copy reviewed by a fluent team member.
+- [ ] Catalog parity test; Filipino copy reviewed by a fluent Filipino speaker.
 - **Done when:** every storefront page works in both languages; no hard-coded customer strings remain.
 
 #### M15 — Evaluation, refinement and redeploy (all)
@@ -1120,7 +1120,9 @@ M10, M12 and M14 can run in parallel once M9 lands. Each milestone keeps the §2
 2. Targeted behavior boundary tests added for new service logic; `php -l` clean; PSR-12. No permanent tests for every trivial change.
 3. No secrets in repo; `.env.example` updated if env vars added.
 4. UI matches DSD tokens (spot-check colors/radius/motion); responsive at 360 px.
-5. PR reviewed by at least one other track owner; merged to `main`.
+5. Self-review (single maintainer, D10): read the whole PR diff on GitHub; CI green; the PR lists the R#/N#
+   verified and the commands actually run; BUILD evidence updated. Then merge per §4. *M0–M8 required a
+   review by another track owner.*
 6. PRD 2.0 milestones: new customer-facing strings exist in both language catalogs (N9); new weaver routes have ownership tests (N10).
 
 ## 3. Local Dev Commands
@@ -1136,9 +1138,24 @@ vendor/bin/phpunit               # isolated first-boot/preservation tests
 ```
 ## 4. Git Workflow
 
-- `main` protected; feature branches `track-milestone-short` (e.g. `a/m5-checkout`); PRs with
-  milestone checklist; squash-merge. Commit attribution per repo convention.
-- Milestone tag: `git tag M5` when M5 done.
+Single maintainer, convention only: GitHub enforces no branch rules (D10).
+
+- **Branches.** `main` is production: every push deploys after CI (README Deploy). `dev` is the
+  integration/staging branch: CI runs, nothing deploys. Work happens on short-lived branches cut from
+  `dev`, named `<type>/<issue>-<slug>` with type `feat`, `fix`, `docs`, `chore` or `test`
+  (e.g. `feat/22-schema-v2`). One branch per issue or coherent part of one.
+- **Feature → `dev`: squash merge.** Open a PR into `dev` with the milestone checklist and `Refs #N`;
+  CI green and §2.5 self-review; squash with the PR title as the commit message.
+  Closing keywords only act on the default branch, so feature PRs do not close issues.
+- **Staging check.** Before a release, run `dev` locally or in Docker (`docker build -t habi .`, README) and
+  exercise the changed flows; there is no hosted staging site.
+- **Release `dev` → `main`: merge commit.** PR titled `Release: <milestone or summary>` listing the included
+  PRs and `Closes #N` for finished issues; CI green; **merge commit only** (never squash or rebase, so
+  `dev` and `main` keep the same commits). After the deploy job passes, check <https://habi.theavenir.dev/>
+  and tag finished milestones on the merge commit (`git tag M9 && git push origin M9`).
+- **Hotfix.** `hotfix/<slug>` from `main`, PR into `main` (merge commit), then merge `main` back into `dev`.
+- **Never** force-push or delete `main`/`dev`. Head branches auto-delete after merge; rebase merging is
+  disabled in the repository settings.
 
 ## 5. Risk Register
 
@@ -1151,9 +1168,9 @@ vendor/bin/phpunit               # isolated first-boot/preservation tests
 | Modeling constraints for procedural bags | Follow the published viewer presentation (DSD §4), retain procedural configs/textures and verify actual rendering/performance; no downloaded model substitution. |
 | Three.js vendored file goes stale | Pin version in README; upgrade = replace 2 files in `public/assets/vendor/three/` |
 | Scope creep (accounts, reviews, refunds, notifications) | PRD §4 out-of-scope; park in backlog |
-| PRD 2.0 roughly doubles the scope (weavers, journal, payments, i18n) | Dependency-ordered M9–M15; M9 first; parallel M10/M12/M14; if time runs short, defer Filipino content fields (English fallback) before UI-string translation |
+| PRD 2.0 roughly doubles the scope (weavers, journal, payments, i18n) for a single maintainer | Dependency-ordered M9–M15; M9 first; parallel M10/M12/M14; if time runs short, defer Filipino content fields (English fallback) before UI-string translation |
 | v1 → v2 migration corrupts production data | Idempotent migration tested on a v1 fixture; back up `/srv/habi/data` before deploy; no `--force` reset without explicit approval |
 | Cross-weaver data leaks | SQL-level ownership filters + 404 tests on every weaver route (N10) |
 | Unverified transfer orders hold stock indefinitely | Dashboard "Payments to verify" count; admin rejects stale orders manually (PRD §8: manual statuses) |
 | Sample content mistaken for real weavers or uses real people | PRD §2/§8 truthfulness rule; illustrated portraits; sources cited; content review in M9 |
-| Filipino copy quality | Fluent team member reviews `lang/fil.php` and content before M15 |
+| Filipino copy quality | A fluent Filipino speaker reviews `lang/fil.php` and content before M15 |

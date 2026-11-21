@@ -205,7 +205,7 @@ The product focus is woven bags in four categories (tote, satchel, sling, clutch
 - Order statuses are updated manually by admins (R22); shipping fees are computed by broad region only (R12).
 - Sample content only: researchers are not weavers and did not contact, recruit or partner with weaving communities. Do not use real people's names, photos or likeness for sample weavers.
 - Must be deployable to the web (Docker on Google Cloud Compute Engine, Render alternative); developed and tested as a prototype on limited hosting, not at commercial scale.
-- Team of 5 (Group 1); build phased by feature (BUILD.md).
+- Proposal by Group 1 (5 members); built and maintained by a single maintainer since 2026-11-21. Build phased by feature (BUILD.md).
 
 ## 9. Limitations (from the proposal)
 
@@ -223,7 +223,7 @@ The product focus is woven bags in four categories (tote, satchel, sling, clutch
 
 - **Evaluation instrument (O6, N12):** questionnaire, rating scale, respondent count per group and procedure are to be chosen by the group before BUILD M15.
 - **Sample content sourcing (N7):** weaver profiles, stories and journal articles must be written from the proposal's references (and similar secondary sources) and cite them; pending in BUILD M9/M10.
-- **Filipino translations (R33, N9):** who writes and reviews the Filipino copy is to be assigned.
+- **Filipino translations (R33, N9):** the maintainer writes the Filipino copy; a fluent Filipino reviewer is to be found.
 - **Sample transfer accounts (R13):** fictional e-wallet/bank account names and numbers to be defined in seed configuration and documented in README; they must not be real accounts.
 - **Existing production data:** the deployed database keeps v1 seed rows and `paid` orders until migrated (SDD §15.9) or explicitly reset with `php seed/seed.php --force` (destructive).
 - **Fonts and assets:** resolved — fonts, colors and SVG artwork come from the approved published reference, with sources/licenses in DSD §6. New assets (weaver portraits/illustrations, journal covers) need the same DSD §6 record and review-screen check, and must not depict real people.
