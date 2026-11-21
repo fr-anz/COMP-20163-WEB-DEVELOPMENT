@@ -165,7 +165,7 @@ final class ProductCatalog
                 'name' => 'Maya Clutch',
                 'slug' => 'maya-clutch',
                 'category' => 'Clutch',
-                'weaver' => 'carmen-bohol',
+                'weaver' => 'carmen-luisiana',
                 'fiber' => 'pandan',
                 'technique' => 'Pattern plaiting',
                 'story' => SampleContent::prose(<<<'TXT'

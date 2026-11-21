@@ -20,6 +20,16 @@ use PDO;
  */
 final class ProductService
 {
+    /**
+     * Storefront visibility for alias `p`: an active listing whose weaver is
+     * active, or the inactive placeholder weaver that owns upgraded v1 and
+     * not-yet-reassigned products. Shared by the cart and checkout so a bag
+     * hidden from the catalog cannot be bought either.
+     */
+    public const VISIBLE = "p.listing_status = 'active' AND EXISTS (SELECT 1 FROM weavers vw"
+        . " WHERE vw.id = p.weaver_id AND (vw.is_active = 1 OR vw.slug = '"
+        . HeritageUpgrade::PLACEHOLDER_WEAVER_SLUG . "'))";
+
     private const PER_PAGE = 8;
 
     /** Customer-facing fiber names, in HeritageUpgrade::FIBERS order. */
@@ -136,7 +146,7 @@ final class ProductService
         $statement = $this->pdo->prepare(
             "SELECT DISTINCT p.category
              FROM products p
-             WHERE p.listing_status = 'active'
+             WHERE " . self::VISIBLE . "
              ORDER BY p.category ASC"
         );
         $statement->execute();
@@ -156,7 +166,7 @@ final class ProductService
     public function fibers(): array
     {
         $present = $this->pdo->query(
-            "SELECT DISTINCT fiber FROM products WHERE listing_status = 'active'"
+            'SELECT DISTINCT p.fiber FROM products p WHERE ' . self::VISIBLE
         )->fetchAll(PDO::FETCH_COLUMN);
 
         $fibers = [];
@@ -178,9 +188,9 @@ final class ProductService
     public function regions(): array
     {
         return array_map('strval', $this->pdo->query(
-            "SELECT DISTINCT region FROM products
-             WHERE listing_status = 'active' AND TRIM(region) <> ''
-             ORDER BY region ASC"
+            'SELECT DISTINCT p.region FROM products p
+             WHERE ' . self::VISIBLE . " AND TRIM(p.region) <> ''
+             ORDER BY p.region ASC"
         )->fetchAll(PDO::FETCH_COLUMN));
     }
 
@@ -200,7 +210,7 @@ final class ProductService
                     w.slug AS weaver_slug, w.display_name AS weaver_name
              FROM products p
              LEFT JOIN weavers w ON w.id = p.weaver_id AND w.is_active = 1 AND w.slug <> :placeholder
-             WHERE p.slug = :slug AND p.listing_status = \'active\'
+             WHERE p.slug = :slug AND ' . self::VISIBLE . '
              LIMIT 1'
         );
         $statement->execute(['slug' => $slug, 'placeholder' => HeritageUpgrade::PLACEHOLDER_WEAVER_SLUG]);
@@ -236,7 +246,7 @@ final class ProductService
     public function get3dConfig(string $slug): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT three_config FROM products WHERE slug = :slug AND listing_status = \'active\' LIMIT 1'
+            'SELECT p.three_config FROM products p WHERE p.slug = :slug AND ' . self::VISIBLE . ' LIMIT 1'
         );
         $statement->execute(['slug' => $slug]);
         $config = $statement->fetchColumn();
@@ -260,7 +270,7 @@ final class ProductService
         $statement = $this->pdo->prepare(
             'SELECT ' . self::COLUMNS . '
              FROM products p
-             WHERE p.listing_status = \'active\' AND p.fiber = :fiber
+             WHERE ' . self::VISIBLE . ' AND p.fiber = :fiber
              ORDER BY p.id ASC
              LIMIT :limit'
         );
@@ -281,7 +291,7 @@ final class ProductService
         $statement = $this->pdo->prepare(
             'SELECT ' . self::COLUMNS . '
              FROM products p
-             WHERE p.listing_status = \'active\' AND p.weaver_id = :weaver
+             WHERE ' . self::VISIBLE . ' AND p.weaver_id = :weaver
              ORDER BY p.id ASC'
         );
         $statement->bindValue(':weaver', $weaverId, PDO::PARAM_INT);
@@ -297,7 +307,7 @@ final class ProductService
      */
     private function filters(string $q, string $category, string $fiber, string $region): array
     {
-        $conditions = ["p.listing_status = 'active'"];
+        $conditions = [self::VISIBLE];
         $parameters = [];
 
         if ($q !== '') {
